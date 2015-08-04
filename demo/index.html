@@ -8,82 +8,19 @@ This code may only be used under the MIT license found at http://opensource.org/
 <head>
 
   <title>iron-image</title>
-  <script src="../webcomponentsjs/webcomponents-lite.js"></script>
-  <link rel="import" href="../polymer/polymer.html">
-  <link rel="import" href="../ir-select.html">
+  <script src="../bower_components/webcomponentsjs/webcomponents-lite.js"></script>
+  <link rel="import" href="../bower_components/polymer/polymer.html">
+  <link rel="import" href="../ir-textarea.html">
 
 </head>
 <body>
 	<template is="dom-bind">
 		<section>
-			<h3>Unlimited number of items</h3>
-			<p>and binding to native input</p>
-			<ir-select id="unlimited"
-				data-source="https://query.yahooapis.com/v1/public/yql" 
-				query-by-label="q=select%20*%20from%20geo.places%20where%20text%3D%22[query]%22&format=json&diagnostics=true"
-				query-by-value="fields=id&q=[query]"
-				data-path="query.results.place"
-				label-path="name"
-				value-path="woeid"
-				
-				clone-to-native-target="#placesVal"
-			>
-				<ir-select-item label="label1" value="24"></ir-select-item>
-				<ir-select-item label="label2" value="42"></ir-select-item>
-			</ir-select>
-			<p>
-				Value: <input id="placesVal">
-			</p>
+			<ir-textarea>
+				some test content for ir-textarea
+			</ir-textarea>
 			
 		</section>
-		<section>
-			<h2>Limited to one item</h2>
-			<ir-select 
-				data-source="https://query.yahooapis.com/v1/public/yql" 
-				query-by-label="q=select%20*%20from%20geo.places%20where%20text%3D%22[query]%22&format=json&diagnostics=true"
-				query-by-value="fields=id&q=[query]"
-				data-path="query.results.place"
-				label-path="name"
-				value-path="woeid"
-				
-				placeholder="pick another..."
-
-				max-items="1"
-				
-				label-path="title"
-				value-path="id"
-			>
-				<ir-select-item label="label1" value="24"></ir-select-item>
-			</ir-select>
-		</section>
-		<section>
-			<h2>Limited to three items</h2>
-			<ir-select 
-				data-source="https://query.yahooapis.com/v1/public/yql" 
-				query-by-label="q=select%20*%20from%20geo.places%20where%20text%3D%22[query]%22&format=json&diagnostics=true"
-				query-by-value="fields=id&q=[query]"
-				data-path="query.results.place"
-				label-path="name"
-				value-path="woeid"
-				
-				placeholder="no more than three..."
-
-				max-items="3"
-				
-				label-path="title"
-				value-path="id"
-			>
-			</ir-select>
-		</section>
-		
-		<br><br><br><br>
-		<hr>
-		<p>
-			Demo data source: 
-			Yahoo <a href="https://query.yahooapis.com/v1/public/yql?q=select%20*%20from%20geo.places%20where%20text%3D%22prag%22&format=json&diagnostics=true&callback=">
-					geo.places
-				  </a>
-		</p>
 
 	</template>
 </body>
