@@ -2,9 +2,10 @@
 
 **A wysiwyg  editor for Polymer 1.0**
 
+## What it does
 Just what it says.
 
-# This is just a stub, to be updated shortly.
+### This is just a stub, to be updated shortly.
 
 ## To-do
 - All of it
