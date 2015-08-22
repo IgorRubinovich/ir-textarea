@@ -8,15 +8,14 @@
 				commands = this.commands.split(/,/),
 				newButton, cmdDef, icon, ev;
 			
-			/*"mousedown,mouseup,keydown,keyup".split(',')
+			"mousedown,mouseup,keydown,keyup".split(',')
 				.forEach(function(ev)  
 				{
 					that.$.editor.addEventListener(ev, 
 						function() { 
-							//that.getCaretCharacterOffset();
-							//that.getSelection();
+							that._updateValue();
 						});
-				})*/
+				});
 			
 			
 			var defs = {};
@@ -43,8 +42,18 @@
 			//e.stopImmediatePropagation()
 			this.$.editor.focus();
 			
-			document.execCommand(cmdDef.cmd, false, cmdDef.val || "");
-			
+			if(this.promptProcessors[cmdDef.cmd])
+				
+				document.getElementById(this.promptProcessors[cmdDef.cmd]).prompt(function(val) {
+					if(val)
+						document.execCommand(cmdDef.cmd, false, val);
+					this._updateValue();
+				});
+			else
+				document.execCommand(cmdDef.cmd, false, cmdDef.val || "");
+
+			this._updateValue();
+
 			//console.log(e.currentTarget, e.currentTarget.cmd, cmd, false, e.target.parentNode.defaultValue || "")
 
 			//replaceSelectionWithHtml("<b>here is your cursor</b>")
@@ -107,8 +116,18 @@
 			commands : {
 				type : String,
 				value : "bold,italic,underline,align-left,justifyLeft,justifyCenter,justifyRight,createLink,insertImage"
+			},
+			
+			promptProcessors : {
+				type : Object,
+				value  : {} 
 			}
-		}
+		},
+		
+		behaviors: [
+			ir.ReflectToNativeBehavior
+		]
+
 	})
 
 	function replaceSelectionWithHtml(html) {
