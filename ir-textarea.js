@@ -6,15 +6,19 @@
 			
 			var that = this, 
 				commands = this.commands.split(/,/),
-				newButton, cmdDef, icon, ev;
-			
-			"mousedown,mouseup,keydown,keyup".split(',')
-				.forEach(function(ev)  
-				{
-					that.$.editor.addEventListener(ev, 
-						function() { 
+				newButton, cmdDef, icon, ev, handler;
+
+			handler = function(ev) { 
+							if(ev instanceof KeyboardEvent && ev.which == 13)
+								ev.stopPropagation();
+
 							that._updateValue();
-						});
+						};
+
+			"mousedown,mouseup,keydown,keyup".split(',')
+				.forEach(function(evType)  
+				{
+					that.$.editor.addEventListener(evType, handler);
 				});
 			
 			
@@ -33,33 +37,35 @@
 		
 		
 		execCommand : function(e) {
-			console.log(cmdDef);
-			var cmdDef = e.currentTarget.cmdDef;
+			var that = this, 
+				cmdDef = e.currentTarget.cmdDef;
 
 			console.log(cmdDef);
 			// params: command, aShowDefaultUI (false), commandparams
-			//e.stopPropagation();
-			//e.stopImmediatePropagation()
+
 			this.$.editor.focus();
 			
 			if(this.promptProcessors[cmdDef.cmd])
+			{
 				
 				document.getElementById(this.promptProcessors[cmdDef.cmd]).prompt(function(val) {
 					if(val)
 						document.execCommand(cmdDef.cmd, false, val);
-					this._updateValue();
+
+					that._updateValue();
 				});
+			}
 			else
-				document.execCommand(cmdDef.cmd, false, cmdDef.val || "");
+			if(cmdDef.val)
+				document.execCommand(cmdDef.cmd, false, prompt(cmdDef.val));
+			else
+				document.execCommand(cmdDef.cmd, false);
 
 			this._updateValue();
 
 			//console.log(e.currentTarget, e.currentTarget.cmd, cmd, false, e.target.parentNode.defaultValue || "")
 
-			//replaceSelectionWithHtml("<b>here is your cursor</b>")
-			
-			this._updateValue();
-			e.preventDefault();
+			//replaceSelectionWithHtml("<b>here is your cursor</b>")			
 		},
 		
 		getSelection : function() {
@@ -75,7 +81,7 @@
 			range.setEnd(this.$.editor, 5); // 7 is the length of "this is"			
 			this.$.selectionEditor.innerHTML = this.range;
 		},
-		
+
 		getCaretCharacterOffset : function getCaretCharacterOffset() {
 			// modified from code by Tim Down http://stackoverflow.com/users/96100/tim-down
 			var element = this.$.editor;
