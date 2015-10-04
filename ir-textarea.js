@@ -29,7 +29,9 @@
 
 			// get them in order
 			this.toolbarButtons = commands.map(function(c) { return defs[c]; });
-
+ 
+			document.execCommand('enableObjectResizing');
+			
 			this._updateValue();
 		},
 
@@ -51,6 +53,9 @@
 			else
 				cm.options.push({label: 'Add caption', icon: 'icons:list', info: '', value : ev.target, action : this.addCaption});
 
+			cm.options.push({label: 'Resize', icon: 'icons:size', info: '', value : ev.target, action : this.resizeTarget});
+
+			
 			floatOptions = [
 				{ label: 'default', value : { target : flowTarget, value : "none" }, action : this.setFloat },
 				{ label: 'Left', value : { target : flowTarget, value : "left" }, action : this.setFloat },
@@ -60,6 +65,55 @@
 			cm.options.push({label: 'Float', icon: 'icons:align', info: '', options: floatOptions});
 			
 			return;			
+		},
+		
+		resizeTarget : function(target) {
+			target.style._border = target.style.border;
+			target.style.border = "3px dashed grey";
+
+			var interactable = interact(target)
+				.resizable({
+					edges: { left: true, right: true, bottom: true, top: true }
+					/*max          : Number,
+					maxPerElement: Number,
+					manualStart  : Boolean,*/
+					//snap         : {/* ... */},
+					//restrict     : {/* ... */},
+					//inertia      : {/* ... */},
+					//autoScroll   : {/* ... */},
+					/*
+					square       : true || false,
+					axis         : 'x' || 'y'*/
+				})
+				.on('resizemove', resizeHandler = function (event) {
+					var target = event.target,
+					x = (parseFloat(target.getAttribute('data-x')) || 0),
+					y = (parseFloat(target.getAttribute('data-y')) || 0);
+
+					var ratio = target.style.width/target.style.height;
+					
+					event.rect.width = ratio * event.rect.height;
+					
+					// update the element's style
+					target.style.width  = event.rect.width + 'px';
+					target.style.height = event.rect.height + 'px';
+
+					// translate when resizing from top or left edges
+					//x += event.deltaRect.left;
+					//y += event.deltaRect.top;
+
+					target.style.webkitTransform = target.style.transform =
+					'translate(' + x + 'px,' + y + 'px)';
+
+					target.setAttribute('data-x', x);
+					target.setAttribute('data-y', y);
+					target.textContent = event.rect.width + '×' + event.rect.height;					
+				})
+				.on('resizeend', function(event) {
+					interactable.unset();
+					target.style.border = target.style._border;
+					console.log('stopped resize on', event.target);
+				});
 		},
 		
 		setFloat : function(params) {
