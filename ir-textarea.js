@@ -2,8 +2,6 @@
 	Polymer({
 		is : 'ir-textarea',
 		ready : function() {
-			console.log('rock on');
-
 			var that = this,
 				commands = this.commands.split(/,/),
 				newButton, cmdDef, icon, ev, handler;
@@ -35,14 +33,67 @@
 			this._updateValue();
 		},
 
+		contextMenuShow : function(ev) {
+			var cm = this.$.contextMenu, target = ev.target, flowTarget = target;
 
+			if(!target.tagName.match("IMG|VIDEO")) // add more as implemented
+				return ev.stopPropagation();
+			
+			ev.preventDefault();
+			
+			cm.options = [];
+			
+			if(target.parentNode.classList.contains('caption-wrapper'))
+			{
+				cm.options.push({label: 'Remove caption', icon: 'icons:list', info: '', value : ev.target, action : this.removeCaption});
+				flowTarget = target.parentNode;
+			}
+			else
+				cm.options.push({label: 'Add caption', icon: 'icons:list', info: '', value : ev.target, action : this.addCaption});
+
+			floatOptions = [
+				{ label: 'default', value : { target : flowTarget, value : "none" }, action : this.setFloat },
+				{ label: 'Left', value : { target : flowTarget, value : "left" }, action : this.setFloat },
+				{ label: 'Right', value : { target : flowTarget, value : "right" }, action : this.setFloat }
+			];
+
+			cm.options.push({label: 'Float', icon: 'icons:align', info: '', options: floatOptions});
+			
+			return;			
+		},
+		
+		setFloat : function(params) {
+			params.target.style.float = params.value
+		},
+		
+		addCaption : function(el) {
+			var p = el.parentNode,
+				newEl = document.createElement('div');
+			p.insertBefore(newEl, el);
+			p.removeChild(el);
+			newEl.appendChild(el);
+			
+			newEl.style.float = el.style.float;
+			
+			newEl.classList.add('caption-wrapper');
+			newEl.innerHTML += "<p class='caption'>new caption</p>";
+		},
+		
+		removeCaption : function(el) {
+			var parent = el.parentNode, grandparent = parent.parentNode;
+			parent.removeChild(el);
+			grandparent.insertBefore(el, parent);
+			
+			el.style.float = parent.style.float;
+
+			grandparent.removeChild(parent);
+		},
+		
 		execCommand : function(e) {
 			var that = this,
 				cmdDef = e.currentTarget.cmdDef;
 
-			console.log(cmdDef);
 			// params: command, aShowDefaultUI (false), commandparams
-
 			this.$.editor.focus();
 
 			if(this.promptProcessors[cmdDef.cmd])
@@ -62,10 +113,6 @@
 				document.execCommand(cmdDef.cmd, false);
 
 			this._updateValue();
-
-			//console.log(e.currentTarget, e.currentTarget.cmd, cmd, false, e.target.parentNode.defaultValue || "")
-
-			//replaceSelectionWithHtml("<b>here is your cursor</b>")
 		},
 
 		getSelection : function() {
@@ -121,7 +168,7 @@
 		properties : {
 			commands : {
 				type : String,
-				value : "bold,italic,underline,insertOrderedList,insertUnorderedList,align-left,justifyLeft,justifyCenter,justifyRight,createLink,unlink,insertImage,delete,redo,undo,foreColor,backColor,copy,cut,fontName,fontSize,indent,insertHorizontalRule,tableCreate"
+				value : "bold,italic,underline,insertOrderedList,insertUnorderedList,align-left,justifyLeft,justifyCenter,justifyRight,createLink,unlink,insertImage,delete,redo,undo,foreColor,backColor,copy,cut,fontName,fontSize,indent,outdent,insertHorizontalRule,tableCreate"
 			},
 
 			promptProcessors : {
@@ -154,6 +201,4 @@
 			range.pasteHTML(html);
 		}
 	}
-
-
 })();

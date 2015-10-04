@@ -71,10 +71,13 @@ Issues and pull requests are most welcome. Fork it [here](https://github.com/Igo
 		</template>
 	</div>
 	<div>
-		<div id="editor" on-keyup="_updateValue" contenteditable>
+		<div id="editor" on-contextmenu="contextMenuShow" on-keyup="_updateValue" contenteditable>
 			<content></content>
 		</div>
 	</div>
+	<io-menu id="contextMenu" listener="contextmenu">
+		
+	</io-menu>
 	<toremove>
 		<div id="selectionEditor" contenteditable>
 		</div>
