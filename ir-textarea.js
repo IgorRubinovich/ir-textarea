@@ -28,10 +28,8 @@
 				});
 
 			// get them in order
-			this.toolbarButtons = commands.map(function(c) { return defs[c]; });
- 
-			document.execCommand('enableObjectResizing');
-			
+			this.toolbarButtons = commands.map(function(c) { return c ? defs[c] : ""; });
+
 			this._updateValue();
 		},
 
@@ -222,12 +220,17 @@
 		properties : {
 			commands : {
 				type : String,
-				value : "bold,italic,underline,insertOrderedList,insertUnorderedList,align-left,justifyLeft,justifyCenter,justifyRight,createLink,unlink,insertImage,delete,redo,undo,foreColor,backColor,copy,cut,fontName,fontSize,indent,outdent,insertHorizontalRule,tableCreate"
+				value : "bold,italic,underline,,insertOrderedList,insertUnorderedList,,align-left,justifyLeft,justifyCenter,justifyRight,,createLink,unlink,,insertImage,,delete,redo,undo,,foreColor,backColor,,copy,cut,,fontName,fontSize,,indent,outdent,,insertHorizontalRule,tableCreate"
 			},
 
 			promptProcessors : {
 				type : Object,
 				value  : {}
+			},
+			
+			viewMode : {
+				type : Number,
+				value : 0
 			}
 		},
 

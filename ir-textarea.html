@@ -61,23 +61,53 @@ Issues and pull requests are most welcome. Fork it [here](https://github.com/Igo
 	toremove {
 		display : none;
 	}
+	
+	.separator {
+		width : 2px;
+		height : 20px;
+		display : inline-block;
+		background : #eee;
+	}
+	
+	#htmlTextArea {
+		width : 100%;
+		height : 300px
+	}
   </style>
   <template>
-	<div id="toolbar">
-		<template is="dom-repeat" items="{{ toolbarButtons }}">
-			<template is="dom-if" if="{{ !item.icon }}">
-				<paper-button raised on-mousedown="execCommand" cmd-def="{{ item }}">{{ item.cmd }}</paper-button>
-			</template>
-			<template is="dom-if" if="{{ item.icon }}">
-				<paper-icon-button raised on-mousedown="execCommand" icon="{{ item.icon }}" cmd-def="{{ item }}" alt="{{ item.cmd }}"></paper-button>
-			</template>
-		</template>
-	</div>
 	<div>
-		<div id="editor" on-contextmenu="contextMenuShow" on-keyup="_updateValue" contenteditable>
-			<content></content>
-		</div>
+		<paper-tabs selected="{{ viewMode }}">
+			<paper-tab>WYSIWYG</paper-tab>
+			<paper-tab>HTML</paper-tab>
+		</paper-tabs>
 	</div>
+	<iron-pages selected="{{ viewMode }}">
+		<div>
+			<div id="toolbar">
+				<template is="dom-repeat" items="{{ toolbarButtons }}">
+					<template is="dom-if" if="{{ item }}">
+						<template is="dom-if" if="{{ !item.icon }}">
+							<paper-button raised on-mousedown="execCommand" cmd-def="{{ item }}">{{ item.cmd }}</paper-button>
+						</template>
+						<template is="dom-if" if="{{ item.icon }}">
+							<paper-icon-button raised on-mousedown="execCommand" icon="{{ item.icon }}" cmd-def="{{ item }}" alt="{{ item.cmd }}"></paper-button>
+						</template>
+					</template>
+					<template is="dom-if" if="{{ !item }}">
+						<span class="separator">&nbsp;</span>
+					</template>
+				</template>
+			</div>
+			<div>
+				<div id="editor" on-contextmenu="contextMenuShow" on-keyup="_updateValue" contenteditable>
+					<content></content>
+				</div>
+			</div>
+		</div>
+		<div>
+			<textarea id="htmlTextArea">{{ value }}</textarea>
+		</div>
+	</iron-pages>
 	<io-menu id="contextMenu" listener="contextmenu">
 		
 	</io-menu>
