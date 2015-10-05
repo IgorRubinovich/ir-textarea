@@ -29,7 +29,9 @@
 
 			// get them in order
 			this.toolbarButtons = commands.map(function(c) { return c ? defs[c] : ""; });
-
+			
+			this.$.htmlTextArea.addEventListener("change", function () { that.$.editor.innerHTML = that.value = that.$.htmlTextArea.value });
+			
 			this._updateValue();
 		},
 
@@ -213,10 +215,20 @@
 		},
 
 		_updateValue : function(e) {
+			console.log('updating value from editor');
 			this.value = this.$.editor.innerHTML;
 		},
 
 
+		viewModeChanged : function(to, from)
+		{
+			if(from == 1 && to == 0)
+			{
+				this.$.editor.innerHTML = this.value;
+				console.log("upating editor from value", this.value)
+			}
+		},
+				
 		properties : {
 			commands : {
 				type : String,
@@ -230,7 +242,13 @@
 			
 			viewMode : {
 				type : Number,
-				value : 0
+				value : 0,
+				observer : "viewModeChanged"
+			},
+			
+			value : {
+				type : String,
+				notify : true
 			}
 		},
 

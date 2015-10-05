@@ -94,7 +94,7 @@ Issues and pull requests are most welcome. Fork it [here](https://github.com/Igo
 						</template>
 					</template>
 					<template is="dom-if" if="{{ !item }}">
-						<span class="separator">&nbsp;</span>
+						<span class="separator"></span>
 					</template>
 				</template>
 			</div>
@@ -105,7 +105,7 @@ Issues and pull requests are most welcome. Fork it [here](https://github.com/Igo
 			</div>
 		</div>
 		<div>
-			<textarea id="htmlTextArea">{{ value }}</textarea>
+			<textarea id="htmlTextArea" value="{{ value }}"></textarea>
 		</div>
 	</iron-pages>
 	<io-menu id="contextMenu" listener="contextmenu">
