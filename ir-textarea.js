@@ -53,7 +53,7 @@
 			else
 				cm.options.push({label: 'Add caption', icon: 'icons:list', info: '', value : ev.target, action : this.addCaption});
 
-			cm.options.push({label: 'Resize', icon: 'icons:size', info: '', value : ev.target, action : this.resizeTarget});
+			cm.options.push({label: 'Resize', icon: 'icons:size', info: '', value : ev.target, action : this.resizeTarget.bind(this)});
 
 			
 			floatOptions = [
@@ -68,12 +68,37 @@
 		},
 		
 		resizeTarget : function(target) {
-			target.style._border = target.style.border;
+			target._border = target.style.border;
 			target.style.border = "3px dashed grey";
+			// target.style.position = target.style._position;
+			target.style.width = target.style.width || target.width + "px";
+			target.style.height = target.style.height || target.height + "px";
 
-			var interactable = interact(target)
+			var s = window.getComputedStyle(this.$.pages),
+				thisw = Number(s.width.replace("px",'')) * .8,
+				targw = target.width,
+				targh = target.height,
+				newtargw,
+				interaactable,
+				rectChecker;
+			
+			//newtargw = Math.min(thisw, targw);
+			//target.style.width  = newtargw + 'px';
+			//target.style.height = newtargw * (targh/targw) + 'px';
+			
+			var interactable = interact(target);
+			
+			rectChecker = interactable.rectChecker();
+			  
+			//interactable.rectChecker(function(target) {
+			//	var rect = rectChecker.call(this, target); // get the original first
+			//	return rect;
+			//})
+			
+			interactable
 				.resizable({
-					edges: { left: true, right: true, bottom: true, top: true }
+					edges: { left: true, right: true, bottom: true, top: true },
+					margin: 50
 					/*max          : Number,
 					maxPerElement: Number,
 					manualStart  : Boolean,*/
@@ -87,33 +112,35 @@
 				})
 				.on('resizemove', resizeHandler = function (event) {
 					var target = event.target,
-					x = (parseFloat(target.getAttribute('data-x')) || 0),
-					y = (parseFloat(target.getAttribute('data-y')) || 0);
+						w = event.rect.width,
+						h;
 
-					var ratio = target.style.width/target.style.height;
+					target.ratio = target.ratio || (target.style.height.replace(/px/, '')/target.style.width.replace(/px/, ''));
+
+					w = Math.max(w, 20);
+
+					h = target.ratio * w;
 					
-					event.rect.width = ratio * event.rect.height;
-					
-					// update the element's style
-					target.style.width  = event.rect.width + 'px';
-					target.style.height = event.rect.height + 'px';
-
-					// translate when resizing from top or left edges
-					//x += event.deltaRect.left;
-					//y += event.deltaRect.top;
-
-					target.style.webkitTransform = target.style.transform =
-					'translate(' + x + 'px,' + y + 'px)';
-
-					target.setAttribute('data-x', x);
-					target.setAttribute('data-y', y);
-					target.textContent = event.rect.width + '×' + event.rect.height;					
+					target.style.width  = w + 'px';
+					target.style.height = h + 'px';
 				})
 				.on('resizeend', function(event) {
 					interactable.unset();
-					target.style.border = target.style._border;
+					target.style.border = target._border;
+					// target.style.position = target._position;
 					console.log('stopped resize on', event.target);
+				})
+				.on('drag', function (event) {
+					var interaction = event.interaction;
+
+					if (!interaction.interacting()) {
+						interaction.start({ name: 'resize' },
+										event.interactable,
+										event.currentTarget);
+					}
 				});
+				
+				//interactable.fire('resizemove');
 		},
 		
 		setFloat : function(params) {
@@ -258,6 +285,16 @@
 
 	})
 
+	function setTranlate (element, x, y) {
+		var t = "translate(" + x + "px, " + y + "px)";
+		
+		element.style.transform = t;
+		element.style.MozTransform = t;
+		element.style.msTransform = t;
+		element.style.OTransform = t;
+		element.style.webkitTransform = t;
+	}
+	
 	function replaceSelectionWithHtml(html) {
 		// code by Tim Down http://stackoverflow.com/users/96100/tim-down
 		var range, html;
