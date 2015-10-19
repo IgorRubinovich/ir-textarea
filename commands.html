@@ -19,7 +19,7 @@
 		"cmd": "backColor",
 		"val": "red",
 		"icon": "editor:format-color-fill",
-		"desc": "Changes the document background color. In styleWithCss mode, it affects the background color of the containing block instead. This requires a color value string to be passed in as a value argument. (Internet Explorer uses this to set text background color.)"
+		"desc": "Changes the document background color. In styleWithCss mode, it affects the background color of the containing block instead.Â This requires a color value string to be passed in as a value argument. (Internet Explorer uses this to set text background color.)"
 	}, {
 		"cmd": "bold",
 		"icon": "editor:format-bold",
@@ -73,7 +73,7 @@
 		"desc": "Adds an HTML block-style tag around the line containing the current selection, replacing the block element containing the line if one exists (in Firefox, BLOCKQUOTE is the exception - it will wrap any containing block element). Requires a tag-name string to be passed in as a value argument. Virtually all block style tags can be used (eg. \"H1\", \"P\", \"DL\", \"BLOCKQUOTE\"). (Internet Explorer supports only heading tags H1 - H6, ADDRESS, and PRE, which must also include the tag delimiters < >, such as \"<H1>\".)"
 	}, {
 		"cmd": "forwardDelete",
-		"desc": "Deletes the character ahead of the cursor's position.  It is the same as hitting the delete key."
+		"desc": "Deletes the character ahead of the cursor's position.Â  It is the same as hitting the delete key."
 	}, {
 		"cmd": "heading",
 		"val": "h3",
@@ -177,8 +177,9 @@
 	}, {
 		"cmd": "tableCreate",
 		"icon": "image:grid-on",
-		"val": "10,10",
-		"desc": "Creates table."
+		"val": "<table></table>",
+		"desc": "Creates table.",
+		"fakeCmd": "insertHTML"
 	},{
 		"cmd": "underline",
 		"icon": "editor:format-underlined",

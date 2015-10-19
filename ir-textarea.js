@@ -29,9 +29,9 @@
 
 			// get them in order
 			this.toolbarButtons = commands.map(function(c) { return c ? defs[c] : ""; });
-			
+
 			this.$.htmlTextArea.addEventListener("change", function () { that.$.editor.innerHTML = that.value = that.$.htmlTextArea.value });
-			
+
 			this._updateValue();
 		},
 
@@ -40,11 +40,11 @@
 
 			if(!target.tagName.match("IMG|VIDEO")) // add more as implemented
 				return ev.stopPropagation();
-			
+
 			ev.preventDefault();
-			
+
 			cm.options = [];
-			
+
 			if(target.parentNode.classList.contains('caption-wrapper'))
 			{
 				cm.options.push({label: 'Remove caption', icon: 'icons:list', info: '', value : ev.target, action : this.removeCaption});
@@ -53,9 +53,9 @@
 			else
 				cm.options.push({label: 'Add caption', icon: 'icons:list', info: '', value : ev.target, action : this.addCaption});
 
-			cm.options.push({label: 'Resize', icon: 'icons:size', info: '', value : ev.target, action : this.resizeTarget.bind(this)});
+			cm.options.push({label: 'Resize', icon: 'icons:size', info: '', value : ev.target, action : this.resizeTarget});
 
-			
+
 			floatOptions = [
 				{ label: 'default', value : { target : flowTarget, value : "none" }, action : this.setFloat },
 				{ label: 'Left', value : { target : flowTarget, value : "left" }, action : this.setFloat },
@@ -63,132 +63,115 @@
 			];
 
 			cm.options.push({label: 'Float', icon: 'icons:align', info: '', options: floatOptions});
-			
-			return;			
-		},
-		
-		resizeTarget : function(target) {
-			target._border = target.style.border;
-			target.style.border = "3px dashed grey";
-			// target.style.position = target.style._position;
-			target.style.width = target.style.width || target.width + "px";
-			target.style.height = target.style.height || target.height + "px";
 
-			var s = window.getComputedStyle(this.$.pages),
-				thisw = Number(s.width.replace("px",'')) * .8,
-				targw = target.width,
-				targh = target.height,
-				newtargw,
-				interaactable,
-				rectChecker;
-			
-			//newtargw = Math.min(thisw, targw);
-			//target.style.width  = newtargw + 'px';
-			//target.style.height = newtargw * (targh/targw) + 'px';
-			
-			var interactable = interact(target);
-			
-			rectChecker = interactable.rectChecker();
-			  
-			//interactable.rectChecker(function(target) {
-			//	var rect = rectChecker.call(this, target); // get the original first
-			//	return rect;
-			//})
-			
-			interactable
+			return;
+		},
+
+		resizeTarget : function(target) {
+			target.style._border = target.style.border;
+			target.style.border = "3px dashed grey";
+
+			var interactable = interact(target)
 				.resizable({
-					edges: { left: true, right: true, bottom: true, top: true },
-					margin: 50
+					edges: { left: true, right: true, bottom: true, top: true }
 					/*max          : Number,
-					maxPerElement: Number,
-					manualStart  : Boolean,*/
+					 maxPerElement: Number,
+					 manualStart  : Boolean,*/
 					//snap         : {/* ... */},
 					//restrict     : {/* ... */},
 					//inertia      : {/* ... */},
 					//autoScroll   : {/* ... */},
 					/*
-					square       : true || false,
-					axis         : 'x' || 'y'*/
+					 square       : true || false,
+					 axis         : 'x' || 'y'*/
 				})
 				.on('resizemove', resizeHandler = function (event) {
 					var target = event.target,
-						w = event.rect.width,
-						h;
+						x = (parseFloat(target.getAttribute('data-x')) || 0),
+						y = (parseFloat(target.getAttribute('data-y')) || 0);
 
-					target.ratio = target.ratio || (target.style.height.replace(/px/, '')/target.style.width.replace(/px/, ''));
+					var ratio = target.style.width/target.style.height;
 
-					w = Math.max(w, 20);
+					event.rect.width = ratio * event.rect.height;
 
-					h = target.ratio * w;
-					
-					target.style.width  = w + 'px';
-					target.style.height = h + 'px';
+					// update the element's style
+					target.style.width  = event.rect.width + 'px';
+					target.style.height = event.rect.height + 'px';
+
+					// translate when resizing from top or left edges
+					//x += event.deltaRect.left;
+					//y += event.deltaRect.top;
+
+					target.style.webkitTransform = target.style.transform =
+						'translate(' + x + 'px,' + y + 'px)';
+
+					target.setAttribute('data-x', x);
+					target.setAttribute('data-y', y);
+					target.textContent = event.rect.width + '×' + event.rect.height;
 				})
 				.on('resizeend', function(event) {
 					interactable.unset();
-					target.style.border = target._border;
-					// target.style.position = target._position;
+					target.style.border = target.style._border;
 					console.log('stopped resize on', event.target);
-				})
-				.on('drag', function (event) {
-					var interaction = event.interaction;
-
-					if (!interaction.interacting()) {
-						interaction.start({ name: 'resize' },
-										event.interactable,
-										event.currentTarget);
-					}
 				});
-				
-				//interactable.fire('resizemove');
 		},
-		
+
 		setFloat : function(params) {
 			params.target.style.float = params.value
 		},
-		
+
 		addCaption : function(el) {
 			var p = el.parentNode,
 				newEl = document.createElement('div');
 			p.insertBefore(newEl, el);
 			p.removeChild(el);
 			newEl.appendChild(el);
-			
+
 			newEl.style.float = el.style.float;
-			
+
 			newEl.classList.add('caption-wrapper');
 			newEl.innerHTML += "<p class='caption'>new caption</p>";
 		},
-		
+
 		removeCaption : function(el) {
 			var parent = el.parentNode, grandparent = parent.parentNode;
 			parent.removeChild(el);
 			grandparent.insertBefore(el, parent);
-			
+
 			el.style.float = parent.style.float;
 
 			grandparent.removeChild(parent);
 		},
-		
+
 		execCommand : function(e) {
 			var that = this,
 				cmdDef = e.currentTarget.cmdDef;
 
+
 			// params: command, aShowDefaultUI (false), commandparams
-			this.$.editor.focus();
+			//this.$.editor.focus();
 
 			if(this.promptProcessors[cmdDef.cmd])
 			{
 
+
 				document.getElementById(this.promptProcessors[cmdDef.cmd]).prompt(function(val) {
+
 					if(val)
-						document.execCommand(cmdDef.cmd, false, val);
+						if(cmdDef.cmd == "tableCreate") {
+							document.execCommand(cmdDef.fakeCmd, false, val);
+						}
+						else{
+							document.execCommand(cmdDef.cmd, false, val);
+						}
+
 
 					that._updateValue();
 				});
 			}
 			else
 			if(cmdDef.val)
+
 				document.execCommand(cmdDef.cmd, false, prompt(cmdDef.val));
 			else
 				document.execCommand(cmdDef.cmd, false);
@@ -255,24 +238,24 @@
 				console.log("upating editor from value", this.value)
 			}
 		},
-				
+
 		properties : {
 			commands : {
 				type : String,
-				value : "bold,italic,underline,,insertOrderedList,insertUnorderedList,,align-left,justifyLeft,justifyCenter,justifyRight,,createLink,unlink,,insertImage,,delete,redo,undo,,foreColor,backColor,,copy,cut,,fontName,fontSize,,indent,outdent,,insertHorizontalRule,tableCreate"
+				value : "bold,italic,underline,insertOrderedList,insertUnorderedList,align-left,justifyLeft,justifyCenter,justifyRight,createLink,unlink,insertImage,delete,redo,undo,foreColor,backColor,copy,cut,,fontName,fontSize,,indent,outdent,insertHorizontalRule,tableCreate,insertHTML"
 			},
 
 			promptProcessors : {
 				type : Object,
 				value  : {}
 			},
-			
+
 			viewMode : {
 				type : Number,
 				value : 0,
 				observer : "viewModeChanged"
 			},
-			
+
 			value : {
 				type : String,
 				notify : true
@@ -285,16 +268,6 @@
 
 	})
 
-	function setTranlate (element, x, y) {
-		var t = "translate(" + x + "px, " + y + "px)";
-		
-		element.style.transform = t;
-		element.style.MozTransform = t;
-		element.style.msTransform = t;
-		element.style.OTransform = t;
-		element.style.webkitTransform = t;
-	}
-	
 	function replaceSelectionWithHtml(html) {
 		// code by Tim Down http://stackoverflow.com/users/96100/tim-down
 		var range, html;
