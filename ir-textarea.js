@@ -64,6 +64,8 @@
 
 			cm.options.push({label: 'Float', icon: 'icons:align', info: '', options: floatOptions});
 
+			cm.options.push({label: 'Delete', icon: 'icons:size', info: '', value : ev.target, action : this.deleteTarget.bind(this)});
+
 			ev.screenX = ev.clientX = ev.detail.x
 			ev.screenY = ev.clientY = ev.detail.y
 			
@@ -71,6 +73,13 @@
 			return;
 		},
 
+		deleteTarget : function(target) {
+			this.selectionSelectElement(target);
+			this.async(function() {
+				this.execCommand('delete');
+			});
+		},
+		
 		resizeTarget : function(target) {
 			target.style._border = target.style.border;
 			target.style.border = "3px dashed grey";
@@ -110,8 +119,6 @@
 					target.style.width  = w + 'px';
 					target.style.height = h + 'px';
 
-					console.log("w: %s, h: %s, ratio: %s", w, event.rect.height, ratio);
-					
 					// translate when resizing from top or left edges
 					//x += event.deltaRect.left;
 					//y += event.deltaRect.top;
@@ -157,9 +164,7 @@
 		},
 		
 		clickedPresetCommand : function(ev) {
-			var cmdDef = (window.ir.textarea.commands.filter(function(c) { return c.cmd == ev.target.getAttribute("cmd-name") }))[0]
-			
-			this.execCommand(cmdDef, ev.target.selected);
+			this.execCommand(ev.target.getAttribute("cmd-name"), ev.target.selected);
 		},
 
 		clickedCommand : function(e, presetval) {
@@ -167,10 +172,13 @@
 				this.execCommand(cmdDef);
 		},
 
-		execCommand : function(cmdDef, presetVal)	
+		execCommand : function(cmdDefOrName, presetVal)	
 		{
-			var that = this;
-				
+			var that = this, cmdDef = cmdDefOrName;
+			
+			if(typeof cmdDef == 'string')
+				cmdDef = (window.ir.textarea.commands.filter(function(c) { return c.cmd == cmdDef }))[0]			
+			
 			if(!presetVal && this.promptProcessors[cmdDef.cmd])
 			{
 				document.getElementById(this.promptProcessors[cmdDef.cmd]).prompt(function(val) {
@@ -217,7 +225,7 @@
 		},
 
 		selectionRestore : function () {
-			var range = this._selectionRange
+			var range = this._selectionRange, sel;
 			if (range) {
 				if (window.getSelection) {
 					sel = window.getSelection();
@@ -230,12 +238,19 @@
 		},
 		
 		selectionForget : function() {
-			sel.removeAllRanges();
 			this._selectionRange = null;
 		},
 
+		selectionSelectElement : function(el) {
+			var range = document.createRange();
+			range.selectNode(el);
+			var sel = window.getSelection();
+			sel.removeAllRanges();
+			sel.addRange(range);
+			this.selectionSave();
+		},
+		
 		_updateValue : function(e) {
-			console.log('updating value from editor');
 			this.selectionSave();
 			this.value = this.$.editor.innerHTML;
 		},
