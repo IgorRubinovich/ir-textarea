@@ -64,6 +64,10 @@
 
 			cm.options.push({label: 'Float', icon: 'icons:align', info: '', options: floatOptions});
 
+			ev.screenX = ev.clientX = ev.detail.x
+			ev.screenY = ev.clientY = ev.detail.y
+			
+			
 			return;
 		},
 
@@ -87,17 +91,27 @@
 				})
 				.on('resizemove', resizeHandler = function (event) {
 					var target = event.target,
+						computedStyle = getComputedStyle(target),
+						
 						x = (parseFloat(target.getAttribute('data-x')) || 0),
-						y = (parseFloat(target.getAttribute('data-y')) || 0);
+						y = (parseFloat(target.getAttribute('data-y')) || 0),
+						
+						sw = Number((target.style.width || computedStyle.width).replace(/px/, '')),
+						sh = Number((target.style.height || computedStyle.height).replace(/px/, '')),
+						ratio, w, h;
 
-					var ratio = target.style.width/target.style.height;
 
-					event.rect.width = ratio * event.rect.height;
+					ratio = sh/sw;
+
+					w = event.rect.width
+					h = ratio * w;
 
 					// update the element's style
-					target.style.width  = event.rect.width + 'px';
-					target.style.height = event.rect.height + 'px';
+					target.style.width  = w + 'px';
+					target.style.height = h + 'px';
 
+					console.log("w: %s, h: %s, ratio: %s", w, event.rect.height, ratio);
+					
 					// translate when resizing from top or left edges
 					//x += event.deltaRect.left;
 					//y += event.deltaRect.top;
@@ -111,8 +125,7 @@
 				})
 				.on('resizeend', function(event) {
 					interactable.unset();
-					target.style.border = target.style._border;
-					console.log('stopped resize on', event.target);
+					target.style.border = target.style._border || "none";
 				});
 		},
 

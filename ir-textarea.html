@@ -134,32 +134,16 @@ Issues and pull requests are most welcome. Fork it [here](https://github.com/Igo
 				</template>
 			</div>
 			<div>
-				<div id="editor" on-contextmenu="contextMenuShow" on-keyup="_updateValue" on-tap="_updateValue" on-focus="_focusedEditor" on-blur="_blurredEditor" contenteditable>
+				<div id="editor" on-tap="contextMenuShow" on-keyup="_updateValue" on-tap="_updateValue" on-focus="_focusedEditor" on-blur="_blurredEditor" contenteditable>
 					<content></content>
 				</div>
+				<io-menu id="contextMenu" listener="tap"></io-menu>
 			</div>
 		</div>
 		<div>
 			<textarea id="htmlTextArea" value="{{ value }}"></textarea>
 		</div>
 	</iron-pages>
-	<io-menu id="contextMenu" listener="contextmenu">
-		
-	</io-menu>
-	<toremove>
-		<div id="selectionEditor" contenteditable>
-		</div>
-		<p>
-			Value: <span>{{ value }}</span>
-		</p>
-		<p>
-			Offset: <span>{{ selection.caretOffset }}</span>
-		</p>
-		<p>
-			Range: <span>{{ range }}</span>
-		</p>
-		<paper-button on-click="setSelection">select 5 chars</paper-button>
-	<toremove>
   </template>
 </dom-module>
 <script src="ir-textarea.js"></script>
