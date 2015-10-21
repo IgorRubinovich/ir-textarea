@@ -92,21 +92,31 @@ Issues and pull requests are most welcome. Fork it [here](https://github.com/Igo
 			<div id="toolbar">
 				<paper-dropdown-menu label="Font" raised>
 					<paper-menu cmd-name="fontName" on-iron-select="clickedPresetCommand" class="dropdown-content" attr-for-selected="value">
-						<paper-item value="serif">Serif</paper-item>
-						<paper-item value="sans-serif">Sans-serif</paper-item>
-						<paper-item value="cursive">Cursive</paper-item>
-						<paper-item value="fantasy">Fantasy</paper-item>
-						<paper-item value="monospace">Monospace</paper-item>
+						<paper-item value="sans-serif"><font face="sans-serif">Sans-serif</font></paper-item>
+						<paper-item value="serif"><font face="serif">Serif</font></paper-item>
+						<paper-item value="cursive"><font face="cursive">Cursive</font></paper-item>
+						<paper-item value="fantasy"><font face="fantasy">Fantasy</font></paper-item>
+						<paper-item value="monospace"><font face="monospace">Monospace</font></paper-item>
 					</paper-menu>
 				</paper-dropdown-menu>
-				<paper-dropdown-menu label="Heading" raised>
+				<paper-dropdown-menu label="Paragraph heading" raised>
 					<paper-menu cmd-name="formatBlock" on-iron-select="clickedPresetCommand" class="dropdown-content" attr-for-selected="value">
-						<paper-item value="h1">H1</paper-item>
-						<paper-item value="h2">H2</paper-item>
-						<paper-item value="h3">H3</paper-item>
-						<paper-item value="h4">H4</paper-item>
-						<paper-item value="h5">H5</paper-item>
-						<paper-item value="h6">H6</paper-item>
+						<paper-item value="h1"><h1>H1</h1></paper-item>
+						<paper-item value="h2"><h2>H2</h2></paper-item>
+						<paper-item value="h3"><h3>H3</h3></paper-item>
+						<paper-item value="h4"><h4>H4</h4></paper-item>
+						<paper-item value="h5"><h5>H5</h5></paper-item>
+						<paper-item value="h6"><h6>H6</h6></paper-item>
+					</paper-menu>
+				</paper-dropdown-menu>
+				<paper-dropdown-menu label="Font size" raised>
+					<paper-menu cmd-name="fontSize" on-iron-select="clickedPresetCommand" class="dropdown-content" attr-for-selected="value">
+						<paper-item value="6"><font size="6">6</font></paper-item>
+						<paper-item value="5"><font size="5">5</font></paper-item>
+						<paper-item value="4"><font size="4">4</font></paper-item>
+						<paper-item value="3"><font size="3">3</font></paper-item>
+						<paper-item value="2"><font size="2">2</font></paper-item>
+						<paper-item value="1"><font size="1">1</font></paper-item>
 					</paper-menu>
 				</paper-dropdown-menu>
 				<template is="dom-repeat" items="{{ toolbarButtons }}">
