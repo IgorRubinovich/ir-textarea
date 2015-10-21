@@ -1,3 +1,6 @@
+<link rel="import" href="../ir-reflect-to-native-behavior/ir-reflect-to-native-behavior.html">
+<link rel="import" href="../paper-dropdown-menu/paper-dropdown-menu.html">
+<link rel="import" href="../paper-tabs/paper-tabs.html">
 <link rel="import" href="../iron-icons/iron-icons.html">
 <link rel="import" href="../iron-icons/image-icons.html">
 <link rel="import" href="../iron-icons/editor-icons.html">
@@ -8,6 +11,9 @@
 <link rel="import" href="./commands.html">
 
 <script src="../interact/interact.js"></script>
+<script src="../rangy/rangy-core.min.js"></script>
+<script src="../rangy/rangy-textrange.min.js"></script>
+
 
 <!-- 
 @license
@@ -84,13 +90,32 @@ Issues and pull requests are most welcome. Fork it [here](https://github.com/Igo
 	<iron-pages id="pages" selected="{{ viewMode }}">
 		<div>
 			<div id="toolbar">
+				<paper-dropdown-menu label="Font" raised>
+					<paper-menu cmd-name="fontName" on-iron-select="clickedPresetCommand" class="dropdown-content" attr-for-selected="value">
+						<paper-item value="serif">Serif</paper-item>
+						<paper-item value="sans-serif">Sans-serif</paper-item>
+						<paper-item value="cursive">Cursive</paper-item>
+						<paper-item value="fantasy">Fantasy</paper-item>
+						<paper-item value="monospace">Monospace</paper-item>
+					</paper-menu>
+				</paper-dropdown-menu>
+				<paper-dropdown-menu label="Heading" raised>
+					<paper-menu cmd-name="formatBlock" on-iron-select="clickedPresetCommand" class="dropdown-content" attr-for-selected="value">
+						<paper-item value="h1">H1</paper-item>
+						<paper-item value="h2">H2</paper-item>
+						<paper-item value="h3">H3</paper-item>
+						<paper-item value="h4">H4</paper-item>
+						<paper-item value="h5">H5</paper-item>
+						<paper-item value="h6">H6</paper-item>
+					</paper-menu>
+				</paper-dropdown-menu>
 				<template is="dom-repeat" items="{{ toolbarButtons }}">
 					<template is="dom-if" if="{{ item }}">
 						<template is="dom-if" if="{{ !item.icon }}">
-							<paper-button raised on-mousedown="execCommand" cmd-def="{{ item }}">{{ item.cmd }}</paper-button>
+							<paper-button raised on-mousedown="clickedCommand" cmd-def="{{ item }}">{{ item.cmd }}</paper-button>
 						</template>
 						<template is="dom-if" if="{{ item.icon }}">
-							<paper-icon-button raised on-mousedown="execCommand" icon="{{ item.icon }}" cmd-def="{{ item }}" alt="{{ item.cmd }}"></paper-button>
+							<paper-icon-button raised on-mousedown="clickedCommand" icon="{{ item.icon }}" cmd-def="{{ item }}" alt="{{ item.cmd }}"></paper-button>
 						</template>
 					</template>
 					<template is="dom-if" if="{{ !item }}">
@@ -99,7 +124,7 @@ Issues and pull requests are most welcome. Fork it [here](https://github.com/Igo
 				</template>
 			</div>
 			<div>
-				<div id="editor" on-contextmenu="contextMenuShow" on-keyup="_updateValue" contenteditable>
+				<div id="editor" on-contextmenu="contextMenuShow" on-keyup="_updateValue" on-tap="_updateValue" on-focus="_focusedEditor" on-blur="_blurredEditor" contenteditable>
 					<content></content>
 				</div>
 			</div>

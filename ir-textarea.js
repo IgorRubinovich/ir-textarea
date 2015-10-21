@@ -21,7 +21,7 @@
 
 
 			var defs = {};
-			window['ir-textarea'].commands
+				window.ir.textarea.commands
 				.forEach(function(cmdDef) {
 					if(commands.indexOf(cmdDef.cmd) > -1)
 						defs[cmdDef.cmd] = cmdDef;
@@ -142,55 +142,103 @@
 
 			grandparent.removeChild(parent);
 		},
+		
+		clickedPresetCommand : function(ev) {
+			var cmdDef = (window.ir.textarea.commands.filter(function(c) { return c.cmd == ev.target.getAttribute("cmd-name") }))[0]
+			
+			this.execCommand(cmdDef, ev.target.selected);
+		},
 
-		execCommand : function(e) {
-			var that = this,
+		clickedCommand : function(e, presetval) {
 				cmdDef = e.currentTarget.cmdDef;
+				this.execCommand(cmdDef);
+		},
 
-
-			// params: command, aShowDefaultUI (false), commandparams
-			//this.$.editor.focus();
-
-			if(this.promptProcessors[cmdDef.cmd])
+		execCommand : function(cmdDef, presetVal)	
+		{
+			var that = this;
+				
+			if(!presetVal && this.promptProcessors[cmdDef.cmd])
 			{
-
-
 				document.getElementById(this.promptProcessors[cmdDef.cmd]).prompt(function(val) {
-
 					if(val)
-						if(cmdDef.cmd == "tableCreate") {
-							document.execCommand(cmdDef.fakeCmd, false, val);
-						}
-						else{
-							document.execCommand(cmdDef.cmd, false, val);
-						}
-
-
-					that._updateValue();
+					{
+						//that.$.editor.focus();
+						that.selectionRestore();
+						document.execCommand(cmdDef.fakeCmd || cmdDef.cmd, false, val);
+						that._updateValue();
+						that.selectionForget();
+					}
 				});
+				
+				return;
 			}
-			else
-			if(cmdDef.val)
+			
+			//this.$.editor.focus();
+			this.async(function() {
+				this.selectionRestore();
+				
+				if(!presetVal && cmdDef.val)
+					document.execCommand(cmdDef.cmd, false, prompt(cmdDef.val));
+				else
+					document.execCommand(cmdDef.cmd, false, presetVal);
 
-				document.execCommand(cmdDef.cmd, false, prompt(cmdDef.val));
-			else
-				document.execCommand(cmdDef.cmd, false);
-
-			this._updateValue();
+				this.selectionForget();
+				
+				this._updateValue();
+			});
 		},
 
-		getSelection : function() {
-			if (window.getSelection && window.getSelection().getRangeAt)
-				this.range = window.getSelection().getRangeAt(0);
-
-			this.$.selectionEditor.innerHTML = this.range;
+		selectionSave : function () {
+			var sel, range;
+			if (window.getSelection) {
+				sel = window.getSelection();
+				if (sel.getRangeAt && sel.rangeCount) {
+					range = sel.getRangeAt(0);
+				}
+			} else if (document.selection && document.selection.createRange) {
+				range = document.selection.createRange();
+			}
+			
+			this._selectionRange = range;
 		},
 
-		setSelection : function() {
-			var range = document.createRange();
-			range.setStart(this.$.editor, this.caret); // 6 is the offset of "world" within "Hello world"
-			range.setEnd(this.$.editor, 5); // 7 is the length of "this is"
-			this.$.selectionEditor.innerHTML = this.range;
+		selectionRestore : function () {
+			var range = this._selectionRange
+			if (range) {
+				if (window.getSelection) {
+					sel = window.getSelection();
+					sel.removeAllRanges();
+					sel.addRange(range);
+				} else if (document.selection && range.select) {
+					range.select();
+				}
+			}
+		},
+		
+		selectionForget : function() {
+			sel.removeAllRanges();
+			this._selectionRange = null;
+		},
+
+		_updateValue : function(e) {
+			console.log('updating value from editor');
+			this.selectionSave();
+			this.value = this.$.editor.innerHTML;
+		},
+		
+		_focusedEditor : function() {
+			//this.selectionRestore();
+		},
+		
+		_blurredEditor : function() {
+			this.selectionSave();
+		},
+
+		viewModeChanged : function(to, from)
+		{
+			if(from == 1 && to == 0)
+				this.$.editor.innerHTML = this.value;
 		},
 
 		getCaretCharacterOffset : function getCaretCharacterOffset() {
@@ -224,25 +272,10 @@
 			return caretOffset;
 		},
 
-		_updateValue : function(e) {
-			console.log('updating value from editor');
-			this.value = this.$.editor.innerHTML;
-		},
-
-
-		viewModeChanged : function(to, from)
-		{
-			if(from == 1 && to == 0)
-			{
-				this.$.editor.innerHTML = this.value;
-				console.log("upating editor from value", this.value)
-			}
-		},
-
 		properties : {
 			commands : {
 				type : String,
-				value : "bold,italic,underline,insertOrderedList,insertUnorderedList,align-left,justifyLeft,justifyCenter,justifyRight,createLink,unlink,insertImage,delete,redo,undo,foreColor,backColor,copy,cut,,fontName,fontSize,,indent,outdent,insertHorizontalRule,tableCreate,insertHTML"
+				value : "removeFormat,bold,italic,underline,insertOrderedList,insertUnorderedList,align-left,justifyLeft,justifyCenter,justifyRight,createLink,unlink,insertImage,delete,redo,undo,foreColor,backColor,copy,cut,,fontName,fontSize,,indent,outdent,insertHorizontalRule,tableCreate"
 			},
 
 			promptProcessors : {

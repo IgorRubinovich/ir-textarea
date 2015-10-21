@@ -2,9 +2,10 @@
 
 	// from http://codepen.io/netsi1964/pen/QbLLGW
 
-	if(!window['ir-textarea']) window['ir-textarea'] = {};
+	if(!window.ir) window.ir = {};
+	window.ir.textarea = {};
 
-	window['ir-textarea'].params = [{
+	window.ir.textarea.params = [{
 		"cmd": "aCommandName",
 		"desc": "A DOMString representing the name of the command"
 	}, {
@@ -15,7 +16,7 @@
 		"desc": "A DOMString representing some commands (such as insertimage) require an extra value argument (the image's url). Pass an argument of null if no argument is needed."
 	}];
 
-	window['ir-textarea'].commands = [{
+	window.ir.textarea.commands = [{
 		"cmd": "backColor",
 		"val": "red",
 		"icon": "editor:format-color-fill",
