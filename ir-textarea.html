@@ -96,6 +96,8 @@ Issues and pull requests are most welcome. Fork it [here](https://github.com/Igo
 	
 	#mediaEditDialog #mediaDimensions {
 		max-width : 50%;
+		margin-left: 20px;
+		padding : 10px;
 	}
 	
   </style>
@@ -163,27 +165,27 @@ Issues and pull requests are most welcome. Fork it [here](https://github.com/Igo
 			<textarea id="htmlTextArea" value="{{ value }}"></textarea>
 		</div>
 	</iron-pages>
-	<paper-dialog id="mediaEditDialog" auto-fit-on-attach on-key>
+	<paper-dialog id="mediaEditDialog" auto-fit-on-attach on-keydown="mediaDialogEnterKey">
 	  <h2>Media editor</h2>
 	  <paper-dialog-scrollable>
 		<paper-input label="URL" value="{{ _mediaDialogState.data.src }}"></paper-input>
 		<div class="layout horizontal">
 				<iron-image sizing="contain" width="250" src="{{ _mediaDialogState.data.src }}"></iron-image>
 				<paper-material id="mediaDimensions">
-					<h3>Size</h3>
+					<h3>Dimensions</h3>
 					<div class="layout horizontal center">
 						<div class="layout vertical">
-							<paper-input label="Width" value="{{ _mediaDialogState.data.width }}"></paper-input>
-							<paper-input label="Height" value="{{ _mediaDialogState.data.height }}"></paper-input>
+							<paper-input label="Width" on-keyup="mediaEditDimensionsChanged" on-change="mediaEditDimensionsChanged" dim="width" value="{{ _mediaDialogState.data.width }}"></paper-input>
+							<paper-input label="Height" on-keyup="mediaEditDimensionsChanged" on-change="mediaEditDimensionsChanged" dim="height" value="{{ _mediaDialogState.data.height }}"></paper-input>
 						</div>
 						<div>
-							<paper-checkbox checked value="{{ _mediaDialogState.data.src }}"></paper-checkbox>
+							<paper-checkbox dim="lockProportions" on-change="mediaEditDimensionsChanged" checked="{{ _mediaDialogState.data.lockProportions }}"></paper-checkbox>
 							<span>Lock proportions</span>
 						</div>
 					</div>
 					<hr>
 					<h3>Float</h3>
-					<paper-radio-group selected="{{ _mediaDialogState.data.float }}">
+					<paper-radio-group selected="{{ _mediaDialogState.data.float }}" attr-for-selected="name">
 						<paper-radio-button name="left">Left</paper-radio-button>
 						<paper-radio-button name="">None</paper-radio-button>
 						<paper-radio-button name="right">Right</paper-radio-button>
@@ -198,7 +200,7 @@ Issues and pull requests are most welcome. Fork it [here](https://github.com/Igo
 	  </paper-dialog-scrollable>
 	  <div class="buttons">
 		<paper-button dialog-dismiss>Cancel</paper-button>
-		<paper-button dialog-confirm on-tap="mediaEditDialogApply">OK</paper-button>
+		<paper-button dialog-confirm affirmative on-tap="mediaEditDialogApply">OK</paper-button>
 	  </div>
 	</paper-dialog>
   </template>

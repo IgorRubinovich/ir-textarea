@@ -45,28 +45,25 @@
 
 			cm.options = [];
 			
-			cm.options.push({label: 'selectcaption', value : ev.target, action : this.captionGet.bind(this) });
-
-			if(captionWrapper = this.captionGet(target))
-			{
-				cm.options.push({label: 'Remove caption', icon: 'icons:list', info: '', value : ev.target, action : this.captionRemove.bind(this)});
-				flowTarget = captionWrapper;
-			}
-			else
-				cm.options.push({label: 'Add caption', icon: 'icons:text', info: '', value : ev.target, action : this.captionAdd});
-
-			cm.options.push({label: 'Resize', icon: 'icons:size', info: '', value : ev.target, action : this.resizeTarget});
+			cm.options.push({label: 'Resize', icon: 'icons:size', info: '', value : ev.target, action : this.resizeTarget.bind(this)});
 
 
 			floatOptions = [
-				{ label: 'default', value : { target : flowTarget, value : "none" }, action : this.setFloat },
-				{ label: 'Left', value : { target : flowTarget, value : "left" }, action : this.setFloat },
-				{ label: 'Right', value : { target : flowTarget, value : "right" }, action : this.setFloat }
+				{ label: 'default', value : { target : flowTarget, value : "none" }, action : this.setFloat.bind(this) },
+				{ label: 'Left', value : { target : flowTarget, value : "left" }, action : this.setFloat.bind(this) },
+				{ label: 'Right', value : { target : flowTarget, value : "right" }, action : this.setFloat.bind(this) }
 			];
 
 			cm.options.push({label: 'Float', icon: 'icons:align', info: '', options: floatOptions});
-			cm.options.push({label: 'Delete', icon: 'icons:size', info: '', value : ev.target, action : this.deleteTarget.bind(this)});
-			cm.options.push({label: 'More...', icon: 'icons:size', info: '', value : ev.target, action : this.mediaEditDialogOpen.bind(this)});
+			if(captionWrapper = this.captionWrapperGet(target))
+			{
+				cm.options.push({label: 'Remove caption', icon: 'icons:align', value : ev.target, action : this.captionRemove.bind(this)});
+				flowTarget = captionWrapper;
+			}
+			else
+				cm.options.push({label: 'Add caption', icon: 'icons:align', info: '', value : ev.target, action : this.captionSet.bind(this)});
+			cm.options.push({label: 'Remove media',  icon: 'icons:align', info: '', value : ev.target, action : this.deleteTarget.bind(this)});
+			cm.options.push({label: 'More...',  icon: 'icons:align', info: '', value : ev.target, action : this.mediaEditDialogOpen.bind(this)});
 
 			ev.screenX = ev.clientX = ev.detail.x
 			ev.screenY = ev.clientY = ev.detail.y
@@ -75,42 +72,86 @@
 			return;
 		},
 		
+		// media edit dialog functions
+		
 		mediaEditDialogOpen : function(target) {			
-			var d = {};
+			var d = {}, cw;
 			
 			"src,alt".split(",").forEach(function(f) { d[f] = target[f] });
 			
 			var cs = getComputedStyle(target);
 			
-			d.width = target.style.width || cs.width;
-			d.height = target.style.height || cs.height;
-			d.float = target.style.float;
+			d.width = String((target.style.width || cs.width)).replace(/[^\.\d]+/g, "");
+			d.height = String(target.style.height || cs.height).replace(/[^\.\d]+/g, "");
+			
+			cw = this.captionWrapperGet(target);
+			d.float = (cw || target).style.float;
 			
 			if(d.captionEl = this.captionGet(target))
 				d.caption = d.captionEl.textContent;
 			else
 				d.caption = "";
 			
-			this._mediaDialogState = { target : target, data : d };
+			d.lockProportions = true;
+			d.ratio = d.width.replace(/[^\.\d]+/g, '') / d.height.replace(/[^\.\d]+/g, '');
+						
+			this.set("_mediaDialogState", {});
+			this.set("_mediaDialogState.target", target);
+			this.set("_mediaDialogState.data", d );
 
+			
 			this.$.mediaEditDialog.open();
+		},
+		
+		mediaEditDimensionsChanged : function (ev) {
+			var dim = ev.currentTarget.getAttribute('dim');
+			d = this._mediaDialogState.data;
+			
+			d.width = String(d.width).replace(/[^\.\d]+/g, '');
+			d.height = String(d.height).replace(/[^\.\d]+/g, '');
+			
+			if(dim == "lockProportions" && d.lockProportions)
+			{
+				d.ratio = d.width / d.height;
+				return
+			}
+			
+			if(d.lockProportions)
+			{
+				if(dim == "width")
+					this.set("_mediaDialogState.data.height", Math.floor(100 * d.width / d.ratio) / 100);
+				else if(dim == "height")
+					this.set("_mediaDialogState.data.width", Math.floor(100 * d.ratio * d.height) / 100);
+				
+			}
 		},
 				
 		mediaEditDialogApply : function() {
 			var d = this._mediaDialogState.data,
-				target = this._mediaDialogState.target;
+				target = this._mediaDialogState.target, c;
 			
 			"src,alt".split(",").forEach(function(f) { target[f] = d[f] });
 			
 			target.style.width = d.width + "px";
 			target.style.height = d.height + "px";
 			
+			target.style.float = d.float;
+			
 			if(d.caption)
+				this.captionSet(target, d.caption);
+			else
+				this.captionRemove(target);
+			
+			this.setFloat({ target : target, value : d.float });
+			
+			this._updateValue();
+		},
+		
+		mediaDialogEnterKey : function(ev) {
+			if((ev.which || ev.keyCode) == 13)
 			{
-				if(d.captionEl)
-					this.addCaption(d.captionEl, d.caption);
-				else
-					this.addCaption(d.target, d.catpion);
+				this.mediaEditDialogApply();
+				this.$.mediaEditDialog.close();
 			}
 		},
 
@@ -167,9 +208,9 @@
 					target.style.webkitTransform = target.style.transform =
 						'translate(' + x + 'px,' + y + 'px)';
 
-					target.setAttribute('data-x', x);
-					target.setAttribute('data-y', y);
-					target.textContent = event.rect.width + '×' + event.rect.height;
+					//target.setAttribute('data-x', x);
+					//target.setAttribute('data-y', y);
+					//target.textContent = event.rect.width + '×' + event.rect.height;
 				})
 				.on('resizeend', function(event) {
 					interactable.unset();
@@ -178,31 +219,53 @@
 		},
 
 		setFloat : function(params) {
-			params.target.style.float = params.value
+			var target = params.target,
+				c = this.captionWrapperGet(target),
+				t = c || target;
+			
+			if(c)
+				target.style.float = "";
+			
+			t.style.float = params.value
 		},
 		
-		captionAdd : function(el) {
-			var p = el.parentNode,
-				newEl = document.createElement('div');
+		captionSet : function(el, text) {
+			var caption, p;
+			
+			if(!text) 
+				text = "new caption";
+			
+			caption = this.captionGet(el);
+			
+			if(!caption) {
+				p = el.parentNode,
+					newEl = document.createElement('div');
 
-			p.insertBefore(newEl, el);
-			p.removeChild(el);
-			newEl.appendChild(el);
+				p.insertBefore(newEl, el);
+				p.removeChild(el);
+				newEl.appendChild(el);
 
-			newEl.style.float = el.style.float;
+				newEl.style.float = el.style.float;
 
-			newEl.classList.add('caption-wrapper');
-			newEl.innerHTML += "<p class='caption'>new caption</p>";
+				newEl.classList.add('caption-wrapper');
+				newEl.innerHTML += "<p class='caption'>" + text + "</p>";
+				newEl.style.textAlign = "center";
+			}
+			else
+				caption.innerHTML = text;
 		},
 		
 		captionGet : function(el) {
-			var wrapper = this.selectAncestor(el, ".caption-wrapper", this.$.editor); 
-			
-			return this.selectDescendant(wrapper, ".caption");		
+			var wrapper = this.captionWrapperGet(el);
+			if(wrapper)
+				return this.selectDescendant(wrapper, ".caption");		
+		},
+		captionWrapperGet : function(el) {
+			return this.selectAncestor(el, ".caption-wrapper", this.$.editor);
 		},
 		
 		captionRemove : function(el) {
-			var c = this.captionGet(el)
+			var c = this.captionWrapperGet(el)
 
 			if(!c)
 				return;
