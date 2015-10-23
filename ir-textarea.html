@@ -1,11 +1,16 @@
 <link rel="import" href="../ir-reflect-to-native-behavior/ir-reflect-to-native-behavior.html">
 <link rel="import" href="../paper-dropdown-menu/paper-dropdown-menu.html">
 <link rel="import" href="../paper-tabs/paper-tabs.html">
+<link rel="import" href="../paper-dialog/paper-dialog.html">
+<link rel="import" href="../paper-dialog-scrollable/paper-dialog-scrollable.html">
+<link rel="import" href="../iron-image/iron-image.html">
 <link rel="import" href="../iron-icons/iron-icons.html">
 <link rel="import" href="../iron-icons/image-icons.html">
 <link rel="import" href="../iron-icons/editor-icons.html">
 <link rel="import" href="../paper-icon-button/paper-icon-button.html">
 <link rel="import" href="../paper-button/paper-button.html">
+<link rel="import" href="../paper-radio-group/paper-radio-group.html">
+<link rel="import" href="../paper-checkbox/paper-checkbox.html">
 <link rel="import" href="../io-menu/io-menu.html">
 
 <link rel="import" href="./commands.html">
@@ -79,6 +84,20 @@ Issues and pull requests are most welcome. Fork it [here](https://github.com/Igo
 		width : 100%;
 		height : 300px
 	}
+	
+	paper-dialog {
+		padding : 20px;
+	}
+	
+	paper-dialog paper-input
+	{
+		padding : 5px;
+	}
+	
+	#mediaEditDialog #mediaDimensions {
+		max-width : 50%;
+	}
+	
   </style>
   <template>
 	<div>
@@ -144,6 +163,44 @@ Issues and pull requests are most welcome. Fork it [here](https://github.com/Igo
 			<textarea id="htmlTextArea" value="{{ value }}"></textarea>
 		</div>
 	</iron-pages>
+	<paper-dialog id="mediaEditDialog" auto-fit-on-attach on-key>
+	  <h2>Media editor</h2>
+	  <paper-dialog-scrollable>
+		<paper-input label="URL" value="{{ _mediaDialogState.data.src }}"></paper-input>
+		<div class="layout horizontal">
+				<iron-image sizing="contain" width="250" src="{{ _mediaDialogState.data.src }}"></iron-image>
+				<paper-material id="mediaDimensions">
+					<h3>Size</h3>
+					<div class="layout horizontal center">
+						<div class="layout vertical">
+							<paper-input label="Width" value="{{ _mediaDialogState.data.width }}"></paper-input>
+							<paper-input label="Height" value="{{ _mediaDialogState.data.height }}"></paper-input>
+						</div>
+						<div>
+							<paper-checkbox checked value="{{ _mediaDialogState.data.src }}"></paper-checkbox>
+							<span>Lock proportions</span>
+						</div>
+					</div>
+					<hr>
+					<h3>Float</h3>
+					<paper-radio-group selected="{{ _mediaDialogState.data.float }}">
+						<paper-radio-button name="left">Left</paper-radio-button>
+						<paper-radio-button name="">None</paper-radio-button>
+						<paper-radio-button name="right">Right</paper-radio-button>
+					</paper-radio-group>
+				</paper-material>
+		</div>
+		<div>
+			<paper-input label="Caption" id="mediaEditDialogCaption" value="{{ _mediaDialogState.data.caption }}"></paper-input>
+			<span>{{ currentTarget.tagName }}</span>
+			<paper-input label="Alt" value="{{ _mediaDialogState.data.alt }}"></paper-input>
+		</div>
+	  </paper-dialog-scrollable>
+	  <div class="buttons">
+		<paper-button dialog-dismiss>Cancel</paper-button>
+		<paper-button dialog-confirm on-tap="mediaEditDialogApply">OK</paper-button>
+	  </div>
+	</paper-dialog>
   </template>
 </dom-module>
 <script src="ir-textarea.js"></script>

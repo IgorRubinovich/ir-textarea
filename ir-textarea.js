@@ -36,7 +36,7 @@
 		},
 
 		contextMenuShow : function(ev) {
-			var cm = this.$.contextMenu, target = ev.target, flowTarget = target;
+			var cm = this.$.contextMenu, target = ev.target, flowTarget = target, captionWrapper;
 
 			if(!target.tagName.match("IMG|VIDEO")) // add more as implemented
 				return ev.stopPropagation();
@@ -44,16 +44,18 @@
 			ev.preventDefault();
 
 			cm.options = [];
+			
+			cm.options.push({label: 'selectcaption', value : ev.target, action : this.captionGet.bind(this) });
 
-			if(target.parentNode.classList.contains('caption-wrapper'))
+			if(captionWrapper = this.captionGet(target))
 			{
-				cm.options.push({label: 'Remove caption', icon: 'icons:list', info: '', value : ev.target, action : this.removeCaption});
-				flowTarget = target.parentNode;
+				cm.options.push({label: 'Remove caption', icon: 'icons:list', info: '', value : ev.target, action : this.captionRemove.bind(this)});
+				flowTarget = captionWrapper;
 			}
 			else
-				cm.options.push({label: 'Add caption', icon: 'icons:list', info: '', value : ev.target, action : this.addCaption});
+				cm.options.push({label: 'Add caption', icon: 'icons:text', info: '', value : ev.target, action : this.captionAdd});
 
-			cm.options.push({label: 'Resize', icon: 'icons:size', info: '', value : ev.target, action : this.resizeTarget});
+			cm.options.push({label: 'Resize', icon: 'icons:size', info: '', value : ev.target, action : this.resizeTarget});
 
 
 			floatOptions = [
@@ -62,15 +64,54 @@
 				{ label: 'Right', value : { target : flowTarget, value : "right" }, action : this.setFloat }
 			];
 
-			cm.options.push({label: 'Float', icon: 'icons:align', info: '', options: floatOptions});
-
-			cm.options.push({label: 'Delete', icon: 'icons:size', info: '', value : ev.target, action : this.deleteTarget.bind(this)});
+			cm.options.push({label: 'Float', icon: 'icons:align', info: '', options: floatOptions});
+			cm.options.push({label: 'Delete', icon: 'icons:size', info: '', value : ev.target, action : this.deleteTarget.bind(this)});
+			cm.options.push({label: 'More...', icon: 'icons:size', info: '', value : ev.target, action : this.mediaEditDialogOpen.bind(this)});
 
 			ev.screenX = ev.clientX = ev.detail.x
 			ev.screenY = ev.clientY = ev.detail.y
 			
 			
 			return;
+		},
+		
+		mediaEditDialogOpen : function(target) {			
+			var d = {};
+			
+			"src,alt".split(",").forEach(function(f) { d[f] = target[f] });
+			
+			var cs = getComputedStyle(target);
+			
+			d.width = target.style.width || cs.width;
+			d.height = target.style.height || cs.height;
+			d.float = target.style.float;
+			
+			if(d.captionEl = this.captionGet(target))
+				d.caption = d.captionEl.textContent;
+			else
+				d.caption = "";
+			
+			this._mediaDialogState = { target : target, data : d };
+
+			this.$.mediaEditDialog.open();
+		},
+				
+		mediaEditDialogApply : function() {
+			var d = this._mediaDialogState.data,
+				target = this._mediaDialogState.target;
+			
+			"src,alt".split(",").forEach(function(f) { target[f] = d[f] });
+			
+			target.style.width = d.width + "px";
+			target.style.height = d.height + "px";
+			
+			if(d.caption)
+			{
+				if(d.captionEl)
+					this.addCaption(d.captionEl, d.caption);
+				else
+					this.addCaption(d.target, d.catpion);
+			}
 		},
 
 		deleteTarget : function(target) {
@@ -139,10 +180,11 @@
 		setFloat : function(params) {
 			params.target.style.float = params.value
 		},
-
-		addCaption : function(el) {
+		
+		captionAdd : function(el) {
 			var p = el.parentNode,
 				newEl = document.createElement('div');
+
 			p.insertBefore(newEl, el);
 			p.removeChild(el);
 			newEl.appendChild(el);
@@ -152,15 +194,22 @@
 			newEl.classList.add('caption-wrapper');
 			newEl.innerHTML += "<p class='caption'>new caption</p>";
 		},
+		
+		captionGet : function(el) {
+			var wrapper = this.selectAncestor(el, ".caption-wrapper", this.$.editor); 
+			
+			return this.selectDescendant(wrapper, ".caption");		
+		},
+		
+		captionRemove : function(el) {
+			var c = this.captionGet(el)
 
-		removeCaption : function(el) {
-			var parent = el.parentNode, grandparent = parent.parentNode;
-			parent.removeChild(el);
-			grandparent.insertBefore(el, parent);
-
-			el.style.float = parent.style.float;
-
-			grandparent.removeChild(parent);
+			if(!c)
+				return;
+			
+			el.style.float = c.style.float;
+			c.parentNode.insertBefore(el, c);
+			c.parentNode.removeChild(c);
 		},
 		
 		clickedPresetCommand : function(ev) {
@@ -325,8 +374,41 @@
 
 		behaviors: [
 			ir.ReflectToNativeBehavior
-		]
+		],
+		
+		/** select `el`'s ancestor corresponding to `selector`, but go no higher than `top` */
+		selectAncestor : function(el, selector, top) {
+			if(!top) top = document;
+			if(!el.parentNode || el == top) return null;
+			if(el.parentNode.matchesSelector(selector)) return el.parentNode
+			
+			return this.selectAncestor(el.parentNode, selector, top)
+		},
+		/** select `el`'s descendant corresponding to `selector` */
+		selectDescendant : function(el, selector, top) {
+			var children = el.childNodes, i, deeper;
+			
+			if(!children.length) 
+				return null;
 
+			for(i = 0; i < children.length; i++)
+				if(children[i].matchesSelector && children[i].matchesSelector(selector))
+					return children[i];
+
+			for(i = 0; i < children.length; i++)
+				deeper = this.selectDescendant(children[i]);
+				
+			return deeper;
+		},		
+		getInnerText : function(el)
+		{
+			return el.innerText;
+		},
+		
+		setInnerText : function(el, text)
+		{
+			el.innerText = text;
+		}
 	})
 
 	function replaceSelectionWithHtml(html) {
@@ -348,3 +430,18 @@
 		}
 	}
 })();
+
+this.Element && function(ElementPrototype) {
+	ElementPrototype.matchesSelector = ElementPrototype.matchesSelector || 
+	ElementPrototype.mozMatchesSelector ||
+	ElementPrototype.msMatchesSelector ||
+	ElementPrototype.oMatchesSelector ||
+	ElementPrototype.webkitMatchesSelector ||
+	function (selector) {
+		var node = this, nodes = (node.parentNode || node.document).querySelectorAll(selector), i = -1;
+
+		while (nodes[++i] && nodes[i] != node);
+
+		return !!nodes[i];
+	}
+}(Element.prototype);
