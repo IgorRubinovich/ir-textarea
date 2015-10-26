@@ -153,6 +153,31 @@
 			this.execCommand("insertHTML", null, this.$.mediaEmbedder);
 		},
 
+		// to use instead of execCommand('insertHTML') - modified from code by Tim Down
+		insertHTMLCmd : function (html) {
+			var sel, range;
+			if (window.getSelection && (sel = window.getSelection()).rangeCount) {
+				range = sel.getRangeAt(0);
+				range.collapse(true);
+				var span = document.createElement("span");
+				range.insertNode(span);
+				// Move the caret immediately after the inserted span
+				range.setStartAfter(span);
+				range.collapse(true);
+				sel.removeAllRanges();
+				sel.addRange(range);
+
+				span.outerHTML = html;
+			}
+		},
+
+		_execCommand : function(cmd, sdu, val) {
+			if(cmd == 'insertHTML')
+				this.insertHTMLCmd(val);
+			else
+				document.execCommand(actualCmd, sdu, val);
+		},
+		
 		execCommand : function(cmdDefOrName, presetVal, promptProcessor)	
 		{
 			var that = this, cmdDef = cmdDefOrName;
@@ -169,13 +194,10 @@
 					
 					if(val)
 					{
-						//that.$.editor.focus();
 						that.selectionRestore();
 						
-						if(actualCmd == 'insertHTML')   // this is specific since any and thus invalid html can be inserted
-							val = HTMLtoXML(val);
+						that._execCommand(actualCmd, false, val);
 						
-						document.execCommand(actualCmd, false, val);
 						that._updateValue();
 						that.selectionForget();
 						
@@ -191,9 +213,9 @@
 				this.selectionRestore();
 				
 				if(!presetVal && cmdDef.val)
-					document.execCommand(cmdDef.cmd, false, prompt(cmdDef.val));
+					this._execCommand(cmdDef.cmd, false, prompt(cmdDef.val));
 				else
-					document.execCommand(cmdDef.cmd, false, presetVal);
+					this._execCommand(cmdDef.cmd, false, presetVal);
 
 				this.selectionForget();
 				

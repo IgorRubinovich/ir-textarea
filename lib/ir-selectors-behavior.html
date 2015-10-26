@@ -26,7 +26,19 @@ ir.SelectorBehavior = {
 				deeper = this.selectDescendant(children[i]);
 				
 			return deeper;
-		}
+		},
+		// code by Tim Down
+		isOrIsAncestorOf : function (ancestor, descendant) {
+		  var n = descendant;
+		  while (n) {
+			if (n === ancestor) {
+			  return true;
+			} else {
+			  n = n.parentNode;
+			}
+		  }
+		  return false;
+		}		
 };
 
 
