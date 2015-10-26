@@ -13,12 +13,15 @@
 <link rel="import" href="../paper-checkbox/paper-checkbox.html">
 <link rel="import" href="../io-menu/io-menu.html">
 
+<link rel="import" href="./lib/ir-selectors-behavior.html">
+<link rel="import" href="./lib/ir-textarea-mediaeditor.html">
+<link rel="import" href="./lib/ir-textarea-mediaembedder.html">
+
 <link rel="import" href="./commands.html">
 
-<script src="../interact/interact.js"></script>
-<script src="../rangy/rangy-core.min.js"></script>
-<script src="../rangy/rangy-textrange.min.js"></script>
+<script src="./htmlparser.js"></script>
 
+<script src="../interact/interact.js"></script>
 
 <!-- 
 @license
@@ -62,11 +65,16 @@ Issues and pull requests are most welcome. Fork it [here](https://github.com/Igo
 		width : 15px;
 	}
 	#editor {
+		outline : none;
+		height : 400px;
+		width : 100%;
+	}
+	
+	pages {
 		min-height : 200px;
 		margin-top  : 10px;
 		padding : 5px;
-		border : 1px solid #afafaf;
-		display : block
+		display : flex
 	}
 	
 	toremove {
@@ -94,12 +102,33 @@ Issues and pull requests are most welcome. Fork it [here](https://github.com/Igo
 		padding : 5px;
 	}
 	
-	#mediaEditDialog #mediaDimensions {
-		max-width : 50%;
-		margin-left: 20px;
-		padding : 10px;
+	#borderWrapper {
+		border : 1px solid #e0e0e0;
 	}
 	
+	#floatWrapper {
+		display : inline-block;
+		padding : 15px;
+		width : 95%;
+		min-height : 400px;
+	}
+	
+	
+	.embed-aspect-ratio
+	{
+		position: relative;
+		width: 100%;
+		height: 0;
+		padding-bottom: 51%;		
+	}
+	
+	.embed-aspect-ratio iframe {
+		position: absolute;
+		width: 100%;
+		height: 100%;
+		left: 0; top: 0;	
+	}
+
   </style>
   <template>
 	<div>
@@ -153,10 +182,13 @@ Issues and pull requests are most welcome. Fork it [here](https://github.com/Igo
 						<span class="separator"></span>
 					</template>
 				</template>
+				<paper-icon-button raised icon="code" on-tap="insertHtml" alt="insert html"></paper-button>
 			</div>
-			<div>
-				<div id="editor" on-tap="contextMenuShow" on-keyup="_updateValue" on-tap="_updateValue" on-focus="_focusedEditor" on-blur="_blurredEditor" contenteditable>
-					<content></content>
+			<div id="borderWrapper">
+				<div id="floatWrapper">
+					<div id="editor" on-tap="contextMenuShow" on-keyup="_updateValue" on-tap="_updateValue" on-focus="_focusedEditor" on-blur="_blurredEditor" contenteditable>
+						<content></content>
+					</div>
 				</div>
 				<io-menu id="contextMenu" listener="tap"></io-menu>
 			</div>
@@ -165,44 +197,9 @@ Issues and pull requests are most welcome. Fork it [here](https://github.com/Igo
 			<textarea id="htmlTextArea" value="{{ value }}"></textarea>
 		</div>
 	</iron-pages>
-	<paper-dialog id="mediaEditDialog" auto-fit-on-attach on-keydown="mediaDialogEnterKey">
-	  <h2>Media editor</h2>
-	  <paper-dialog-scrollable>
-		<paper-input label="URL" value="{{ _mediaDialogState.data.src }}"></paper-input>
-		<div class="layout horizontal">
-				<iron-image sizing="contain" width="250" src="{{ _mediaDialogState.data.src }}"></iron-image>
-				<paper-material id="mediaDimensions">
-					<h3>Dimensions</h3>
-					<div class="layout horizontal center">
-						<div class="layout vertical">
-							<paper-input label="Width" on-keyup="mediaEditDimensionsChanged" on-change="mediaEditDimensionsChanged" dim="width" value="{{ _mediaDialogState.data.width }}"></paper-input>
-							<paper-input label="Height" on-keyup="mediaEditDimensionsChanged" on-change="mediaEditDimensionsChanged" dim="height" value="{{ _mediaDialogState.data.height }}"></paper-input>
-						</div>
-						<div>
-							<paper-checkbox dim="lockProportions" on-change="mediaEditDimensionsChanged" checked="{{ _mediaDialogState.data.lockProportions }}"></paper-checkbox>
-							<span>Lock proportions</span>
-						</div>
-					</div>
-					<hr>
-					<h3>Float</h3>
-					<paper-radio-group selected="{{ _mediaDialogState.data.float }}" attr-for-selected="name">
-						<paper-radio-button name="left">Left</paper-radio-button>
-						<paper-radio-button name="">None</paper-radio-button>
-						<paper-radio-button name="right">Right</paper-radio-button>
-					</paper-radio-group>
-				</paper-material>
-		</div>
-		<div>
-			<paper-input label="Caption" id="mediaEditDialogCaption" value="{{ _mediaDialogState.data.caption }}"></paper-input>
-			<span>{{ currentTarget.tagName }}</span>
-			<paper-input label="Alt" value="{{ _mediaDialogState.data.alt }}"></paper-input>
-		</div>
-	  </paper-dialog-scrollable>
-	  <div class="buttons">
-		<paper-button dialog-dismiss>Cancel</paper-button>
-		<paper-button dialog-confirm affirmative on-tap="mediaEditDialogApply">OK</paper-button>
-	  </div>
-	</paper-dialog>
+	<ir-textarea-mediaeditor id="mediaEditor" on-accepted="_updateValue"></ir-textarea-mediaeditor>
+	<ir-textarea-mediaembedder id="mediaEmbedder" wrapper-class="{{ wrapperClass }}" on-accepted="_updateValue"></ir-textarea-mediaembedder>
+
   </template>
 </dom-module>
 <script src="ir-textarea.js"></script>

@@ -7,9 +7,6 @@
 				newButton, cmdDef, icon, ev, handler;
 
 			handler = function(ev) {
-				if(ev instanceof KeyboardEvent && ev.which == 13)
-					ev.stopPropagation();
-
 				that._updateValue();
 			};
 
@@ -18,7 +15,6 @@
 				{
 					that.$.editor.addEventListener(evType, handler);
 				});
-
 
 			var defs = {};
 				window.ir.textarea.commands
@@ -31,12 +27,15 @@
 			this.toolbarButtons = commands.map(function(c) { return c ? defs[c] : ""; });
 
 			this.$.htmlTextArea.addEventListener("change", function () { that.$.editor.innerHTML = that.value = that.$.htmlTextArea.value });
+			
+			this.$.mediaEditor.editor = this.$.editor;
 
 			this._updateValue();
 		},
 
 		contextMenuShow : function(ev) {
-			var cm = this.$.contextMenu, target = ev.target, flowTarget = target, captionWrapper;
+			var cm = this.$.contextMenu, target = ev.target, flowTarget = target, captionWrapper,
+				mediaEditor = this.$.mediaEditor;
 
 			if(!target.tagName.match("IMG|VIDEO")) // add more as implemented
 				return ev.stopPropagation();
@@ -47,23 +46,22 @@
 			
 			cm.options.push({label: 'Resize', icon: 'icons:size', info: '', value : ev.target, action : this.resizeTarget.bind(this)});
 
+			if(captionWrapper = mediaEditor.captionWrapperGet(target))
+				flowTarget = captionWrapper;
 
 			floatOptions = [
-				{ label: 'default', value : { target : flowTarget, value : "none" }, action : this.setFloat.bind(this) },
-				{ label: 'Left', value : { target : flowTarget, value : "left" }, action : this.setFloat.bind(this) },
-				{ label: 'Right', value : { target : flowTarget, value : "right" }, action : this.setFloat.bind(this) }
+				{ label: 'default', value : { target : flowTarget, value : "none" }, action : mediaEditor.setFloat.bind(mediaEditor) },
+				{ label: 'Left', value : { target : flowTarget, value : "left" }, action : mediaEditor.setFloat.bind(mediaEditor) },
+				{ label: 'Right', value : { target : flowTarget, value : "right" }, action : mediaEditor.setFloat.bind(mediaEditor) }
 			];
 
 			cm.options.push({label: 'Float', icon: 'icons:align', info: '', options: floatOptions});
-			if(captionWrapper = this.captionWrapperGet(target))
-			{
-				cm.options.push({label: 'Remove caption', icon: 'icons:align', value : ev.target, action : this.captionRemove.bind(this)});
-				flowTarget = captionWrapper;
-			}
+			if(captionWrapper)
+				cm.options.push({label: 'Remove caption', icon: 'icons:align', value : ev.target, action : mediaEditor.captionRemove.bind(mediaEditor)});
 			else
-				cm.options.push({label: 'Add caption', icon: 'icons:align', info: '', value : ev.target, action : this.captionSet.bind(this)});
+				cm.options.push({label: 'Add caption', icon: 'icons:align', info: '', value : ev.target, action : mediaEditor.captionSet.bind(mediaEditor)});
 			cm.options.push({label: 'Remove media',  icon: 'icons:align', info: '', value : ev.target, action : this.deleteTarget.bind(this)});
-			cm.options.push({label: 'More...',  icon: 'icons:align', info: '', value : ev.target, action : this.mediaEditDialogOpen.bind(this)});
+			cm.options.push({label: 'More...',  icon: 'icons:align', info: '', value : ev.target, action : mediaEditor.open.bind(mediaEditor)});
 
 			ev.screenX = ev.clientX = ev.detail.x
 			ev.screenY = ev.clientY = ev.detail.y
@@ -71,90 +69,7 @@
 			
 			return;
 		},
-		
-		// media edit dialog functions
-		
-		mediaEditDialogOpen : function(target) {			
-			var d = {}, cw;
-			
-			"src,alt".split(",").forEach(function(f) { d[f] = target[f] });
-			
-			var cs = getComputedStyle(target);
-			
-			d.width = String((target.style.width || cs.width)).replace(/[^\.\d]+/g, "");
-			d.height = String(target.style.height || cs.height).replace(/[^\.\d]+/g, "");
-			
-			cw = this.captionWrapperGet(target);
-			d.float = (cw || target).style.float;
-			
-			if(d.captionEl = this.captionGet(target))
-				d.caption = d.captionEl.textContent;
-			else
-				d.caption = "";
-			
-			d.lockProportions = true;
-			d.ratio = d.width.replace(/[^\.\d]+/g, '') / d.height.replace(/[^\.\d]+/g, '');
-						
-			this.set("_mediaDialogState", {});
-			this.set("_mediaDialogState.target", target);
-			this.set("_mediaDialogState.data", d );
-
-			
-			this.$.mediaEditDialog.open();
-		},
-		
-		mediaEditDimensionsChanged : function (ev) {
-			var dim = ev.currentTarget.getAttribute('dim');
-			d = this._mediaDialogState.data;
-			
-			d.width = String(d.width).replace(/[^\.\d]+/g, '');
-			d.height = String(d.height).replace(/[^\.\d]+/g, '');
-			
-			if(dim == "lockProportions" && d.lockProportions)
-			{
-				d.ratio = d.width / d.height;
-				return
-			}
-			
-			if(d.lockProportions)
-			{
-				if(dim == "width")
-					this.set("_mediaDialogState.data.height", Math.floor(100 * d.width / d.ratio) / 100);
-				else if(dim == "height")
-					this.set("_mediaDialogState.data.width", Math.floor(100 * d.ratio * d.height) / 100);
 				
-			}
-		},
-				
-		mediaEditDialogApply : function() {
-			var d = this._mediaDialogState.data,
-				target = this._mediaDialogState.target, c;
-			
-			"src,alt".split(",").forEach(function(f) { target[f] = d[f] });
-			
-			target.style.width = d.width + "px";
-			target.style.height = d.height + "px";
-			
-			target.style.float = d.float;
-			
-			if(d.caption)
-				this.captionSet(target, d.caption);
-			else
-				this.captionRemove(target);
-			
-			this.setFloat({ target : target, value : d.float });
-			
-			this._updateValue();
-		},
-		
-		mediaDialogEnterKey : function(ev) {
-			if((ev.which || ev.keyCode) == 13)
-			{
-				this.mediaEditDialogApply();
-				this.$.mediaEditDialog.close();
-			}
-		},
-
 		deleteTarget : function(target) {
 			this.selectionSelectElement(target);
 			this.async(function() {
@@ -191,12 +106,19 @@
 						sh = Number((target.style.height || computedStyle.height).replace(/px/, '')),
 						ratio, w, h;
 
-
+						
+					/*if(/(img|video|iframe)/i.test(target.tagName))
+					{*/
 					ratio = sh/sw;
-
 					w = event.rect.width
 					h = ratio * w;
-
+					/*}
+					else
+					{
+						w = event.rect.width
+						h = event.rect.height
+					}*/
+					
 					// update the element's style
 					target.style.width  = w + 'px';
 					target.style.height = h + 'px';
@@ -218,63 +140,6 @@
 				});
 		},
 
-		setFloat : function(params) {
-			var target = params.target,
-				c = this.captionWrapperGet(target),
-				t = c || target;
-			
-			if(c)
-				target.style.float = "";
-			
-			t.style.float = params.value
-		},
-		
-		captionSet : function(el, text) {
-			var caption, p;
-			
-			if(!text) 
-				text = "new caption";
-			
-			caption = this.captionGet(el);
-			
-			if(!caption) {
-				p = el.parentNode,
-					newEl = document.createElement('div');
-
-				p.insertBefore(newEl, el);
-				p.removeChild(el);
-				newEl.appendChild(el);
-
-				newEl.style.float = el.style.float;
-
-				newEl.classList.add('caption-wrapper');
-				newEl.innerHTML += "<p class='caption'>" + text + "</p>";
-				newEl.style.textAlign = "center";
-			}
-			else
-				caption.innerHTML = text;
-		},
-		
-		captionGet : function(el) {
-			var wrapper = this.captionWrapperGet(el);
-			if(wrapper)
-				return this.selectDescendant(wrapper, ".caption");		
-		},
-		captionWrapperGet : function(el) {
-			return this.selectAncestor(el, ".caption-wrapper", this.$.editor);
-		},
-		
-		captionRemove : function(el) {
-			var c = this.captionWrapperGet(el)
-
-			if(!c)
-				return;
-			
-			el.style.float = c.style.float;
-			c.parentNode.insertBefore(el, c);
-			c.parentNode.removeChild(c);
-		},
-		
 		clickedPresetCommand : function(ev) {
 			this.execCommand(ev.target.getAttribute("cmd-name"), ev.target.selected);
 		},
@@ -283,24 +148,38 @@
 				cmdDef = e.currentTarget.cmdDef;
 				this.execCommand(cmdDef);
 		},
+		
+		insertHtml : function(e) {
+			this.execCommand("insertHTML", null, this.$.mediaEmbedder);
+		},
 
-		execCommand : function(cmdDefOrName, presetVal)	
+		execCommand : function(cmdDefOrName, presetVal, promptProcessor)	
 		{
 			var that = this, cmdDef = cmdDefOrName;
 			
 			if(typeof cmdDef == 'string')
 				cmdDef = (window.ir.textarea.commands.filter(function(c) { return c.cmd == cmdDef }))[0]			
 			
-			if(!presetVal && this.promptProcessors[cmdDef.cmd])
+			promptProcessor = promptProcessor || (this.promptProcessors[cmdDef.cmd] && document.getElementById(this.promptProcessors[cmdDef.cmd]));
+			
+			if(!presetVal && promptProcessor)
 			{
-				document.getElementById(this.promptProcessors[cmdDef.cmd]).prompt(function(val) {
+				promptProcessor.prompt(function(val) {
+					var actualCmd = cmdDef.fakeCmd || cmdDef.cmd;
+					
 					if(val)
 					{
 						//that.$.editor.focus();
 						that.selectionRestore();
-						document.execCommand(cmdDef.fakeCmd || cmdDef.cmd, false, val);
+						
+						if(actualCmd == 'insertHTML')   // this is specific since any and thus invalid html can be inserted
+							val = HTMLtoXML(val);
+						
+						document.execCommand(actualCmd, false, val);
 						that._updateValue();
 						that.selectionForget();
+						
+						console.log(val);
 					}
 				});
 				
@@ -361,10 +240,12 @@
 			sel.addRange(range);
 			this.selectionSave();
 		},
-		
+
 		_updateValue : function(e) {
 			this.selectionSave();
 			this.value = this.$.editor.innerHTML;
+			var h = getComputedStyle(this.$.editor).height;
+			this.$.editor.style.minHeight = this.offsetHeight;
 		},
 		
 		_focusedEditor : function() {
@@ -378,7 +259,7 @@
 		viewModeChanged : function(to, from)
 		{
 			if(from == 1 && to == 0)
-				this.$.editor.innerHTML = this.value;
+				this.cleanHTML();
 		},
 
 		getCaretCharacterOffset : function getCaretCharacterOffset() {
@@ -412,6 +293,10 @@
 			return caretOffset;
 		},
 
+		cleanHTML : function() {
+			this.set("value", this.$.editor.innerHTML = HTMLtoXML(this.value));
+		},
+		
 		properties : {
 			commands : {
 				type : String,
@@ -436,38 +321,15 @@
 		},
 
 		behaviors: [
-			ir.ReflectToNativeBehavior
+			ir.ReflectToNativeBehavior,
+			ir.SelectorBehavior
 		],
-		
-		/** select `el`'s ancestor corresponding to `selector`, but go no higher than `top` */
-		selectAncestor : function(el, selector, top) {
-			if(!top) top = document;
-			if(!el.parentNode || el == top) return null;
-			if(el.parentNode.matchesSelector(selector)) return el.parentNode
-			
-			return this.selectAncestor(el.parentNode, selector, top)
-		},
-		/** select `el`'s descendant corresponding to `selector` */
-		selectDescendant : function(el, selector, top) {
-			var children = el.childNodes, i, deeper;
-			
-			if(!children.length) 
-				return null;
 
-			for(i = 0; i < children.length; i++)
-				if(children[i].matchesSelector && children[i].matchesSelector(selector))
-					return children[i];
-
-			for(i = 0; i < children.length; i++)
-				deeper = this.selectDescendant(children[i]);
-				
-			return deeper;
-		},		
 		getInnerText : function(el)
 		{
 			return el.innerText;
 		},
-		
+
 		setInnerText : function(el, text)
 		{
 			el.innerText = text;
@@ -493,18 +355,3 @@
 		}
 	}
 })();
-
-this.Element && function(ElementPrototype) {
-	ElementPrototype.matchesSelector = ElementPrototype.matchesSelector || 
-	ElementPrototype.mozMatchesSelector ||
-	ElementPrototype.msMatchesSelector ||
-	ElementPrototype.oMatchesSelector ||
-	ElementPrototype.webkitMatchesSelector ||
-	function (selector) {
-		var node = this, nodes = (node.parentNode || node.document).querySelectorAll(selector), i = -1;
-
-		while (nodes[++i] && nodes[i] != node);
-
-		return !!nodes[i];
-	}
-}(Element.prototype);

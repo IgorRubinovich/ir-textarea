@@ -1,0 +1,48 @@
+<script>
+if(!window.ir) window.ir = {};
+
+ir.SelectorBehavior = {	
+		/** select `el`'s ancestor corresponding to `selector`, but go no higher than `top` */
+		selectAncestor : function(el, selector, top) {
+			if(!top) top = document;
+			if(!el.parentNode || el == top) return null;
+			if(el.parentNode.matchesSelector(selector)) return el.parentNode
+			
+			return this.selectAncestor(el.parentNode, selector, top)
+		},
+		
+		/** select `el`'s descendant corresponding to `selector` */
+		selectDescendant : function(el, selector, top) {
+			var children = el.childNodes, i, deeper;
+			
+			if(!children.length) 
+				return null;
+
+			for(i = 0; i < children.length; i++)
+				if(children[i].matchesSelector && children[i].matchesSelector(selector))
+					return children[i];
+
+			for(i = 0; i < children.length; i++)
+				deeper = this.selectDescendant(children[i]);
+				
+			return deeper;
+		}
+};
+
+
+this.Element && function(ElementPrototype) {
+	ElementPrototype.matchesSelector = ElementPrototype.matchesSelector || 
+	ElementPrototype.mozMatchesSelector ||
+	ElementPrototype.msMatchesSelector ||
+	ElementPrototype.oMatchesSelector ||
+	ElementPrototype.webkitMatchesSelector ||
+	function (selector) {
+		var node = this, nodes = (node.parentNode || node.document).querySelectorAll(selector), i = -1;
+
+		while (nodes[++i] && nodes[i] != node);
+
+		return !!nodes[i];
+	}
+}(Element.prototype);
+
+</script>

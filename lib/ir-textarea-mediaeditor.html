@@ -1,0 +1,213 @@
+<dom-module id="ir-textarea-mediaeditor">
+	<style>
+		#dialog {
+			transition : 0.3s;
+		}
+		
+		#mediaDimensions {
+			max-width : 50%;
+			margin-left: 20px;
+			padding : 10px;
+		}
+	</style>
+	<template>
+		<paper-dialog id="dialog" auto-fit-on-attach on-keydown="pressedEnterKey" on-mouseout="mouseOut" on-mouseover="mouseOver">
+			<h2>Media editor</h2>
+			<paper-dialog-scrollable>
+			<paper-input label="URL" value="{{ _mediaDialogState.data.src }}"></paper-input>
+			<div class="layout horizontal">
+					<iron-image sizing="contain" width="250" src="{{ _mediaDialogState.data.src }}"></iron-image>
+					<paper-material id="mediaDimensions">
+						<h3>Dimensions</h3>
+						<div class="layout horizontal center">
+							<div class="layout vertical">
+								<paper-input label="Width" on-keyup="dimensionsChanged" on-change="dimensionsChanged" dim="width" value="{{ _mediaDialogState.data.width }}"></paper-input>
+								<paper-input label="Height" on-keyup="dimensionsChanged" on-change="dimensionsChanged" dim="height" value="{{ _mediaDialogState.data.height }}"></paper-input>
+							</div>
+							<div>
+								<paper-checkbox dim="lockProportions" on-change="dimensionsChanged" checked="{{ _mediaDialogState.data.lockProportions }}"></paper-checkbox>
+								<span>Lock proportions</span>
+							</div>
+						</div>
+						<hr>
+						<h3>Float</h3>
+						<paper-radio-group selected="{{ _mediaDialogState.data.float }}" attr-for-selected="name">
+							<paper-radio-button name="left">Left</paper-radio-button>
+							<paper-radio-button name="">None</paper-radio-button>
+							<paper-radio-button name="right">Right</paper-radio-button>
+						</paper-radio-group>
+					</paper-material>
+			</div>
+			<div>
+				<paper-input label="Caption" id="mediaEditDialogCaption" value="{{ _mediaDialogState.data.caption }}"></paper-input>
+				<span>{{ currentTarget.tagName }}</span>
+				<paper-input label="Alt" value="{{ _mediaDialogState.data.alt }}"></paper-input>
+			</div>
+			</paper-dialog-scrollable>
+			<div class="buttons">
+			<paper-button dialog-dismiss>Cancel</paper-button>
+			<paper-button on-tap="apply">Apply</paper-button>
+			<paper-button dialog-confirm on-tap="apply">OK</paper-button>
+			</div>
+		</paper-dialog>
+	</template>
+</dom-module>
+<script>
+(function () {
+	Polymer({
+		is : 'ir-textarea-mediaeditor',
+		
+		properties : {
+			editor : { type : Object }
+		},
+		
+		open : function(target) {			
+			var d = {}, cw;
+			
+			"src,alt".split(",").forEach(function(f) { d[f] = target[f] });
+
+			var cs = getComputedStyle(target);
+
+			d.width = String((target.style.width || cs.width)).replace(/[^\.\d]+/g, "");
+			d.height = String(target.style.height || cs.height).replace(/[^\.\d]+/g, "");
+			
+			cw = this.captionWrapperGet(target);
+			d.float = (cw || target).style.float;
+			
+			if(d.captionEl = this.captionGet(target))
+				d.caption = d.captionEl.textContent;
+			else
+				d.caption = "";
+			
+			d.lockProportions = true;
+			d.ratio = d.width.replace(/[^\.\d]+/g, '') / d.height.replace(/[^\.\d]+/g, '');
+						
+			this.set("_mediaDialogState", {});
+			this.set("_mediaDialogState.target", target);
+			this.set("_mediaDialogState.data", d );
+
+			this.$.dialog.open();
+		},
+		
+		dimensionsChanged : function (ev) {
+			var dim = ev.currentTarget.getAttribute('dim');
+			d = this._mediaDialogState.data;
+			
+			d.width = String(d.width).replace(/[^\.\d]+/g, '');
+			d.height = String(d.height).replace(/[^\.\d]+/g, '');
+			
+			if(dim == "lockProportions" && d.lockProportions)
+			{
+				d.ratio = d.width / d.height;
+				return
+			}
+			
+			if(d.lockProportions)
+			{
+				if(dim == "width")
+					this.set("_mediaDialogState.data.height", Math.floor(100 * d.width / d.ratio) / 100);
+				else if(dim == "height")
+					this.set("_mediaDialogState.data.width", Math.floor(100 * d.ratio * d.height) / 100);
+				
+			}
+		},
+				
+		apply : function() {
+			var d = this._mediaDialogState.data,
+				target = this._mediaDialogState.target, c;
+			
+			"src,alt".split(",").forEach(function(f) { target[f] = d[f] });
+			
+			target.style.width = d.width + "px";
+			target.style.height = d.height + "px";
+			
+			target.style.float = d.float;
+			
+			if(d.caption)
+				this.captionSet(target, d.caption);
+			else
+				this.captionRemove(target);
+			
+			this.setFloat({ target : target, value : d.float });
+			
+			this.fire("accepted");
+		},
+		
+		pressedEnterKey : function(ev) {
+			if((ev.which || ev.keyCode) == 13)
+				this.apply();
+		},		
+		
+		captionSet : function(el, text) {
+			var caption, p;
+			
+			if(!text) 
+				text = "new caption";
+			
+			caption = this.captionGet(el);
+			
+			if(!caption) {
+				p = el.parentNode,
+					newEl = document.createElement('div');
+
+				p.insertBefore(newEl, el);
+				p.removeChild(el);
+				newEl.appendChild(el);
+
+				newEl.style.float = el.style.float;
+
+				newEl.classList.add('caption-wrapper');
+				newEl.innerHTML += "<p class='caption'>" + text + "</p>";
+				newEl.style.textAlign = "center";
+			}
+			else
+				caption.innerHTML = text;
+		},
+		
+		captionGet : function(el) {
+			var wrapper = this.captionWrapperGet(el);
+				
+			if(wrapper)
+				return this.selectDescendant(wrapper, ".caption");		
+		},
+		captionWrapperGet : function(el) {
+			return this.selectAncestor(el, ".caption-wrapper", this.editor);
+		},
+		
+		captionRemove : function(el) {
+			var c = this.captionWrapperGet(el)
+
+			if(!c)
+				return;
+			
+			el.style.float = c.style.float;
+			c.parentNode.insertBefore(el, c);
+			c.parentNode.removeChild(c);
+		},
+
+		setFloat : function(params) {
+			var target = params.target,
+				c = this.captionWrapperGet(target),
+				t = c || target;
+			
+			if(c)
+				target.style.float = "";
+			
+			t.style.float = params.value
+		},
+		
+		mouseOut : function() {
+			// this.$.dialog.style.opacity = 0.34;
+		},
+
+		mouseOver : function() {
+			// this.$.dialog.style.opacity = 1;
+		},
+
+		behaviors: [
+			ir.SelectorBehavior
+		],
+
+	});
+})();
+</script>
