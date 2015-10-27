@@ -6,10 +6,27 @@ ir.SelectorBehavior = {
 		selectAncestor : function(el, selector, top) {
 			if(!top) top = document;
 			if(!el.parentNode || el == top) return null;
-			if(el.parentNode.matchesSelector(selector)) return el.parentNode
+			if(el.parentNode.matchesSelector(selector)) {
+				return el.parentNode
+			}
+			else{
+				return null;
+			}
 			
 			return this.selectAncestor(el.parentNode, selector, top)
 		},
+
+	isItWhatIWant: function(el, selector, top){
+
+		if(!top) top = document;
+		if(!el.parentNode || el == top) return null;
+		if(el.matchesSelector(selector)) {
+			return el
+		}
+		else{
+			return null;
+		}
+	},
 		
 		/** select `el`'s descendant corresponding to `selector` */
 		selectDescendant : function(el, selector, top) {
@@ -38,7 +55,7 @@ ir.SelectorBehavior = {
 			}
 		  }
 		  return false;
-		}		
+		}
 };
 
 

@@ -1,10 +1,189 @@
-<!DOCTYPE html>
-<html>
-<head lang="en">
-    <meta charset="UTF-8">
-    <title></title>
-</head>
-<body>
+<!--
+@license
+Copyright (c) 2015 Igor Rubinovich. All rights reserved.
+This code may only be used under the MIT license found at http://opensource.org/licenses/MIT
+File browser and uploader.
+Works with arrays of (node fs.Stats)[https://nodejs.org/api/fs.html#fs_class_fs_stats] objects.
+Example:
+<ir-file-browser>DEMO HERE</ir-file-browser>
+@demo
+-->
 
-</body>
-</html>
+
+<!-- link rel="import" href="../fu-area/fu-area.html" -->
+<!-- link rel="import" href="./iron-select-item.html" -->
+
+<dom-module id="ir-textarea-linkeditor">
+    <style>
+        paper-toggle-button{
+            display: block;
+            margin: 10px 0;
+        }
+        input{
+            display: block;
+            margin: 10px 0;
+        }
+    </style>
+    <template>
+        <paper-dialog on-dom-changed="refitDialog" id="dialog"> <!--  on-iron-overlay-closed="closed" -->
+
+            <paper-dialog-scrollable id="scrollableDialog">
+                <div id="linkData">
+                    <paper-dropdown-menu id="target1" selected="_self"  label="Target" raised>
+                        <paper-menu on-iron-select="clickedPresetCommand" class="dropdown-content" selected="_blank" attr-for-selected="value">
+                            <paper-item  value="_blank">_blank</paper-item>
+                            <paper-item value="_parent">_parent</paper-item>
+                            <paper-item value="_self">_self</paper-item>
+                            <paper-item value="_top">_top</paper-item>
+                        </paper-menu>
+                    </paper-dropdown-menu>
+                    <paper-toggle-button id="follow" on-change="createLink">Nofollow</paper-toggle-button>
+                    Link: <input is="iron-input" on-change="createLink" id="Href" value={{_linkState.url}} >
+                    <div hidden$="{{_linkState.img}}">
+                        Text: <input is="iron-input" on-change="createLink" id="TextValue" value={{_linkState.text}} >
+                    </div>
+                    <div hidden$="{{!_linkState.img}}">
+                    Imgage: <input is="iron-input"  id="ifImage" value={{_linkState.img}} >
+                </div>
+                    <div hidden$="{{!_linkState.caption}}">
+                        Caption: <input is="iron-input" on-change="createLink"  id="ifCaption" value={{_linkState.caption}} >
+                    </div>
+                </div>
+            </paper-dialog-scrollable>
+            <div class="buttons">
+                <paper-button raised on-click="promptSelect" id disabled={{_linkState.disable}} >Ok</paper-button>
+                <paper-button raised on-click="hideDialog">Cancel</paper-button>
+            </div>
+        </paper-dialog>
+
+    </template>
+
+    <script>
+        (function() {
+            Polymer({
+                is: 'ir-textarea-linkeditor',
+
+                properties: {
+                    editor : { type : Object }
+                },
+
+
+                doLink : function (target, follow, href, text, img, imgCaption) {
+
+                    if (!linknode) var linknode = document.createElement('a');
+                    linknode.setAttribute("href", href);
+                    if(follow) linknode.setAttribute("rel", "nofollow");
+                    linknode.setAttribute("target", target);
+                    if(img){
+                        if(imgCaption){
+                            linknode.innerHTML = "<div class='caption-wrapper'>" + img + "<p class='caption'>" + imgCaption + "</p></div>";
+                        }
+                        else{
+                            linknode.innerHTML = img;
+                        }
+
+                    }
+                    else{linknode.appendChild(document.createTextNode(text));}
+
+                    return linknode;
+                },
+
+                createLink: function(e){
+                    var target = this.$.target1.value;
+                    var follow = this.$.follow.checked;
+                    var href = this.$.Href.value;
+                    var text = this.$.TextValue.value;
+                    var img1 = this.$.ifImage.value;
+                    var imgCaption = this.$.ifCaption.value;
+                    var link = this.doLink(target,follow, href, text, img1, imgCaption);
+                    this.set("_linkState.disable", false);
+                    link = link.outerHTML;
+
+                    console.log('link created');
+                    this._updateValue(link);
+                },
+
+                _updateValue : function(x) {
+                    var that = this;
+                    that.value = x;
+
+                },
+
+                hideDialog : function (e) {
+                    this.$.dialog.close();
+                },
+
+                open : function(ev) {
+                    var range = window.getSelection().getRangeAt(0);
+
+                    var current = range.startContainer;
+
+                    var pic = this.selectDescendant(current, "img");
+
+                    if(pic){
+                        var innerImage = pic.outerHTML;
+
+                        var isItCaption = this.isItWhatIWant(current,".caption-wrapper")
+                        if(isItCaption != null){
+                            var imgCaption = isItCaption.innerText;
+                        }
+                    }
+                    var parent = range.startContainer.parentNode;
+
+                    var href = current.href || parent.href || 'http://example.com';
+                    var selectedText = range.toString() || 'Change me';
+                    this.set("_linkState", {});
+                    this.set("_linkState.text", selectedText);
+                    this.set("_linkState.url", href);
+                    this.set("_linkState.img", innerImage);
+                    this.set("_linkState.caption", imgCaption);
+                    this.set("_linkState.disable", true);
+
+                    this.$.dialog.open();
+
+                    this.range = range;
+                    this.current1 = current;
+                    this.parent1 = parent;
+                    this.pic1 = pic;
+                    this.isItCaption = isItCaption;
+
+                },
+
+                prompt : function(callback) {
+                    this.promptCallback = callback;
+                    this.open();
+                },
+
+                removeAll: function(){
+                    if(this.pic1 && this.pic1 != this.current1) this.current1.removeChild(this.pic1);
+                    if(this.current1.href) this.current1.parentNode.removeChild(this.current1);
+                    if(this.parent1.href) this.parent1.parentNode.removeChild(this.parent1);
+                    if(this.isItCaption) this.isItCaption.parentNode.removeChild(this.isItCaption);
+                    this.range.deleteContents();
+                },
+
+
+                promptSelect : function() {
+                    console.log('prompt selected!')
+                    this.hideDialog();
+
+                    this.removeAll();
+
+                    this.promptCallback(this.value);
+                },
+
+                behaviors: [
+                    ir.SelectorBehavior
+                ]
+
+            });
+
+
+        })();
+
+    </script>
+</dom-module>
+
+
+
+

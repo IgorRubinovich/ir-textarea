@@ -17,7 +17,7 @@
 				});
 
 			var defs = {};
-				window.ir.textarea.commands
+			window.ir.textarea.commands
 				.forEach(function(cmdDef) {
 					if(commands.indexOf(cmdDef.cmd) > -1)
 						defs[cmdDef.cmd] = cmdDef;
@@ -27,7 +27,7 @@
 			this.toolbarButtons = commands.map(function(c) { return c ? defs[c] : ""; });
 
 			this.$.htmlTextArea.addEventListener("change", function () { that.$.editor.innerHTML = that.value = that.$.htmlTextArea.value });
-			
+
 			this.$.mediaEditor.editor = this.$.editor;
 
 			this._updateValue();
@@ -43,7 +43,7 @@
 			ev.preventDefault();
 
 			cm.options = [];
-			
+
 			cm.options.push({label: 'Resize', icon: 'icons:size', info: '', value : ev.target, action : this.resizeTarget.bind(this)});
 
 			if(captionWrapper = mediaEditor.captionWrapperGet(target))
@@ -65,18 +65,18 @@
 
 			ev.screenX = ev.clientX = ev.detail.x
 			ev.screenY = ev.clientY = ev.detail.y
-			
-			
+
+
 			return;
 		},
-				
+
 		deleteTarget : function(target) {
 			this.selectionSelectElement(target);
 			this.async(function() {
 				this.execCommand('delete');
 			});
 		},
-		
+
 		resizeTarget : function(target) {
 			target.style._border = target.style.border;
 			target.style.border = "3px dashed grey";
@@ -98,27 +98,27 @@
 				.on('resizemove', resizeHandler = function (event) {
 					var target = event.target,
 						computedStyle = getComputedStyle(target),
-						
+
 						x = (parseFloat(target.getAttribute('data-x')) || 0),
 						y = (parseFloat(target.getAttribute('data-y')) || 0),
-						
+
 						sw = Number((target.style.width || computedStyle.width).replace(/px/, '')),
 						sh = Number((target.style.height || computedStyle.height).replace(/px/, '')),
 						ratio, w, h;
 
-						
+
 					/*if(/(img|video|iframe)/i.test(target.tagName))
-					{*/
+					 {*/
 					ratio = sh/sw;
 					w = event.rect.width
 					h = ratio * w;
 					/*}
-					else
-					{
-						w = event.rect.width
-						h = event.rect.height
-					}*/
-					
+					 else
+					 {
+					 w = event.rect.width
+					 h = event.rect.height
+					 }*/
+
 					// update the element's style
 					target.style.width  = w + 'px';
 					target.style.height = h + 'px';
@@ -145,12 +145,16 @@
 		},
 
 		clickedCommand : function(e, presetval) {
-				cmdDef = e.currentTarget.cmdDef;
-				this.execCommand(cmdDef);
+			cmdDef = e.currentTarget.cmdDef;
+			this.execCommand(cmdDef);
 		},
-		
+
 		insertHtml : function(e) {
 			this.execCommand("insertHTML", null, this.$.mediaEmbedder);
+		},
+		createLink : function(e) {
+			console.log('bum');
+			this.execCommand("createLink", null, this.$.linkEditor);
 		},
 
 		removeFormat : function(e) {
@@ -160,28 +164,28 @@
 			// - assign its innerText to its innerHTML
 			// - move the range past the newNode.parentNode and move every child of newNode there as text
 			// - delete newNode
-			
+
 			var text, container, newNode, range;
-			
+
 			this.selectionSave();
-			
+
 			range = this._selectionRange;
-			
-			newNode = document.createElement('div');			
-			newNode.appendChild(range.extractContents()); 
-			
+
+			newNode = document.createElement('div');
+			newNode.appendChild(range.extractContents());
+
 			newNode.innerHTML = newNode.innerText;
 
 			range.insertNode(newNode);
-			
+
 			range.setStartAfter(newNode.parentNode);
 			range.collapse(true);
-			
+
 			[].forEach.call(newNode.childNodes, function(n) {
 				newNode.removeChild(n);
 				range.insertNode(n);
 			});
-			
+
 			newNode.parentNode.removeChild(newNode);
 		},
 
@@ -192,7 +196,7 @@
 				range = sel.getRangeAt(0);
 				range.collapse(true);
 				var span = document.createElement("span");
-				
+
 				range.insertNode(span);
 				// Move the caret immediately after the inserted span
 				range.setStartAfter(span);
@@ -203,7 +207,7 @@
 				span.outerHTML = html;
 			}
 		},
-		
+
 
 		_execCommand : function(cmd, sdu, val) {
 			if(cmd == 'replaceHTML')
@@ -214,49 +218,49 @@
 			else
 				document.execCommand(cmd, sdu, val);
 		},
-		
-		execCommand : function(cmdDefOrName, presetVal, promptProcessor)	
+
+		execCommand : function(cmdDefOrName, presetVal, promptProcessor)
 		{
 			var that = this, cmdDef = cmdDefOrName, actualCmd;
-			
+
 			if(typeof cmdDef == 'string')
-				cmdDef = (window.ir.textarea.commands.filter(function(c) { return c.cmd == cmdDef }))[0] || { fakeCmd : cmdDef };	
+				cmdDef = (window.ir.textarea.commands.filter(function(c) { return c.cmd == cmdDef }))[0] || { fakeCmd : cmdDef };
 
 			var actualCmd = cmdDef.fakeCmd || cmdDef.cmd;
-			
+
 			promptProcessor = promptProcessor || (this.promptProcessors[actualCmd] && document.getElementById(this.promptProcessors[actualCmd]));
-			
+
 			if(!presetVal && promptProcessor)
 			{
 				promptProcessor.prompt(function(val) {
-					
+
 					if(val)
 					{
 						that.selectionRestore();
-						
+
 						that._execCommand(actualCmd, false, val);
-						
+
 						that._updateValue();
 						that.selectionForget();
-						
+
 						console.log(val);
 					}
 				});
-				
+
 				return;
 			}
-			
+
 			//this.$.editor.focus();
 			this.async(function() {
 				this.selectionRestore();
-				
+
 				if(!presetVal && cmdDef.val)
 					this._execCommand(actualCmd, false, prompt(cmdDef.val));
 				else
 					this._execCommand(actualCmd, false, presetVal);
 
 				this.selectionForget();
-				
+
 				this._updateValue();
 			});
 		},
@@ -271,7 +275,7 @@
 			} else if (document.selection && document.selection.createRange) {
 				range = document.selection.createRange();
 			}
-			
+
 			this._selectionRange = range;
 		},
 
@@ -287,7 +291,7 @@
 				}
 			}
 		},
-		
+
 		selectionForget : function() {
 			this._selectionRange = null;
 		},
@@ -307,11 +311,11 @@
 			var h = getComputedStyle(this.$.editor).height;
 			this.$.editor.style.minHeight = this.offsetHeight;
 		},
-		
+
 		_focusedEditor : function() {
 			//this.selectionRestore();
 		},
-		
+
 		_blurredEditor : function() {
 			this.selectionSave();
 		},
@@ -356,7 +360,7 @@
 		cleanHTML : function() {
 			this.set("value", this.$.editor.innerHTML = HTMLtoXML(this.value));
 		},
-		
+
 		properties : {
 			commands : {
 				type : String,
