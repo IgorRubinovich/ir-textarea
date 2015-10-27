@@ -153,6 +153,38 @@
 			this.execCommand("insertHTML", null, this.$.mediaEmbedder);
 		},
 
+		removeFormat : function(e) {
+			// here's how this works:
+			// - create a new node from selection via extractContents 
+			// - append the node where it was taken out
+			// - assign its innerText to its innerHTML
+			// - move the range past the newNode.parentNode and move every child of newNode there as text
+			// - delete newNode
+			
+			var text, container, newNode, range;
+			
+			this.selectionSave();
+			
+			range = this._selectionRange;
+			
+			newNode = document.createElement('div');			
+			newNode.appendChild(range.extractContents()); 
+			
+			newNode.innerHTML = newNode.innerText;
+
+			range.insertNode(newNode);
+			
+			range.setStartAfter(newNode.parentNode);
+			range.collapse(true);
+			
+			[].forEach.call(newNode.childNodes, function(n) {
+				newNode.removeChild(n);
+				range.insertNode(n);
+			});
+			
+			newNode.parentNode.removeChild(newNode);
+		},
+
 		// to use instead of execCommand('insertHTML') - modified from code by Tim Down
 		insertHTMLCmd : function (html) {
 			var sel, range;
@@ -160,6 +192,7 @@
 				range = sel.getRangeAt(0);
 				range.collapse(true);
 				var span = document.createElement("span");
+				
 				range.insertNode(span);
 				// Move the caret immediately after the inserted span
 				range.setStartAfter(span);
@@ -170,27 +203,32 @@
 				span.outerHTML = html;
 			}
 		},
+		
 
 		_execCommand : function(cmd, sdu, val) {
+			if(cmd == 'replaceHTML')
+				this.insertHTMLCmd(val, true);
+			else
 			if(cmd == 'insertHTML')
 				this.insertHTMLCmd(val);
 			else
-				document.execCommand(actualCmd, sdu, val);
+				document.execCommand(cmd, sdu, val);
 		},
 		
 		execCommand : function(cmdDefOrName, presetVal, promptProcessor)	
 		{
-			var that = this, cmdDef = cmdDefOrName;
+			var that = this, cmdDef = cmdDefOrName, actualCmd;
 			
 			if(typeof cmdDef == 'string')
-				cmdDef = (window.ir.textarea.commands.filter(function(c) { return c.cmd == cmdDef }))[0]			
+				cmdDef = (window.ir.textarea.commands.filter(function(c) { return c.cmd == cmdDef }))[0] || { fakeCmd : cmdDef };	
+
+			var actualCmd = cmdDef.fakeCmd || cmdDef.cmd;
 			
-			promptProcessor = promptProcessor || (this.promptProcessors[cmdDef.cmd] && document.getElementById(this.promptProcessors[cmdDef.cmd]));
+			promptProcessor = promptProcessor || (this.promptProcessors[actualCmd] && document.getElementById(this.promptProcessors[actualCmd]));
 			
 			if(!presetVal && promptProcessor)
 			{
 				promptProcessor.prompt(function(val) {
-					var actualCmd = cmdDef.fakeCmd || cmdDef.cmd;
 					
 					if(val)
 					{
@@ -213,9 +251,9 @@
 				this.selectionRestore();
 				
 				if(!presetVal && cmdDef.val)
-					this._execCommand(cmdDef.cmd, false, prompt(cmdDef.val));
+					this._execCommand(actualCmd, false, prompt(cmdDef.val));
 				else
-					this._execCommand(cmdDef.cmd, false, presetVal);
+					this._execCommand(actualCmd, false, presetVal);
 
 				this.selectionForget();
 				
@@ -322,7 +360,7 @@
 		properties : {
 			commands : {
 				type : String,
-				value : "removeFormat,bold,italic,underline,insertOrderedList,insertUnorderedList,align-left,justifyLeft,justifyCenter,justifyRight,createLink,unlink,insertImage,delete,redo,undo,foreColor,backColor,copy,cut,,fontName,fontSize,,indent,outdent,insertHorizontalRule,tableCreate"
+				value : "bold,italic,underline,insertOrderedList,insertUnorderedList,align-left,justifyLeft,justifyCenter,justifyRight,createLink,unlink,insertImage,delete,redo,undo,foreColor,backColor,copy,cut,,fontName,fontSize,,indent,outdent,insertHorizontalRule,tableCreate"
 			},
 
 			promptProcessors : {
