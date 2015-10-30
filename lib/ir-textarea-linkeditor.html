@@ -19,35 +19,48 @@ Example:
             display: block;
             margin: 10px 0;
         }
-        input{
+        textarea {
+            display: block;
+            margin: 10px 0;
+			height : 70px;
+			width : 300px;
+        }
+        input {
             display: block;
             margin: 10px 0;
         }
+		.innerImage {
+			width : 100px;
+			height : 100px;
+		}
     </style>
     <template>
         <paper-dialog on-dom-changed="refitDialog" id="dialog"> <!--  on-iron-overlay-closed="closed" -->
 
             <paper-dialog-scrollable id="scrollableDialog">
-                <div id="linkData">
-                    <paper-dropdown-menu id="target1" selected="_self"  label="Target" raised>
-                        <paper-menu class="dropdown-content" selected="_blank" attr-for-selected="value">
-                            <paper-item  value="_blank">_blank</paper-item>
-                            <paper-item value="_parent">_parent</paper-item>
-                            <paper-item value="_self">_self</paper-item>
-                            <paper-item value="_top">_top</paper-item>
-                        </paper-menu>
-                    </paper-dropdown-menu>
-                    <paper-toggle-button id="follow" on-change="createLink">Nofollow</paper-toggle-button>
+                <div id="linkData" class="layout vertical">
                     Link: <input is="iron-input" on-change="createLink" id="Href" value={{_linkState.url}} >
                     <div hidden$="{{_linkState.img}}">
-                        Text: <input is="iron-input" on-change="createLink" id="TextValue" value={{_linkState.text}} >
+                        Text: <textarea is="iron-input" on-change="createLink" id="TextValue">{{_linkState.text}}</textarea>
                     </div>
                     <div hidden$="{{!_linkState.img}}">
-                    Imgage: <input is="iron-input"  id="ifImage" value={{_linkState.img}} >
-                </div>
+						<iron-image class="innerImage" sizing="contain" id="ifImage" src={{_linkState.imgUrl}} ></iron-image>
+					</div>
                     <div hidden$="{{!_linkState.caption}}">
-                        Caption: <input is="iron-input" on-change="createLink"  id="ifCaption" value={{_linkState.caption}} >
+                        Caption: <input is="iron-input" placeholder="Change me" on-change="createLink"  id="ifCaption" value={{_linkState.caption}} >
                     </div>
+					<div class="layout horizontal">
+						<paper-dropdown-menu id="target1" selected="_self"  label="Target" raised>
+							<paper-menu class="dropdown-content" selected="_self" attr-for-selected="value">
+								<paper-item  value="_self"></paper-item>
+								<paper-item  value="_blank">_blank</paper-item>
+								<paper-item value="_self">_self</paper-item>
+								<paper-item value="_parent">_parent</paper-item>
+								<paper-item value="_top">_top</paper-item>
+							</paper-menu>
+						</paper-dropdown-menu>
+						<paper-toggle-button id="follow" on-change="createLink">Nofollow</paper-toggle-button>
+					</div>
                 </div>
             </paper-dialog-scrollable>
             <div class="buttons">
@@ -66,6 +79,10 @@ Example:
                 properties: {
                     editor : { type : Object }
                 },
+				
+				observers : [
+					'createLink(_linkState.*)'
+				],
 
 
                 doLink : function (target, follow, href, text, img, imgCaption) {
@@ -93,7 +110,7 @@ Example:
                     var follow = this.$.follow.checked;
                     var href = this.$.Href.value;
                     var text = this.$.TextValue.value;
-                    var img1 = this.$.ifImage.value;
+                    var img1 = this._linkState.img;
                     var imgCaption = this.$.ifCaption.value;
                     var link = this.doLink(target,follow, href, text, img1, imgCaption);
                     this.set("_linkState.disable", false);
@@ -131,11 +148,12 @@ Example:
                     var parent = range.startContainer.parentNode;
 
                     var href = current.href || parent.href || 'http://example.com';
-                    var selectedText = range.toString() || 'Change me';
+                    var selectedText = range.startContainer.textContent.trim();
                     this.set("_linkState", {});
                     this.set("_linkState.text", selectedText);
                     this.set("_linkState.url", href);
                     this.set("_linkState.img", innerImage);
+                    this.set("_linkState.imgUrl", pic ? pic.src : '');
                     this.set("_linkState.caption", imgCaption);
                     this.set("_linkState.disable", true);
 
