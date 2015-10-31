@@ -78,7 +78,7 @@
 		},
 
 		resizeTarget : function(target) {
-			target.style._border = target.style.border;
+			target._border = target.style.border;
 			target.style.border = "3px dashed grey";
 			that = this;
 
@@ -141,7 +141,10 @@
 				var stopResize = function() {
 					interactable.unset();
 					document.removeEventListener('click', stopResize);
-					target.style.border = target.style._border || "none";
+					target.style.border = target._border || "none";
+					
+					target._border = null;
+					that._updateValue();
 				};
 				
 				document.addEventListener('click', stopResize);
@@ -371,7 +374,7 @@
 		properties : {
 			commands : {
 				type : String,
-				value : "bold,italic,underline,insertOrderedList,insertUnorderedList,align-left,justifyLeft,justifyCenter,justifyRight,insertImage,delete,redo,undo,foreColor,backColor,copy,cut,,fontName,fontSize,,indent,outdent,insertHorizontalRule,tableCreate"
+				value : "bold,italic,underline,insertOrderedList,insertUnorderedList,align-left,justifyLeft,justifyCenter,justifyRight,insertImage,delete,redo,undo,foreColor,backColor,copy,cut,,indent,outdent,insertHorizontalRule,tableCreate"
 			},
 
 			promptProcessors : {
