@@ -78,9 +78,8 @@
 		},
 
 		resizeTarget : function(target) {
-			target._border = target.style.border;
+			target.style._border = target.style.border;
 			target.style.border = "3px dashed grey";
-			that = this;
 
 			var interactable = interact(target)
 				.resizable({
@@ -136,18 +135,9 @@
 					//target.textContent = event.rect.width + '×' + event.rect.height;
 				})
 				.on('resizeend', function(event) {
-				});
-				
-				var stopResize = function() {
 					interactable.unset();
-					document.removeEventListener('click', stopResize);
-					target.style.border = target._border || "none";
-					
-					target._border = null;
-					that._updateValue();
-				};
-				
-				document.addEventListener('click', stopResize);
+					target.style.border = target.style._border || "none";
+				});
 		},
 
 		clickedPresetCommand : function(ev) {
@@ -163,8 +153,11 @@
 			this.execCommand("insertHTML", null, this.$.mediaEmbedder);
 		},
 		createLink : function(e) {
-			console.log('bum');
+
 			this.execCommand("createLink", null, this.$.linkEditor);
+		},
+		createTable : function(e) {
+			this.execCommand("insertHTML", null, this.$.tableCreator);
 		},
 
 		removeFormat : function(e) {
@@ -281,9 +274,11 @@
 				sel = window.getSelection();
 				if (sel.getRangeAt && sel.rangeCount) {
 					range = sel.getRangeAt(0);
+					console.log(range);
 				}
 			} else if (document.selection && document.selection.createRange) {
 				range = document.selection.createRange();
+				console.log(range);
 			}
 
 			this._selectionRange = range;
@@ -317,7 +312,7 @@
 
 		_updateValue : function(e) {
 			this.selectionSave();
-			this.value = this.$.editor.innerHTML.trim();
+			this.value = this.$.editor.innerHTML;
 			var h = getComputedStyle(this.$.editor).height;
 			this.$.editor.style.minHeight = this.offsetHeight;
 		},
@@ -374,7 +369,7 @@
 		properties : {
 			commands : {
 				type : String,
-				value : "bold,italic,underline,insertOrderedList,insertUnorderedList,align-left,justifyLeft,justifyCenter,justifyRight,insertImage,delete,redo,undo,foreColor,backColor,copy,cut,,indent,outdent,insertHorizontalRule,tableCreate"
+				value : "bold,italic,underline,insertOrderedList,insertUnorderedList,align-left,justifyLeft,justifyCenter,justifyRight,createLink,unlink,insertImage,delete,redo,undo,foreColor,backColor,copy,cut,,fontName,fontSize,,indent,outdent,insertHorizontalRule,insertTable"
 			},
 
 			promptProcessors : {

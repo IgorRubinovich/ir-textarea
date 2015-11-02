@@ -41,7 +41,7 @@ Example:
                 <div id="linkData" class="layout vertical">
                     Link: <input is="iron-input" on-change="createLink" id="Href" value={{_linkState.url}} >
                     <div hidden$="{{_linkState.img}}">
-                        Text: <textarea is="iron-input" on-change="createLink" id="TextValue">{{_linkState.text}}</textarea>
+                        Text: <textarea is="iron-input" on-change="createLink" value={{_linkState.text}} id="TextValue"></textarea>
                     </div>
                     <div hidden$="{{!_linkState.img}}">
 						<iron-image class="innerImage" sizing="contain" id="ifImage" src={{_linkState.imgUrl}} ></iron-image>
@@ -148,7 +148,15 @@ Example:
                     var parent = range.startContainer.parentNode;
 
                     var href = current.href || parent.href || 'http://example.com';
-                    var selectedText = range.startContainer.textContent.trim();
+                    var selectedText;
+                    if (current.href || parent.href){
+                        selectedText = range.startContainer.textContent.trim();
+                    }
+                    else{
+                        selectedText = range.toString() || 'Change me';
+                    }
+                    console.log(selectedText);
+
                     this.set("_linkState", {});
                     this.set("_linkState.text", selectedText);
                     this.set("_linkState.url", href);
