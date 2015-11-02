@@ -274,11 +274,9 @@
 				sel = window.getSelection();
 				if (sel.getRangeAt && sel.rangeCount) {
 					range = sel.getRangeAt(0);
-					console.log(range);
 				}
 			} else if (document.selection && document.selection.createRange) {
 				range = document.selection.createRange();
-				console.log(range);
 			}
 
 			this._selectionRange = range;
