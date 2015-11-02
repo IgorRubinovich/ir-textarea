@@ -236,6 +236,12 @@
 			if(!presetVal && promptProcessor)
 			{
 				promptProcessor.prompt(function(val) {
+					var ext = val.match("([^.]+)$")[1];
+
+					if(ext == 'mp4'){
+						val = "<video controls ><source src=" + val + " type='video/mp4'></video>"
+						document.execCommand("insertHTML", false, val);
+					} else{
 
 					if(val)
 					{
@@ -247,6 +253,7 @@
 						that.selectionForget();
 
 						console.log(val);
+					}
 					}
 				});
 
