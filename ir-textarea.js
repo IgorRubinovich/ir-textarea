@@ -236,24 +236,25 @@
 			if(!presetVal && promptProcessor)
 			{
 				promptProcessor.prompt(function(val) {
-					var ext = val.match("([^.]+)$")[1];
 
-					if(ext == 'mp4'){
-						val = "<video controls ><source src=" + val + " type='video/mp4'></video>"
+					var video = val.match(/\.(mp4|ogg|webm|ogv)$/i);
+
+					if(actualCmd =='insertImage' && video != null){
+						val = "<video controls ><source src='" + val + "' type='video/" + video[1] + "'></video>"
 						document.execCommand("insertHTML", false, val);
 					} else{
 
-					if(val)
-					{
-						that.selectionRestore();
+						if(val)
+						{
+							that.selectionRestore();
 
-						that._execCommand(actualCmd, false, val);
+							that._execCommand(actualCmd, false, val);
 
-						that._updateValue();
-						that.selectionForget();
+							that._updateValue();
+							that.selectionForget();
 
-						console.log(val);
-					}
+							console.log(val);
+						}
 					}
 				});
 
