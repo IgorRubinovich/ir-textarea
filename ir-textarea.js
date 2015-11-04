@@ -317,7 +317,6 @@
 		},
 
 		_updateValue : function(e) {
-			this.selectionSave();
 			this.value = this.$.editor.innerHTML;
 			var h = getComputedStyle(this.$.editor).height;
 			this.$.editor.style.minHeight = this.offsetHeight;
