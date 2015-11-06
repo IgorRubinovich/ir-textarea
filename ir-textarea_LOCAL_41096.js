@@ -35,91 +35,65 @@
 
 		contextMenuShow : function(ev) {
 			var cm = this.$.contextMenu, target = ev.target, flowTarget = target, captionWrapper,
-				mediaEditor = this.$.mediaEditor, that = this;
+				mediaEditor = this.$.mediaEditor;
 
-			if(target.tagName == "A")
-				return ev.preventDefault();
+			if(!target.tagName.match("IMG|VIDEO")) // add more as implemented
+				return ev.stopPropagation();
 
-			if(!target.tagName.match("IMG|VIDEO") || this._resizeState) // add more as implemented
-				return ev.stopPropagation(), ev.stopImmediatePropagation();
-
-				
 			ev.preventDefault();
 
 			cm.options = [];
 
 			cm.options.push({label: 'Resize', icon: 'icons:size', info: '', value : ev.target, action : this.resizeTarget.bind(this)});
 
-			var imageAction = function(f) {
-				return function(param)
-				{
-					that.resizeTargetStop.call(that, true); // true means force stop dispite the event target being same as current resize target
-					f.call(that, param);
-				}
-			};
-			
 			if(captionWrapper = mediaEditor.captionWrapperGet(target))
 				flowTarget = captionWrapper;
 
 			floatOptions = [
-				{ label: 'default', value : { target : flowTarget, value : "none" }, action : imageAction(mediaEditor.setFloat.bind(mediaEditor)) },
-				{ label: 'Left', value : { target : flowTarget, value : "left" }, action : imageAction(mediaEditor.setFloat.bind(mediaEditor)) },
-				{ label: 'Right', value : { target : flowTarget, value : "right" }, action : imageAction(mediaEditor.setFloat.bind(mediaEditor)) }
+				{ label: 'default', value : { target : flowTarget, value : "none" }, action : mediaEditor.setFloat.bind(mediaEditor) },
+				{ label: 'Left', value : { target : flowTarget, value : "left" }, action : mediaEditor.setFloat.bind(mediaEditor) },
+				{ label: 'Right', value : { target : flowTarget, value : "right" }, action : mediaEditor.setFloat.bind(mediaEditor) }
 			];
 
 			cm.options.push({label: 'Float', icon: 'icons:align', info: '', options: floatOptions});
 			if(captionWrapper)
-				cm.options.push({label: 'Remove caption', icon: 'icons:align', value : ev.target, action : imageAction(mediaEditor.captionRemove.bind(mediaEditor))});
+				cm.options.push({label: 'Remove caption', icon: 'icons:align', value : ev.target, action : mediaEditor.captionRemove.bind(mediaEditor)});
 			else
-				cm.options.push({label: 'Add caption', icon: 'icons:align', info: '', value : ev.target, action : imageAction(mediaEditor.captionSet.bind(mediaEditor))});
-			cm.options.push({label: 'Remove media',  icon: 'icons:align', info: '', value : ev.target, action : imageAction(this.deleteTarget.bind(this))});
-			cm.options.push({label: 'More...',  icon: 'icons:align', info: '', value : ev.target, action : imageAction(mediaEditor.open.bind(mediaEditor))});
+				cm.options.push({label: 'Add caption', icon: 'icons:align', info: '', value : ev.target, action : mediaEditor.captionSet.bind(mediaEditor)});
+			cm.options.push({label: 'Remove media',  icon: 'icons:align', info: '', value : ev.target, action : this.deleteTarget.bind(this)});
+			cm.options.push({label: 'More...',  icon: 'icons:align', info: '', value : ev.target, action : mediaEditor.open.bind(mediaEditor)});
 
 			ev.screenX = ev.clientX = ev.detail.x
 			ev.screenY = ev.clientY = ev.detail.y
 
-			this.resizeTarget(ev.target);
+
+			return;
 		},
-		
+
 		deleteTarget : function(target) {
-			var caption = this.$.mediaEditor.captionWrapperGet(target);
-
-			if(caption)
-				this.$.mediaEditor.captionRemove(target);
-
 			this.selectionSelectElement(target);
 			this.async(function() {
 				this.execCommand('delete');
 			});
 		},
 
-		resizeTargetStop : function(ev) {
-			if(!(this.__resizeState && (ev === true || ev.target != this.__resizeState.target)))
-				return;
-			
-			var interactable = this.__resizeState.interactable,
-				target = this.__resizeState.target;
-			
-			interactable.unset();
-			target.style.border = target.style._border || "none";
-			document.removeEventListener('click', this.resizeTargetStop);
-			this.__resizeState = null;
-		},
-		
 		resizeTarget : function(target) {
-			var that = this, resizeHandler;
-			
-			if(this.__resizeState)
-				return;
-			
 			target.style._border = target.style.border;
 			target.style.border = "3px dashed grey";
-			
-			document.addEventListener('mouseup', this.resizeTargetStop.bind(this));
 
 			var interactable = interact(target)
 				.resizable({
 					edges: { left: true, right: true, bottom: true, top: true }
+					/*max          : Number,
+					 maxPerElement: Number,
+					 manualStart  : Boolean,*/
+					//snap         : {/* ... */},
+					//restrict     : {/* ... */},
+					//inertia      : {/* ... */},
+					//autoScroll   : {/* ... */},
+					/*
+					 square       : true || false,
+					 axis         : 'x' || 'y'*/
 				})
 				.on('resizemove', resizeHandler = function (event) {
 					var target = event.target,
@@ -132,24 +106,38 @@
 						sh = Number((target.style.height || computedStyle.height).replace(/px/, '')),
 						ratio, w, h;
 
+
+					/*if(/(img|video|iframe)/i.test(target.tagName))
+					 {*/
 					ratio = sh/sw;
-					w = event.rect.width;
+					w = event.rect.width
 					h = ratio * w;
+					/*}
+					 else
+					 {
+					 w = event.rect.width
+					 h = event.rect.height
+					 }*/
 
 					// update the element's style
 					target.style.width  = w + 'px';
 					target.style.height = h + 'px';
 
 					// translate when resizing from top or left edges
-					//x += event.deltaRect.left; //y += event.deltaRect.top;
+					//x += event.deltaRect.left;
+					//y += event.deltaRect.top;
 
-					target.style.webkitTransform = target.style.transform = 'translate(' + x + 'px,' + y + 'px)';
+					target.style.webkitTransform = target.style.transform =
+						'translate(' + x + 'px,' + y + 'px)';
+
+					//target.setAttribute('data-x', x);
+					//target.setAttribute('data-y', y);
+					//target.textContent = event.rect.width + '×' + event.rect.height;
 				})
-				.on('resizeend', function() {
-					that.__resizeState.justResized = true;
+				.on('resizeend', function(event) {
+					interactable.unset();
+					target.style.border = target.style._border || "none";
 				});
-				
-			this.__resizeState = { target : target, interactable : interactable };
 		},
 
 		clickedPresetCommand : function(ev) {
@@ -248,10 +236,8 @@
 			if(!presetVal && promptProcessor)
 			{
 				promptProcessor.prompt(function(val) {
-					var ext = val.match("([^.]+)$")[1];
 
 					var video = val.match(/\.(mp4|ogg|webm|ogv)$/i);
-						val = "<video controls ><source src='" + val + "' type='video/mp4'></video>"
 
 					if(actualCmd =='insertImage' && video != null){
 						val = "<video controls ><source src='" + val + "' type='video/" + video[1] + "'></video>"
@@ -320,15 +306,14 @@
 		selectionForget : function() {
 			this._selectionRange = null;
 		},
-		
+
 		selectionSelectElement : function(el) {
 			var range = document.createRange();
 			range.selectNode(el);
 			var sel = window.getSelection();
 			sel.removeAllRanges();
 			sel.addRange(range);
-			
-			return range;
+			this.selectionSave();
 		},
 
 		_updateValue : function(e) {
@@ -389,17 +374,12 @@
 		properties : {
 			commands : {
 				type : String,
-				value : "bold,italic,underline,insertOrderedList,insertUnorderedList,align-left,justifyLeft,justifyCenter,justifyRight,insertImage,delete,redo,undo,foreColor,backColor,copy,cut,,fontName,fontSize,,indent,outdent,insertHorizontalRule,insertTable"
+				value : "bold,italic,underline,insertOrderedList,insertUnorderedList,align-left,justifyLeft,justifyCenter,justifyRight,createLink,unlink,insertImage,delete,redo,undo,foreColor,backColor,copy,cut,,fontName,fontSize,,indent,outdent,insertHorizontalRule,insertTable"
 			},
 
 			promptProcessors : {
 				type : Object,
 				value  : {}
-			},
-
-			undoState : {
-				type : Array,
-				value  : []
 			},
 
 			viewMode : {
