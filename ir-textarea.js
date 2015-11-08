@@ -81,7 +81,7 @@
 			this.resizeTarget(ev.target);
 		},
 		
-		deleteTarget : function(target) {
+		deleteTarget : function(target) {			
 			var caption = this.$.mediaEditor.captionWrapperGet(target);
 
 			if(caption)
@@ -213,6 +213,7 @@
 				var span = document.createElement("span");
 
 				range.insertNode(span);
+				
 				// Move the caret immediately after the inserted span
 				range.setStartAfter(span);
 				range.collapse(true);
@@ -236,7 +237,7 @@
 
 		execCommand : function(cmdDefOrName, presetVal, promptProcessor)
 		{
-			var that = this, cmdDef = cmdDefOrName, actualCmd;
+			var that = this, cmdDef = cmdDefOrName, actualCmd, val, ext;
 
 			if(typeof cmdDef == 'string')
 				cmdDef = (window.ir.textarea.commands.filter(function(c) { return c.cmd == cmdDef }))[0] || { fakeCmd : cmdDef };
@@ -248,13 +249,10 @@
 			if(!presetVal && promptProcessor)
 			{
 				promptProcessor.prompt(function(val) {
-					var ext = val.match("([^.]+)$")[1];
+					ext = val.match("([^\.]+)$")[1];
 
-					var video = val.match(/\.(mp4|ogg|webm|ogv)$/i);
-						val = "<video controls ><source src='" + val + "' type='video/mp4'></video>"
-
-					if(actualCmd =='insertImage' && video != null){
-						val = "<video controls ><source src='" + val + "' type='video/" + video[1] + "'></video>"
+					if(actualCmd =='insertImage' && ext.match(/\.(mp4|ogg|webm|ogv)$/i)){
+						val = "<video controls ><source src='" + val + "' type='video/" + ext + "'></video>"
 						document.execCommand("insertHTML", false, val);
 					} else{
 
@@ -278,6 +276,21 @@
 			//this.$.editor.focus();
 			this.async(function() {
 				this.selectionRestore();
+				
+				var val, ext;
+
+				if(presetVal)
+					val = presetVal;
+				else
+				if(cmdDef.val)
+					val = prompt(cmdDef.val);
+
+				if(actualCmd =='insertImage' && (ext = val.match(/\.(mp4|ogg|webm|ogv)$/i))){
+					ext = val.match("([^\.]+)$")[1];
+				
+					val = "<video controls><source src='" + val + "' type='video/" + ext + "'></video>"
+					document.execCommand("insertHTML", false, val);
+				}
 
 				if(!presetVal && cmdDef.val)
 					this._execCommand(actualCmd, false, prompt(cmdDef.val));
