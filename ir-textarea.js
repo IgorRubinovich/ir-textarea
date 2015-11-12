@@ -43,7 +43,7 @@
 			if(!target.tagName.match("IMG|VIDEO") || this._resizeState) // add more as implemented
 				return ev.stopPropagation(), ev.stopImmediatePropagation();
 
-				
+
 			ev.preventDefault();
 
 			cm.options = [];
@@ -57,7 +57,7 @@
 					f.call(that, param);
 				}
 			};
-			
+
 			if(captionWrapper = mediaEditor.captionWrapperGet(target))
 				flowTarget = captionWrapper;
 
@@ -80,8 +80,8 @@
 
 			this.resizeTarget(ev.target);
 		},
-		
-		deleteTarget : function(target) {			
+
+		deleteTarget : function(target) {
 			var caption = this.$.mediaEditor.captionWrapperGet(target);
 
 			if(caption)
@@ -96,25 +96,25 @@
 		resizeTargetStop : function(ev) {
 			if(!(this.__resizeState && (ev === true || ev.target != this.__resizeState.target)))
 				return;
-			
+
 			var interactable = this.__resizeState.interactable,
 				target = this.__resizeState.target;
-			
+
 			interactable.unset();
 			target.style.border = target.style._border || "none";
 			document.removeEventListener('click', this.resizeTargetStop);
 			this.__resizeState = null;
 		},
-		
+
 		resizeTarget : function(target) {
 			var that = this, resizeHandler;
-			
+
 			if(this.__resizeState)
 				return;
-			
+
 			target.style._border = target.style.border;
 			target.style.border = "3px dashed grey";
-			
+
 			document.addEventListener('mouseup', this.resizeTargetStop.bind(this));
 
 			var interactable = interact(target)
@@ -148,7 +148,7 @@
 				.on('resizeend', function() {
 					that.__resizeState.justResized = true;
 				});
-				
+
 			this.__resizeState = { target : target, interactable : interactable };
 		},
 
@@ -173,35 +173,88 @@
 		},
 
 		removeFormat : function(e) {
-			// here's how this works:
-			// - create a new node from selection via extractContents 
-			// - append the node where it was taken out
-			// - assign its innerText to its innerHTML
-			// - move the range past the newNode.parentNode and move every child of newNode there as text
-			// - delete newNode
 
-			var text, container, newNode, range;
+			function nextNode(node) {
+				if (node.hasChildNodes()) {
+					return node.firstChild;
+				} else {
+					while (node && !node.nextSibling) {
+						node = node.parentNode;
+					}
+					if (!node) {
+						return null;
+					}
+					return node.nextSibling;
+				}
+			}
 
-			this.selectionSave();
+			function getRangeSelectedNodes(range, includePartiallySelectedContainers) {
+				var node = range.startContainer;
+				var endNode = range.endContainer;
+				var rangeNodes = [];
 
-			range = this._selectionRange;
+				// Special case for a range that is contained within a single node
+				if (node == endNode) {
+					rangeNodes = [node];
+				} else {
+					// Iterate nodes until we hit the end container
+					while (node && node != endNode) {
+						rangeNodes.push( node = nextNode(node) );
+					}
 
-			newNode = document.createElement('div');
-			newNode.appendChild(range.extractContents());
+					// Add partially selected nodes at the start of the range
+					node = range.startContainer;
+					while (node && node != range.commonAncestorContainer) {
+						rangeNodes.unshift(node);
+						node = node.parentNode;
+					}
+				}
 
-			newNode.innerHTML = newNode.innerText;
+				// Add ancestors of the range container, if required
+				//if (includePartiallySelectedContainers) {
+				//  node = range.commonAncestorContainer;
+				//  while (node) {
+				//    rangeNodes.push(node);
+				//    node = node.parentNode;
+				//  }
+				//}
 
-			range.insertNode(newNode);
+				return rangeNodes;
+			}
 
-			range.setStartAfter(newNode.parentNode);
-			range.collapse(true);
+			function getSelectedNodes() {
+				var nodes = [];
+				if (window.getSelection) {
+					var sel = window.getSelection();
+					var range = window.getSelection().getRangeAt(0);
+					for (var i = 0, len = sel.rangeCount; i < len; ++i) {
+						nodes.push.apply(nodes, getRangeSelectedNodes(sel.getRangeAt(i), true));
+					}
+				}
+				return nodes;
+			}
 
-			[].forEach.call(newNode.childNodes, function(n) {
-				newNode.removeChild(n);
-				range.insertNode(n);
-			});
+			function replaceWithOwnChildren(el) {
+				var parent = el.parentNode;
+				while (el.hasChildNodes()) {
+					parent.insertBefore(el.firstChild, el);
+				}
+				parent.removeChild(el);
+			}
 
-			newNode.parentNode.removeChild(newNode);
+			function removeSelectedElements(tagNames) {
+				var tagNamesArray = tagNames.toLowerCase().split(",");
+				getSelectedNodes().forEach(function(node) {
+					if (node.nodeType == 1 &&
+						tagNamesArray.indexOf(node.tagName.toLowerCase()) > -1) {
+						// Remove the node and replace it with its children
+						replaceWithOwnChildren(node);
+					}
+				});
+			}
+
+			removeSelectedElements("h1,h2,h3,h4,h5,h6,p,a,b,i,br,div,span");
+
 		},
 
 		// to use instead of execCommand('insertHTML') - modified from code by Tim Down
@@ -213,7 +266,7 @@
 				var span = document.createElement("span");
 
 				range.insertNode(span);
-				
+
 				// Move the caret immediately after the inserted span
 				range.setStartAfter(span);
 				range.collapse(true);
@@ -276,7 +329,7 @@
 			//this.$.editor.focus();
 			this.async(function() {
 				this.selectionRestore();
-				
+
 				var val, ext;
 
 				if(presetVal)
@@ -287,7 +340,7 @@
 
 				if(actualCmd =='insertImage' && (ext = val.match(/\.(mp4|ogg|webm|ogv)$/i))){
 					ext = val.match("([^\.]+)$")[1];
-				
+
 					val = "<video controls><source src='" + val + "' type='video/" + ext + "'></video>"
 					document.execCommand("insertHTML", false, val);
 				}
@@ -333,14 +386,14 @@
 		selectionForget : function() {
 			this._selectionRange = null;
 		},
-		
+
 		selectionSelectElement : function(el) {
 			var range = document.createRange();
 			range.selectNode(el);
 			var sel = window.getSelection();
 			sel.removeAllRanges();
 			sel.addRange(range);
-			
+
 			return range;
 		},
 
