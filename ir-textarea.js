@@ -290,7 +290,7 @@
 
 		execCommand : function(cmdDefOrName, presetVal, promptProcessor)
 		{
-			var that = this, cmdDef = cmdDefOrName, actualCmd, val, ext;
+			var that = this, cmdDef = cmdDefOrName, actualCmd, val, ext,test,result;
 
 			if(typeof cmdDef == 'string')
 				cmdDef = (window.ir.textarea.commands.filter(function(c) { return c.cmd == cmdDef }))[0] || { fakeCmd : cmdDef };
@@ -303,11 +303,18 @@
 			{
 				promptProcessor.prompt(function(val) {
 					ext = val.match("([^\.]+)$")[1];
+					test = new RegExp( "<", "g" );
+					result = test.test(val);
 
 					if(actualCmd =='insertImage' && ext.match(/\.(mp4|ogg|webm|ogv)$/i)){
 						val = "<video controls ><source src='" + val + "' type='video/" + ext + "'></video>"
 						document.execCommand("insertHTML", false, val);
-					} else{
+					}
+					else if(actualCmd =='insertImage' && result){
+						document.execCommand("insertHTML", false, val);
+					}
+
+					else{
 
 						if(val)
 						{
