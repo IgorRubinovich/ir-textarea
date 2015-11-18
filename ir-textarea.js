@@ -313,21 +313,18 @@
 					else if(actualCmd =='insertImage' && result){
 						document.execCommand("insertHTML", false, val);
 					}
-
 					else{
-
 						if(val)
 						{
 							that.selectionRestore();
 
 							that._execCommand(actualCmd, false, val);
 
-							that._updateValue();
 							that.selectionForget();
-
-							console.log(val);
 						}
 					}
+
+					that._updateValue();
 				});
 
 				return;
