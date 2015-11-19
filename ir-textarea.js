@@ -306,7 +306,8 @@
 
 		// to use instead of execCommand('insertHTML') - modified from code by Tim Down
 		insertHTMLCmd : function (html) {
-			var sel, range;
+			this.pasteHtmlAtCaret(html);
+			/*var sel, range;
 			if (window.getSelection && (sel = window.getSelection()).rangeCount) {
 				range = sel.getRangeAt(0);
 				range.collapse(true);
@@ -321,7 +322,7 @@
 				sel.addRange(range);
 
 				span.outerHTML = html;
-			}
+			}*/
 		},
 
 
@@ -356,10 +357,10 @@
 					if(actualCmd =='insertImage' && ext.match(/\.(mp4|ogg|webm|ogv)$/i)){
 						val = "<video controls ><source src='" + val + "' type='video/" + ext + "'></video>"
 						//document.execCommand("insertHTML", false, val);
-						this.insertHtmlCmd(val);
+						that.insertHTMLCmd(val);
 					}
 					else if(actualCmd =='insertImage' && result){
-						this.insertHtmlCmd(val);
+						that.insertHTMLCmd(val);
 					}
 					else{
 						if(val)
@@ -394,7 +395,7 @@
 					ext = val.match("([^\.]+)$")[1];
 
 					val = "<video controls><source src='" + val + "' type='video/" + ext + "'></video>"
-					this.insertHtmlCmd(val);
+					this.insertHTMLCmd(val);
 				}
 
 				if(!presetVal && cmdDef.val)
