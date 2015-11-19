@@ -55,6 +55,8 @@
 				{
 					that.resizeTargetStop.call(that, true); // true means force stop dispite the event target being same as current resize target
 					f.call(that, param);
+					
+					that._updateValue();
 				}
 			};
 
@@ -90,6 +92,7 @@
 			this.selectionSelectElement(target);
 			this.async(function() {
 				this.execCommand('delete');
+				this._updateValue();
 			});
 		},
 
@@ -302,6 +305,8 @@
 					range.select();
 				}
 			}
+			
+			this._updateValue();
 		},
 
 		// to use instead of execCommand('insertHTML') - modified from code by Tim Down
