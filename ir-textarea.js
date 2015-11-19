@@ -165,7 +165,6 @@
 			this.execCommand("insertHTML", null, this.$.mediaEmbedder);
 		},
 		createLink : function(e) {
-
 			this.execCommand("createLink", null, this.$.linkEditor);
 		},
 		createTable : function(e) {
@@ -256,6 +255,54 @@
 			removeSelectedElements("h1,h2,h3,h4,h5,h6,p,a,b,i,br,div,span");
 
 		},
+		
+		
+		pasteHtmlAtCaret : function(html, selectPastedContent) {
+			var sel, range;
+			if (window.getSelection) {
+				// IE9 and non-IE
+				sel = window.getSelection();
+				if (sel.getRangeAt && sel.rangeCount) {
+					range = sel.getRangeAt(0);
+					range.deleteContents();
+
+					// Range.createContextualFragment() would be useful here but is
+					// only relatively recently standardized and is not supported in
+					// some browsers (IE9, for one)
+					var el = document.createElement("div");
+					el.innerHTML = html;
+					var frag = document.createDocumentFragment(), node, lastNode;
+					while ( (node = el.firstChild) ) {
+						lastNode = frag.appendChild(node);
+					}
+					var firstNode = frag.firstChild;
+					range.insertNode(frag);
+
+					// Preserve the selection
+					if (lastNode) {
+						range = range.cloneRange();
+						range.setStartAfter(lastNode);
+						if (selectPastedContent) {
+							range.setStartBefore(firstNode);
+						} else {
+							range.collapse(true);
+						}
+						sel.removeAllRanges();
+						sel.addRange(range);
+					}
+				}
+			} else if ( (sel = document.selection) && sel.type != "Control") {
+				// IE < 9
+				var originalRange = sel.createRange();
+				originalRange.collapse(true);
+				sel.createRange().pasteHTML(html);
+				if (selectPastedContent) {
+					range = sel.createRange();
+					range.setEndPoint("StartToStart", originalRange);
+					range.select();
+				}
+			}
+		},
 
 		// to use instead of execCommand('insertHTML') - modified from code by Tim Down
 		insertHTMLCmd : function (html) {
@@ -308,10 +355,11 @@
 
 					if(actualCmd =='insertImage' && ext.match(/\.(mp4|ogg|webm|ogv)$/i)){
 						val = "<video controls ><source src='" + val + "' type='video/" + ext + "'></video>"
-						document.execCommand("insertHTML", false, val);
+						//document.execCommand("insertHTML", false, val);
+						this.insertHtmlCmd(val);
 					}
 					else if(actualCmd =='insertImage' && result){
-						document.execCommand("insertHTML", false, val);
+						this.insertHtmlCmd(val);
 					}
 					else{
 						if(val)
@@ -346,7 +394,7 @@
 					ext = val.match("([^\.]+)$")[1];
 
 					val = "<video controls><source src='" + val + "' type='video/" + ext + "'></video>"
-					document.execCommand("insertHTML", false, val);
+					this.insertHtmlCmd(val);
 				}
 
 				if(!presetVal && cmdDef.val)
