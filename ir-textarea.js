@@ -29,6 +29,8 @@
 			this.$.htmlTextArea.addEventListener("change", function () { that.$.editor.innerHTML = that.value = that.$.htmlTextArea.value });
 
 			this.$.mediaEditor.editor = this.$.editor;
+			
+			this.customUndo = CustomUndoEngine(this.$.editor);
 
 			this._updateValue();
 		},
@@ -459,6 +461,8 @@
 			this.value = this.$.editor.innerHTML;
 			var h = getComputedStyle(this.$.editor).height;
 			this.$.editor.style.minHeight = this.offsetHeight;
+			
+			this.customUndo.pushUndo();
 		},
 
 		_focusedEditor : function() {
@@ -513,7 +517,7 @@
 		properties : {
 			commands : {
 				type : String,
-				value : "bold,italic,underline,insertOrderedList,insertUnorderedList,align-left,justifyLeft,justifyCenter,justifyRight,insertImage,delete,redo,undo,foreColor,backColor,copy,cut,,fontName,fontSize,,indent,outdent,insertHorizontalRule,insertTable"
+				value : "bold,italic,underline,insertOrderedList,insertUnorderedList,align-left,justifyLeft,justifyCenter,justifyRight,insertImage,delete,foreColor,backColor,copy,cut,,fontName,fontSize,,indent,outdent,insertHorizontalRule,insertTable"
 			},
 
 			promptProcessors : {
@@ -553,23 +557,120 @@
 			el.innerText = text;
 		}
 	})
+	
+	// custom undo engine
+	
+		function CustomUndoEngine(editor, options)  {
+			var undoRecord = [],
+				redoRecord = [],
+				lastRestoredStateContent;
+			
+			if(!options) options = {};
+			if(!options.maxUndoItems) options.maxUndoItems = 30;
+			if(!options.timeout) options.timeout = 15000;
 
-	function replaceSelectionWithHtml(html) {
-		// code by Tim Down http://stackoverflow.com/users/96100/tim-down
-		var range, html;
-		if (window.getSelection && window.getSelection().getRangeAt) {
-			range = window.getSelection().getRangeAt(0);
-			range.deleteContents();
-			var div = document.createElement("div");
-			div.innerHTML = html;
-			var frag = document.createDocumentFragment(), child;
-			while ( (child = div.firstChild) ) {
-				frag.appendChild(child);
+			var undoCommand = function() {
+				var sel, r, lastUndo, lur;
+				
+				lastUndo = undoRecord.pop();
+				
+				if(!lastUndo)
+					return;
+				
+				if(lastUndo.content == editor.innerHTML)
+				{
+					redoRecord.push(lastUndo);
+					lastUndo = undoRecord.pop();
+				}
+				else
+				{
+					pushUndo(true);
+					redoRecord.push(undoRecord.pop());
+				}
+				
+				if(!lastUndo)
+					return;
+					
+				restoreState(lastUndo);
+				lastRestoredStateContent = lastUndo.content;
+			}			
+			
+			var redoCommand = function(e) {
+				var sel, r, lastRedo = redoRecord.pop();
+
+				if(lastRedo)
+				{
+					pushUndo(true);
+					restoreState(lastRedo);
+					lastRestoredStateContent = lastRedo.content;
+				}
 			}
-			range.insertNode(frag);
-		} else if (document.selection && document.selection.createRange) {
-			range = document.selection.createRange();
-			range.pasteHTML(html);
+			
+			var restoreState = function(state)
+			{
+				var stateRange = state.range;
+
+				sel = document.getSelection();
+				
+				editor.innerHTML = state.content;
+				
+				sel.removeAllRanges();
+				r = document.createRange();
+				
+				r.setStart(stateRange.startContainer, stateRange.startOffset);
+				r.setEnd(stateRange.endContainer, stateRange.endOffset);
+				
+				sel.addRange(r);
+				
+				editor.focus();				
+			}
+
+			var pushUndo = function(force) {
+				var r, sel;
+				
+				if(force || ((lastRestoredStateContent != editor.innerHTML) && (!undoRecord.length || (undoRecord[undoRecord.length-1].content != editor.innerHTML))))
+				{
+					lastRestoredStateContent == null;
+					
+					while(undoRecord.length >= options.maxUndoItems)
+						undoRecord.shift();
+					
+					sel = window.getSelection();
+					if(sel.rangeCount) 
+					{
+						r = sel.getRangeAt(0);
+						undoRecord.push({ content : editor.innerHTML, range : { startContainer : r.startContainer, endContainer : r.endContainer, startOffset : r.startOffset, endOffset : r.endOffset }});
+					}
+					else
+						undoRecord.push({ content : editor.innerHTML, range : { startContainer : editor, endContainer : editor, startOffset : 0, endOffset : 0 }});;
+
+					if(!force && redoRecord.length) 
+						redoRecord = [];
+				}
+			};
+			
+			
+			editor.addEventListener('keydown', function(e) {
+				if(e.keyCode == 90 && e.ctrlKey) // is ^z
+				{
+					undoCommand();
+					e.preventDefault();
+				}
+				if(e.keyCode == 89 && e.ctrlKey) // is ^y
+				{
+					redoCommand();
+					e.preventDefault();
+				}
+			})
+
+			setInterval(pushUndo, options.timeout);
+			pushUndo();
+
+			return {
+				pushUndo : pushUndo,
+				undo : undoCommand,
+				redo : redoCommand
+			}
 		}
-	}
+		
 })();
