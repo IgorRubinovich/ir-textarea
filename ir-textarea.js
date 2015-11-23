@@ -7,6 +7,12 @@
 				newButton, cmdDef, icon, ev, handler;
 
 			handler = function(ev) {
+				if((ev.type == 'keydown' && ev.keyCode == 8 || ev.keyCode == 46) && that.__resizeState)
+				{
+					ev.preventDefault();
+					that.deleteTarget(that.__resizeState.target);
+				}
+
 				that._updateValue();
 			};
 
@@ -42,10 +48,18 @@
 			if(target.tagName == "A")
 				return ev.preventDefault();
 
-			if(!target.tagName.match("IMG|VIDEO") || this._resizeState) // add more as implemented
+			if(!target.tagName.match("IMG|VIDEO")) // add more as implemented
 				return ev.stopPropagation(), ev.stopImmediatePropagation();
+				
+			if(!this.__resizeState || (this.__resizeState.target != target))
+			{
+				this.resizeTarget(ev.target);
+					
+				ev.stopPropagation();
+			}
 
-
+			ev.screenX = ev.clientX = ev.detail.x
+			ev.screenY = ev.clientY = ev.detail.y
 			ev.preventDefault();
 
 			cm.options = [];
@@ -58,6 +72,7 @@
 					that.resizeTargetStop.call(that, true); // true means force stop dispite the event target being same as current resize target
 					f.call(that, param);
 					
+					that.__resizeState = null;		
 					that._updateValue();
 				}
 			};
@@ -79,23 +94,23 @@
 			cm.options.push({label: 'Remove media',  icon: 'icons:align', info: '', value : ev.target, action : imageAction(this.deleteTarget.bind(this))});
 			cm.options.push({label: 'More...',  icon: 'icons:align', info: '', value : ev.target, action : imageAction(mediaEditor.open.bind(mediaEditor))});
 
-			ev.screenX = ev.clientX = ev.detail.x
-			ev.screenY = ev.clientY = ev.detail.y
 
-			this.resizeTarget(ev.target);
 		},
 
 		deleteTarget : function(target) {
+			if(this.__resizeState && this.__resizeState.target == target)
+			{
+				target.style.border = this.__resizeState.border;
+				this.__resizeState = null;
+			}
+			
 			var caption = this.$.mediaEditor.captionWrapperGet(target);
 
 			if(caption)
-				this.$.mediaEditor.captionRemove(target);
-
-			this.selectionSelectElement(target);
-			this.async(function() {
-				this.execCommand('delete');
-				this._updateValue();
-			});
+				target = caption;
+			
+			target.parentNode.removeChild(target);
+			this._updateValue();
 		},
 
 		resizeTargetStop : function(ev) {
@@ -106,7 +121,9 @@
 				target = this.__resizeState.target;
 
 			interactable.unset();
+			
 			target.style.border = target.style._border || "none";
+			
 			document.removeEventListener('click', this.resizeTargetStop);
 			this.__resizeState = null;
 		},
@@ -116,9 +133,6 @@
 
 			if(this.__resizeState)
 				return;
-
-			target.style._border = target.style.border;
-			target.style.border = "3px dashed grey";
 
 			document.addEventListener('mouseup', this.resizeTargetStop.bind(this));
 
@@ -154,7 +168,8 @@
 					that.__resizeState.justResized = true;
 				});
 
-			this.__resizeState = { target : target, interactable : interactable };
+			this.__resizeState = { target : target, interactable : interactable, border : target.style.border };
+			this.__resizeState.target.style.border = "3px dashed grey";
 		},
 
 		clickedPresetCommand : function(ev) {
@@ -458,11 +473,17 @@
 		},
 
 		_updateValue : function(e) {
+			if(this.__resizeState)
+				this.__resizeState.target.style.border = this.__resizeState.border;
+			
 			this.value = this.$.editor.innerHTML;
 			var h = getComputedStyle(this.$.editor).height;
 			this.$.editor.style.minHeight = this.offsetHeight;
 			
 			this.customUndo.pushUndo();
+
+			if(this.__resizeState)
+				this.__resizeState.target.style.border = "3px dashed grey";
 		},
 
 		_focusedEditor : function() {
