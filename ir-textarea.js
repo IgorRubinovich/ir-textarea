@@ -692,6 +692,62 @@
 			setInterval(pushUndo, options.timeout);
 			pushUndo();
 
+				sel = document.getSelection();
+				
+				editor.innerHTML = state.content;
+				
+				sel.removeAllRanges();
+				r = document.createRange();
+				
+				r.setStart(stateRange.startContainer, stateRange.startOffset);
+				r.setEnd(stateRange.endContainer, stateRange.endOffset);
+				
+				sel.addRange(r);
+				
+				editor.focus();				
+			}
+
+			var pushUndo = function(force) {
+				var r, sel;
+				
+				if(force || ((lastRestoredStateContent != editor.innerHTML) && (!undoRecord.length || (undoRecord[undoRecord.length-1].content != editor.innerHTML))))
+				{
+					lastRestoredStateContent == null;
+					
+					while(undoRecord.length >= options.maxUndoItems)
+						undoRecord.shift();
+					
+					sel = window.getSelection();
+					if(sel.rangeCount) 
+					{
+						r = sel.getRangeAt(0);
+						undoRecord.push({ content : editor.innerHTML, range : { startContainer : r.startContainer, endContainer : r.endContainer, startOffset : r.startOffset, endOffset : r.endOffset }});
+					}
+					else
+						undoRecord.push({ content : editor.innerHTML, range : { startContainer : editor, endContainer : editor, startOffset : 0, endOffset : 0 }});;
+
+					if(!force && redoRecord.length) 
+						redoRecord = [];
+				}
+			};
+			
+			
+			editor.addEventListener('keydown', function(e) {
+				if(e.keyCode == 90 && e.ctrlKey) // is ^z
+				{
+					undoCommand();
+					e.preventDefault();
+				}
+				if(e.keyCode == 89 && e.ctrlKey) // is ^y
+				{
+					redoCommand();
+					e.preventDefault();
+				}
+			})
+
+			setInterval(pushUndo, options.timeout);
+			pushUndo();
+
 			return {
 				pushUndo : pushUndo,
 				undo : undoCommand,
