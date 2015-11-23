@@ -36,7 +36,7 @@
 
 			this.$.mediaEditor.editor = this.$.editor;
 			
-			this.customUndo = CustomUndoEngine(this.$.editor);
+			this.set('customUndo', CustomUndoEngine(this.$.editor));
 
 			this._updateValue();
 		},
@@ -192,7 +192,6 @@
 		},
 
 		removeFormat : function(e) {
-
 			function nextNode(node) {
 				if (node.hasChildNodes()) {
 					return node.firstChild;
@@ -546,9 +545,8 @@
 				value  : {}
 			},
 
-			undoState : {
-				type : Array,
-				value  : []
+			customUndo : {
+				type : Object
 			},
 
 			viewMode : {
@@ -576,6 +574,13 @@
 		setInnerText : function(el, text)
 		{
 			el.innerText = text;
+		},
+		
+		undo : function() {
+			this.customUndo.undo();
+		},
+		redo : function() {
+			this.customUndo.redo();
 		}
 	})
 	
