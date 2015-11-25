@@ -41,6 +41,10 @@
 			this._updateValue();
 		},
 
+    attached: function(){
+      this.insertPlugins();
+    },
+
 		contextMenuShow : function(ev) {
 			var cm = this.$.contextMenu, target = ev.target, flowTarget = target, captionWrapper,
 				mediaEditor = this.$.mediaEditor, that = this;
@@ -357,6 +361,17 @@
 				document.execCommand(cmd, sdu, val);
 		},
 
+    insertPlugins: function(){
+		var dynamicEl, par;
+        var plugins = this.plugins;
+      for (var i = 0; i < plugins.length; i++) {
+        dynamicEl = document.createElement(plugins[i].name);
+        par = document.getElementById(plugins[i].insertin);
+        par.appendChild(dynamicEl);
+      }
+
+    },
+
 		execCommand : function(cmdDefOrName, presetVal, promptProcessor)
 		{
 			var that = this, cmdDef = cmdDefOrName, actualCmd, val, ext,test,result;
@@ -547,6 +562,11 @@
 
 			customUndo : {
 				type : Object
+			},
+
+			plugins : {
+				type : Object,
+				value  : {}
 			},
 
 			viewMode : {
