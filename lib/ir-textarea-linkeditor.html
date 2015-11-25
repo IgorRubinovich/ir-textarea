@@ -49,7 +49,7 @@ Example:
                     <div hidden$="{{!_linkState.caption}}">
                         Caption: <input is="iron-input" placeholder="Change me" on-change="createLink"  id="ifCaption" value={{_linkState.caption}} >
                     </div>
-					<div class="layout horizontal">
+					<div class="layout vertical">
 						<paper-dropdown-menu id="target1" selected="_self"  label="Target" raised>
 							<paper-menu class="dropdown-content" selected="_self" attr-for-selected="value">
 								<paper-item  value="_self"></paper-item>
@@ -60,6 +60,7 @@ Example:
 							</paper-menu>
 						</paper-dropdown-menu>
 						<paper-toggle-button id="follow" on-change="createLink">Nofollow</paper-toggle-button>
+            <paper-toggle-button id="noindex" on-change="createLink">Noindex</paper-toggle-button>
 					</div>
                 </div>
             </paper-dialog-scrollable>
@@ -79,13 +80,13 @@ Example:
                 properties: {
                     editor : { type : Object }
                 },
-				
+
 				observers : [
 					'createLink(_linkState.*)'
 				],
 
 
-                doLink : function (target, follow, href, text, img, imgCaption) {
+                doLink : function (target, follow, href, text, img, imgCaption, noindex) {
 
                     if (!linknode) var linknode = document.createElement('a');
                     linknode.setAttribute("href", href);
@@ -102,17 +103,24 @@ Example:
                     }
                     else{linknode.appendChild(document.createTextNode(text));}
 
+                    if(noindex){
+                      var noin = document.createElement('noindex');
+                      noin.appendChild(linknode);
+                      return noin;
+                    }
+
                     return linknode;
                 },
 
                 createLink: function(e){
                     var target = this.$.target1.value;
                     var follow = this.$.follow.checked;
+                    var noindex = this.$.noindex.checked;
                     var href = this.$.Href.value;
                     var text = this.$.TextValue.value;
                     var img1 = this._linkState.img;
                     var imgCaption = this.$.ifCaption.value;
-                    var link = this.doLink(target,follow, href, text, img1, imgCaption);
+                    var link = this.doLink(target,follow, href, text, img1, imgCaption, noindex);
                     this.set("_linkState.disable", false);
                     link = link.outerHTML;
 
