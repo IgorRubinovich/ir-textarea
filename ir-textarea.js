@@ -490,7 +490,7 @@
 			if(this.__resizeState)
 				this.__resizeState.target.style.border = this.__resizeState.border;
 
-      this.value =  this.$.editor.innerHTML.replace(/(\r\n|\n|\r)/gm,"");
+      this.value =  this.$.editor.innerHTML.replace(/(\r\n|\n|\r)/gm,"").replace(/(<pre)/gm,"<span").replace(/(<\/?pre>)/gm,"</span>");
 			var h = getComputedStyle(this.$.editor).height;
 			this.$.editor.style.minHeight = this.offsetHeight;
 
