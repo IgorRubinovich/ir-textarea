@@ -60,7 +60,7 @@ Example:
 							</paper-menu>
 						</paper-dropdown-menu>
 						<paper-toggle-button id="follow" on-change="createLink">Nofollow</paper-toggle-button>
-            <paper-toggle-button id="noindex" on-change="createLink">Noindex</paper-toggle-button>
+                         <paper-toggle-button id="noindex" on-change="createLink">Noindex</paper-toggle-button>
 					</div>
                 </div>
             </paper-dialog-scrollable>
@@ -198,6 +198,7 @@ Example:
 
 
                 promptSelect : function() {
+                    this.createLink();
                     console.log('prompt selected!')
                     this.hideDialog();
 
