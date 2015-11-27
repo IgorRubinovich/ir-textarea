@@ -5,12 +5,10 @@ ir.SelectorBehavior = {
 	/** select `el`'s ancestor corresponding to `selector`, but go no higher than `top` */
 	selectAncestor : function(el, selector, top) {
 		if(!top) top = document;
-		if(!el.parentNode || el == top) return null;
+		if(!el.parentNode || el == top) 
+			return null;
 		if(el.parentNode.matchesSelector(selector)) {
 			return el.parentNode
-		}
-		else{
-			return null;
 		}
 		
 		return this.selectAncestor(el.parentNode, selector, top)

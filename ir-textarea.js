@@ -108,10 +108,7 @@
 				this.__resizeState = null;
 			}
 
-			var caption = this.$.mediaEditor.captionWrapperGet(target);
-
-			if(caption)
-				target = caption;
+			var caption = this.$.mediaEditor.captionRemove(target);
 
 			target.parentNode.removeChild(target);
 			this._updateValue();
@@ -282,6 +279,9 @@
 
 		pasteHtmlAtCaret : function(html, selectPastedContent) {
 			var sel, range;
+			
+			this.selectionRestore();
+			
 			if (window.getSelection) {
 				// IE9 and non-IE
 				sel = window.getSelection();
@@ -490,7 +490,7 @@
 			if(this.__resizeState)
 				this.__resizeState.target.style.border = this.__resizeState.border;
 
-      this.value =  this.$.editor.innerHTML.replace(/(\r\n|\n|\r)/gm,"").replace(/(<pre)/gm,"<span").replace(/(<\/?pre>)/gm,"</span>");
+      this.value =  this.$.editor.innerHTML.replace(/(\r\n|\n|\r)/gm,"").replace(/\<pre\>/gmi,"<span>").replace(/\<\/?pre\>/gmi,"</span>");
 			var h = getComputedStyle(this.$.editor).height;
 			this.$.editor.style.minHeight = this.offsetHeight;
 
