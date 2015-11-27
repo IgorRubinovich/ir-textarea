@@ -390,7 +390,7 @@
 					if(!isHtml)
 						ext = val.match("([^\.]+)$")[1];
 
-					if(actualCmd =='insertImage' && ext.match(/(mp4|ogg|webm|ogv)$/i)){
+					if(actualCmd =='insertImage' && ext && ext.match(/(mp4|ogg|webm|ogv)$/i)){
 						val = "<video controls ><source src='" + val + "' type='video/" + ext + "'></video>"
 						//document.execCommand("insertHTML", false, val);
 						that.insertHTMLCmd(val);
