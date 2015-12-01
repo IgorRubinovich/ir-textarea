@@ -37,7 +37,7 @@
 			this.$.mediaEditor.editor = this.$.editor;
 
 			this.set('customUndo', CustomUndoEngine(this.$.editor));
-
+			
 			this._updateValue();
 		},
 
@@ -107,8 +107,13 @@
 				target.style.border = this.__resizeState.border;
 				this.__resizeState = null;
 			}
+			
 
 			var caption = this.$.mediaEditor.captionRemove(target);
+				this.$.mediaEditor.captionRemove(target);
+			
+			target.parentNode.removeChild(target);
+			this._updateValue();
 
 			target.parentNode.removeChild(target);
 			this._updateValue();
@@ -122,9 +127,9 @@
 				target = this.__resizeState.target;
 
 			interactable.unset();
-
+			
 			target.style.border = target.style._border || "none";
-
+			
 			document.removeEventListener('click', this.resizeTargetStop);
 			this.__resizeState = null;
 		},
@@ -522,7 +527,7 @@
 		_updateValue : function(e) {
 			if(this.__resizeState)
 				this.__resizeState.target.style.border = this.__resizeState.border;
-
+			
       		this.value =  this.$.editor.innerHTML.replace(/(\r\n|\n|\r)/gm," ").replace(/\<pre\>/gmi,"<span>").replace(/\<\/?pre\>/gmi,"</span>");
 			
 			var h = getComputedStyle(this.$.editor).height;
@@ -585,10 +590,31 @@
 			this.set("value", this.$.editor.innerHTML = HTMLtoXML(this.value));
 		},
 
+		getInnerText : function(el)
+		{
+			return el.innerText;
+		},
+
+		setInnerText : function(el, text)
+		{
+			el.innerText = text;
+		},
+		
+		undo : function() {
+			this.customUndo.undo();
+		},
+		redo : function() {
+			this.customUndo.redo();
+		},
+
 		properties : {
 			commands : {
 				type : String,
 				value : "bold,italic,underline,insertOrderedList,insertUnorderedList,align-left,justifyLeft,justifyCenter,justifyRight,insertImage,delete,foreColor,backColor,copy,cut,paste,delete,fontName,fontSize,,indent,outdent,insertHorizontalRule,insertTable"
+			},
+
+			customUndo : {
+				type : Object
 			},
 
 			promptProcessors : {

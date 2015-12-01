@@ -178,6 +178,7 @@ Issues and pull requests are most welcome. Fork it [here](https://github.com/Igo
 				<paper-icon-button raised icon="icons:undo" on-tap="undo" alt="undo"></paper-icon-button>
 				<paper-icon-button raised icon="icons:redo" on-tap="redo" alt="redo"></paper-icon-button>
 				
+				<span class="separator"></span>
 				<template is="dom-repeat" items="{{ toolbarButtons }}">
 					<template is="dom-if" if="{{ item }}">
 						<template is="dom-if" if="{{ !item.icon }}">
