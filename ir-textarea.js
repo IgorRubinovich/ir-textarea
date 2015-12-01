@@ -610,7 +610,7 @@
 		properties : {
 			commands : {
 				type : String,
-				value : "bold,italic,underline,insertOrderedList,insertUnorderedList,align-left,justifyLeft,justifyCenter,justifyRight,insertImage,delete,foreColor,backColor,copy,cut,paste,delete,fontName,fontSize,,indent,outdent,insertHorizontalRule,insertTable"
+				value : "bold,italic,underline,insertOrderedList,insertUnorderedList,align-left,justifyLeft,justifyCenter,justifyRight,insertImage,foreColor,backColor,copy,cut,paste,delete,,indent,outdent,insertHorizontalRule,insertTable"
 			},
 
 			customUndo : {
