@@ -279,9 +279,9 @@
 
 		pasteHtmlAtCaret : function(html, selectPastedContent) {
 			var sel, range;
-			
+
 			this.selectionRestore();
-			
+
 			if (window.getSelection) {
 				// IE9 and non-IE
 				sel = window.getSelection();
@@ -357,9 +357,40 @@
 			else
 			if(cmd == 'insertHTML')
 				this.insertHTMLCmd(val);
+      else
+      if(cmd == 'paste'){
+        console.log('paste');
+        var val2 =   this.text;
+        this.insertHTMLCmd(val2);
+      }
+	  else
+      if(cmd == 'cut' || cmd == 'copy'){
+        this.text = this.getSelectionHtml();
+        document.execCommand(cmd, sdu, val);
+      }
+
 			else
-				document.execCommand(cmd, sdu, val);
+        document.execCommand(cmd, sdu, val);
 		},
+
+    getSelectionHtml: function () {
+    var html = "";
+    if (typeof window.getSelection != "undefined") {
+      var sel = window.getSelection();
+      if (sel.rangeCount) {
+        var container = document.createElement("div");
+        for (var i = 0, len = sel.rangeCount; i < len; ++i) {
+          container.appendChild(sel.getRangeAt(i).cloneContents());
+        }
+        html = container.innerHTML;
+      }
+    } else if (typeof document.selection != "undefined") {
+      if (document.selection.type == "Text") {
+        html = document.selection.createRange().htmlText;
+      }
+    }
+    return html;
+  },
 
     insertPlugins: function(){
 		var dynamicEl, par;
@@ -490,7 +521,7 @@
 			if(this.__resizeState)
 				this.__resizeState.target.style.border = this.__resizeState.border;
 
-      this.value =  this.$.editor.innerHTML.replace(/(\r\n|\n|\r)/gm,"").replace(/\<pre\>/gmi,"<span>").replace(/\<\/?pre\>/gmi,"</span>");
+      		this.value =  this.$.editor.innerHTML.replace(/(\r\n|\n|\r)/gm," ").replace(/\<pre\>/gmi,"<span>").replace(/\<\/?pre\>/gmi,"</span>");
 			var h = getComputedStyle(this.$.editor).height;
 			this.$.editor.style.minHeight = this.offsetHeight;
 
@@ -552,7 +583,7 @@
 		properties : {
 			commands : {
 				type : String,
-				value : "bold,italic,underline,insertOrderedList,insertUnorderedList,align-left,justifyLeft,justifyCenter,justifyRight,insertImage,delete,foreColor,backColor,copy,cut,,fontName,fontSize,,indent,outdent,insertHorizontalRule,insertTable"
+				value : "bold,italic,underline,insertOrderedList,insertUnorderedList,align-left,justifyLeft,justifyCenter,justifyRight,insertImage,delete,foreColor,backColor,copy,cut,paste,fontName,fontSize,,indent,outdent,insertHorizontalRule,insertTable"
 			},
 
 			promptProcessors : {
