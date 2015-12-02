@@ -42,9 +42,9 @@
 			this._updateValue();
 		},
 
-    attached: function(){
-      this.insertPlugins();
-    },
+		attached: function(){
+		  this.insertPlugins();
+		},
 
 		contextMenuShow : function(ev) {
 			var cm = this.$.contextMenu, target = ev.target, flowTarget = target, captionWrapper,
@@ -102,6 +102,13 @@
 
 		},
 
+		deleteCmd : function() {
+			if(this.__resizeState && this.__resizeState.target)
+				this.deleteTarget(this.__resizeState.target);
+			else
+				this.execCommand('delete');
+		},
+		
 		deleteTarget : function(target) {
 			if(this.__resizeState && this.__resizeState.target == target)
 			{
@@ -416,6 +423,8 @@
 		{
 			var that = this, cmdDef = cmdDefOrName, actualCmd, val, ext,test,result;
 
+			
+			
 			if(typeof cmdDef == 'string')
 				cmdDef = (window.ir.textarea.commands.filter(function(c) { return c.cmd == cmdDef }))[0] || { fakeCmd : cmdDef };
 
@@ -614,7 +623,7 @@
 		properties : {
 			commands : {
 				type : String,
-				value : "bold,italic,underline,insertOrderedList,insertUnorderedList,align-left,justifyLeft,justifyCenter,justifyRight,insertImage,foreColor,backColor,copy,cut,paste,delete,,indent,outdent,insertHorizontalRule,insertTable"
+				value : "bold,italic,underline,insertOrderedList,insertUnorderedList,align-left,justifyLeft,justifyCenter,justifyRight,insertImage,foreColor,backColor,,indent,outdent,insertHorizontalRule,,copy,cut,paste"
 			},
 
 			customUndo : {
