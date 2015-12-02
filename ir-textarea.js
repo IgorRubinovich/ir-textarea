@@ -180,6 +180,7 @@
 		},
 
 		clickedPresetCommand : function(ev) {
+			this.selectionRestore();
 			this.execCommand(ev.target.getAttribute("cmd-name"), ev.target.selected);
 		},
 
