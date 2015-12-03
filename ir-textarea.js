@@ -12,7 +12,7 @@
 					ev.preventDefault();
 					that.deleteTarget(that.__resizeState.target);
 				}
-
+				
 				that._updateValue();
 			};
 
@@ -64,11 +64,15 @@
 			var cm = this.$.contextMenu, target = ev.target, flowTarget = target, captionWrapper,
 				mediaEditor = this.$.mediaEditor, that = this;
 
-			if(target.tagName == "A")
-				return ev.preventDefault();
+			
+			//if(target.tagName == "A")
+			//	return ev.preventDefault(); 
 
 			if(!target.tagName.match("IMG|VIDEO")) // add more as implemented
-				return ev.stopPropagation(), ev.stopImmediatePropagation();
+			{
+				ev.stopPropagation(), ev.stopImmediatePropagation();
+				return
+			}
 
 			if(!this.__resizeState || (this.__resizeState.target != target))
 			{
@@ -289,19 +293,32 @@
 				parent.removeChild(el);
 			}
 
-			function removeSelectedElements(tagNames) {
-				var tagNamesArray = tagNames.toLowerCase().split(",");
+			function removeSelectedElements(opts, top) {
+				var tagNamesArray = opts.tagNames.toLowerCase().split(","),
+					attrNamesArray = opts.attributeNames.toLowerCase().split(",");
+				
 				getSelectedNodes().forEach(function(node) {
+					if (node.nodeType == 3)
+						node = node.parentNode;
+					
+					if(!node || node == top) return;
+					
 					if (node.nodeType == 1 &&
 						tagNamesArray.indexOf(node.tagName.toLowerCase()) > -1) {
 						// Remove the node and replace it with its children
 						replaceWithOwnChildren(node);
+						
+						return;
 					}
+					
+					attrNamesArray.forEach(function(attr) {
+						node.removeAttribute(attr)
+					});
 				});
 			}
 
-			removeSelectedElements("h1,h2,h3,h4,h5,h6,p,a,b,i,br,div,span");
-
+			this.selectionRestore();
+			removeSelectedElements({ tagNames : "h1,h2,h3,h4,h5,h6,p,a,b,i,br,div,span,font", attributeNames : "style"}, this.$.editor);
 		},
 
 
