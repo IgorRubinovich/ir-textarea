@@ -23,6 +23,20 @@
 					that.selectionSave();
 				});
 
+				
+			/*var pasteHandler = function(e) { 
+				var v;
+				if(typeof clipboardData != 'undefined')
+					v = clipboardData.getData();
+				else
+					v = e.originalEvent ? e.originalEvent.clipboardData.getData('text') : e.clipboardData.getData('text');
+				
+				e.preventDefault();
+				console.log(v) 
+			};
+
+			that.$.editor.addEventListener('paste', pasteHandler);*/
+				
 			var defs = {};
 			window.ir.textarea.commands
 				.forEach(function(cmdDef) {
@@ -366,6 +380,7 @@
 
 
 		_execCommand : function(cmd, sdu, val) {
+			var that = this;
 			if(cmd == 'replaceHTML')
 				this.insertHTMLCmd(val, true);
 			else
@@ -373,17 +388,23 @@
 				this.insertHTMLCmd(val);
 			else
 			if(cmd == 'paste'){
-				console.log('paste');
-				var val2 =   this.text;
-				this.insertHTMLCmd(val2);
+				//console.log('paste');
+				//var val2 =   this.text;
+				that.$.editor.focus();
+				that.selectionRestore();
+				setTimeout(function() {
+					document.execCommand('Paste');
+				}, 100);
+				//this.insertHTMLCmd(val2);
 			}
+			/*
 			else
 				if(cmd == 'cut' || cmd == 'copy'){
 					this.text = this.getSelectionHtml();
 					document.execCommand(cmd, sdu, val);
 			}
 
-			else
+			else*/
 				document.execCommand(cmd, sdu, val);
 		},
 
@@ -623,7 +644,7 @@
 		properties : {
 			commands : {
 				type : String,
-				value : "bold,italic,underline,insertOrderedList,insertUnorderedList,align-left,justifyLeft,justifyCenter,justifyRight,insertImage,foreColor,backColor,,indent,outdent,insertHorizontalRule,,copy,cut,paste"
+				value : "bold,italic,underline,insertOrderedList,insertUnorderedList,align-left,justifyLeft,justifyCenter,justifyRight,insertImage,foreColor,backColor,,indent,outdent,insertHorizontalRule,,copy,cut"
 			},
 
 			customUndo : {
