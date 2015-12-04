@@ -71,13 +71,14 @@
 			if(!target.tagName.match("IMG|VIDEO")) // add more as implemented
 			{
 				ev.stopPropagation(), ev.stopImmediatePropagation();
+				cm.disabled = true;
 				return
 			}
 
+			cm.disabled = false;
 			if(!this.__resizeState || (this.__resizeState.target != target))
 			{
 				this.resizeTarget(ev.target);
-
 				ev.stopPropagation();
 			}
 
