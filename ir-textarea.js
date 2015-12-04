@@ -75,12 +75,15 @@
 				return
 			}
 
-			cm.disabled = false;
 			if(!this.__resizeState || (this.__resizeState.target != target))
 			{
 				this.resizeTarget(ev.target);
 				ev.stopPropagation();
+				cm.disabled = true;
+				return;
 			}
+
+			cm.disabled = false;
 
 			ev.screenX = ev.clientX = ev.detail.x
 			ev.screenY = ev.clientY = ev.detail.y
@@ -351,17 +354,15 @@
 					if (lastNode) {
 						range = range.cloneRange();
 						range.setStartAfter(lastNode);
-						if (selectPastedContent) {
-							range.setStartBefore(firstNode);
-						} else {
-							range.collapse(true);
-						}
+						range.collapse(true);
 						sel.removeAllRanges();
 						sel.addRange(range);
 					}
 				}
 			} else if ( (sel = document.selection) && sel.type != "Control") {
 				// IE < 9
+				document.selection.createRange().pasteHTML(html);
+				/*
 				var originalRange = sel.createRange();
 				originalRange.collapse(true);
 				sel.createRange().pasteHTML(html);
@@ -370,6 +371,7 @@
 					range.setEndPoint("StartToStart", originalRange);
 					range.select();
 				}
+				*/
 			}
 
 			this._updateValue();
@@ -378,22 +380,6 @@
 		// to use instead of execCommand('insertHTML') - modified from code by Tim Down
 		insertHTMLCmd : function (html) {
 			this.pasteHtmlAtCaret(html);
-			/*var sel, range;
-			if (window.getSelection && (sel = window.getSelection()).rangeCount) {
-				range = sel.getRangeAt(0);
-				range.collapse(true);
-				var span = document.createElement("span");
-
-				range.insertNode(span);
-
-				// Move the caret immediately after the inserted span
-				range.setStartAfter(span);
-				range.collapse(true);
-				sel.removeAllRanges();
-				sel.addRange(range);
-
-				span.outerHTML = html;
-			}*/
 		},
 
 
@@ -415,15 +401,15 @@
 				}, 100);
 				//this.insertHTMLCmd(val2);
 			}
-			/*
 			else
+				document.execCommand(cmd, sdu, val);
+			/*
 				if(cmd == 'cut' || cmd == 'copy'){
 					this.text = this.getSelectionHtml();
 					document.execCommand(cmd, sdu, val);
 			}
 
 			else*/
-				document.execCommand(cmd, sdu, val);
 		},
 
 		getSelectionHtml: function () {
@@ -452,8 +438,9 @@
 			var plugins = this.plugins;
 			for (var i = 0; i < plugins.length; i++) {
 				dynamicEl = document.createElement(plugins[i].name);
-				par = document.getElementById(plugins[i].insertin);
-				par.appendChild(dynamicEl);
+				par = Polymer.dom(this.root).querySelector(plugins[i].insertin);
+				Polymer.dom(par).appendChild(dynamicEl);
+
 			}
 
 		},

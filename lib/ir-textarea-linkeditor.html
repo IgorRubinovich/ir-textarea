@@ -62,6 +62,11 @@ Example:
 						<paper-toggle-button id="follow" on-change="createLink">Nofollow</paper-toggle-button>
                          <paper-toggle-button id="noindex" on-change="createLink">Noindex</paper-toggle-button>
 					</div>
+					<!--  here be plugins -->
+					<span on-link-selected="linkSelectedInPlugin">
+						<content>
+						</content>
+					</span>
                 </div>
             </paper-dialog-scrollable>
             <div class="buttons">
@@ -78,7 +83,9 @@ Example:
                 is: 'ir-textarea-linkeditor',
 
                 properties: {
-                    editor : { type : Object }
+                    editor : { type : Object },
+					url : { type : String, value : "", observer : "_urlChanged" },
+					text : { type : String, value : "", observer : "_textChanged" },
                 },
 
 				observers : [
@@ -86,6 +93,15 @@ Example:
 				],
 
 
+				_urlChanged : function() {
+					this.set('_linkState.url', this.url);
+				},
+				
+				_textChanged : function() {
+					this.set('_linkState.text', this.text);
+				},
+				
+				
                 doLink : function (target, follow, href, text, img, imgCaption, noindex) {
 
                     if (!linknode) var linknode = document.createElement('a');
@@ -111,6 +127,11 @@ Example:
 
                     return linknode;
                 },
+				
+				linkSelectedInPlugin: function(e) {
+					e.detail.text && this.set('_linkState.text', e.detail.text);
+					e.detail.url && this.set('_linkState.url', e.detail.url);
+				},
 
                 createLink: function(e){
                     var target = this.$.target1.value;
@@ -124,14 +145,11 @@ Example:
                     this.set("_linkState.disable", false);
                     link = link.outerHTML;
 
-                    console.log('link created');
                     this._updateValue(link);
                 },
 
                 _updateValue : function(x) {
-                    var that = this;
-                    that.value = x;
-
+                    this.value = x;
                 },
 
                 hideDialog : function (e) {
