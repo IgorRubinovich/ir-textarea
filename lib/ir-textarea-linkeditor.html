@@ -9,10 +9,6 @@ Example:
 @demo
 -->
 
-
-<!-- link rel="import" href="../fu-area/fu-area.html" -->
-<!-- link rel="import" href="./iron-select-item.html" -->
-
 <dom-module id="ir-textarea-linkeditor">
     <style>
         paper-toggle-button{
@@ -33,9 +29,12 @@ Example:
 			width : 100px;
 			height : 100px;
 		}
+		#dialog {
+			max-width : 350px;
+		}
     </style>
     <template>
-        <paper-dialog on-dom-changed="refitDialog" id="dialog"> <!--  on-iron-overlay-closed="closed" -->
+        <paper-dialog class="layout center" on-dom-changed="refitDialog" id="dialog"> <!--  on-iron-overlay-closed="closed" -->
 
             <paper-dialog-scrollable id="scrollableDialog">
                 <div id="linkData" class="layout vertical">
@@ -70,7 +69,7 @@ Example:
                 </div>
             </paper-dialog-scrollable>
             <div class="buttons">
-                <paper-button raised on-click="promptSelect" id disabled={{_linkState.disable}} >Ok</paper-button>
+                <paper-button raised on-click="promptSelect" id disabled={{_linkState.disable}}>Ok</paper-button>
                 <paper-button raised on-click="hideDialog">Cancel</paper-button>
             </div>
         </paper-dialog>
@@ -150,6 +149,7 @@ Example:
 
                 _updateValue : function(x) {
                     this.value = x;
+					this.$.dialog.refit();
                 },
 
                 hideDialog : function (e) {
@@ -217,11 +217,8 @@ Example:
 
                 promptSelect : function() {
                     this.createLink();
-                    console.log('prompt selected!')
                     this.hideDialog();
-
                     this.removeAll();
-
                     this.promptCallback(this.value);
                 },
 
