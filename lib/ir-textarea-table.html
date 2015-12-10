@@ -28,7 +28,7 @@ Works with arrays of (node fs.Stats)[https://nodejs.org/api/fs.html#fs_class_fs_
                 </div>
             </paper-dialog-scrollable>
             <div class="buttons">
-                <paper-button raised on-click="promptSelect" disabled={{_tableState.disable}} >Create Table</paper-button>
+                <paper-button raised on-click="promptSelect" disabled={{_tableState}} >Create Table</paper-button>
                 <paper-button raised on-click="hideDialog">Cancel</paper-button>
             </div>
         </paper-dialog>
@@ -41,7 +41,11 @@ Works with arrays of (node fs.Stats)[https://nodejs.org/api/fs.html#fs_class_fs_
                 is: 'ir-textarea-table',
 
                 properties: {
-                    editor : { type : Object }
+                    editor : { type : Object },
+                    _tableState:{
+                        type: Boolean,
+                        value: true
+                    }
                 },
 
                 populateTable : function (table, rows, cells, content) {
@@ -62,9 +66,9 @@ Works with arrays of (node fs.Stats)[https://nodejs.org/api/fs.html#fs_class_fs_
                     var cells = this.$.Cells.value;
                     var rows = this.$.Rows.value;
                     var table = this.populateTable(null, rows, cells, "Text");
-                    table = table.outerHTML
+                    table = table.outerHTML;
                     console.log('table created');
-                    this.set("_tableState.disable", false);
+                    this.set("_tableState", false);
                     this._updateValue(table);
                 },
 
@@ -78,8 +82,7 @@ Works with arrays of (node fs.Stats)[https://nodejs.org/api/fs.html#fs_class_fs_
                 },
 
                 open : function(ev) {
-                    this.set("_tableState", {});
-                    this.set("_tableState.disable", true);
+
                     this.$.dialog.open();
                 },
 
