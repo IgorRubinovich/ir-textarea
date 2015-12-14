@@ -12,7 +12,7 @@
 					ev.preventDefault();
 					that.deleteTarget(that.__resizeState.target);
 				}
-				
+
 				that._updateValue();
 			};
 
@@ -23,20 +23,20 @@
 					that.selectionSave();
 				});
 
-				
-			/*var pasteHandler = function(e) { 
+
+			/*var pasteHandler = function(e) {
 				var v;
 				if(typeof clipboardData != 'undefined')
 					v = clipboardData.getData();
 				else
 					v = e.originalEvent ? e.originalEvent.clipboardData.getData('text') : e.clipboardData.getData('text');
-				
+
 				e.preventDefault();
-				console.log(v) 
+				console.log(v)
 			};
 
 			that.$.editor.addEventListener('paste', pasteHandler);*/
-				
+
 			var defs = {};
 			window.ir.textarea.commands
 				.forEach(function(cmdDef) {
@@ -52,7 +52,7 @@
 			this.$.mediaEditor.editor = this.$.editor;
 
 			this.set('customUndo', CustomUndoEngine(this.$.editor));
-			
+
 			this._updateValue();
 		},
 
@@ -64,9 +64,9 @@
 			var cm = this.$.contextMenu, target = ev.target, flowTarget = target, captionWrapper,
 				mediaEditor = this.$.mediaEditor, that = this;
 
-			
+
 			//if(target.tagName == "A")
-			//	return ev.preventDefault(); 
+			//	return ev.preventDefault();
 
 			if(!target.tagName.match("IMG|VIDEO")) // add more as implemented
 			{
@@ -130,18 +130,18 @@
 			else
 				this.execCommand('delete');
 		},
-		
+
 		deleteTarget : function(target) {
 			if(this.__resizeState && this.__resizeState.target == target)
 			{
 				target.style.border = this.__resizeState.border;
 				this.__resizeState = null;
 			}
-			
+
 
 			var caption = this.$.mediaEditor.captionRemove(target);
 				this.$.mediaEditor.captionRemove(target);
-			
+
 			target.parentNode.removeChild(target);
 			this._updateValue();
 
@@ -157,9 +157,9 @@
 				target = this.__resizeState.target;
 
 			interactable.unset();
-			
+
 			target.style.border = target.style._border || "none";
-			
+
 			document.removeEventListener('click', this.resizeTargetStop);
 			this.__resizeState = null;
 		},
@@ -300,21 +300,21 @@
 			function removeSelectedElements(opts, top) {
 				var tagNamesArray = opts.tagNames.toLowerCase().split(","),
 					attrNamesArray = opts.attributeNames.toLowerCase().split(",");
-				
+
 				getSelectedNodes().forEach(function(node) {
 					if (node.nodeType == 3)
 						node = node.parentNode;
-					
+
 					if(!node || node == top) return;
-					
+
 					if (node.nodeType == 1 &&
 						tagNamesArray.indexOf(node.tagName.toLowerCase()) > -1) {
 						// Remove the node and replace it with its children
 						replaceWithOwnChildren(node);
-						
+
 						return;
 					}
-					
+
 					attrNamesArray.forEach(function(attr) {
 						node.removeAttribute(attr)
 					});
@@ -423,8 +423,8 @@
 
 					html = container.innerHTML;
 				}
-			} 
-			else 
+			}
+			else
 			if (typeof document.selection != "undefined") {
 				if (document.selection.type == "Text") {
 					html = document.selection.createRange().htmlText;
@@ -449,8 +449,8 @@
 		{
 			var that = this, cmdDef = cmdDefOrName, actualCmd, val, ext,test,result;
 
-			
-			
+
+
 			if(typeof cmdDef == 'string')
 				cmdDef = (window.ir.textarea.commands.filter(function(c) { return c.cmd == cmdDef }))[0] || { fakeCmd : cmdDef };
 
@@ -566,9 +566,9 @@
 		_updateValue : function(e) {
 			if(this.__resizeState)
 				this.__resizeState.target.style.border = this.__resizeState.border;
-			
+
       		this.value =  this.$.editor.innerHTML.replace(/(\r\n|\n|\r)/gm," ").replace(/\<pre\>/gmi,"<span>").replace(/\<\/?pre\>/gmi,"</span>");
-			
+
 			var h = getComputedStyle(this.$.editor).height;
 			this.$.editor.style.minHeight = this.offsetHeight;
 
@@ -576,7 +576,7 @@
 
 			if(this.__resizeState)
 				this.__resizeState.target.style.border = "3px dashed grey";
-			
+
 			this.selectionSave();
 		},
 
@@ -638,7 +638,7 @@
 		{
 			el.innerText = text;
 		},
-		
+
 		undo : function() {
 			this.customUndo.undo();
 		},
@@ -719,7 +719,12 @@
 			var undoCommand = function() {
 				var sel, r, lastUndo, lur;
 
-				lastUndo = undoRecord.pop();
+        if(undoRecord.length==1){
+          lastUndo = undoRecord[0];
+        }
+        else{
+          lastUndo = undoRecord.pop();
+        }
 
 				if(!lastUndo)
 					return;
@@ -727,7 +732,12 @@
 				if(lastUndo.content == editor.innerHTML)
 				{
 					redoRecord.push(lastUndo);
-					lastUndo = undoRecord.pop();
+          if(undoRecord.length==1){
+            lastUndo = undoRecord[0];
+          }
+          else{
+            lastUndo = undoRecord.pop();
+          }
 				}
 				else
 				{
