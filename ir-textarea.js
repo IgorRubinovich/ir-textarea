@@ -731,12 +731,14 @@
 
 				if(lastUndo.content == editor.innerHTML)
 				{
-					redoRecord.push(lastUndo);
+
           if(undoRecord.length==1){
             lastUndo = undoRecord[0];
           }
           else{
+            redoRecord.push(lastUndo);
             lastUndo = undoRecord.pop();
+
           }
 				}
 				else
