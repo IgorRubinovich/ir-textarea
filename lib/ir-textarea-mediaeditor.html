@@ -139,7 +139,7 @@
 		},		
 		
 		captionSet : function(el, text) {
-			var caption, p;
+			var caption, p, newEl;
 			
 			if(!text) 
 				text = "new caption";
@@ -147,8 +147,8 @@
 			caption = this.captionGet(el);
 			
 			if(!caption) {
-				p = el.parentNode,
-					newEl = document.createElement('div');
+				p = el.parentNode;
+				newEl = document.createElement('div');
 
 				p.insertBefore(newEl, el);
 				p.removeChild(el);

@@ -23,6 +23,7 @@
 					that.selectionSave();
 				});
 
+			this.$.editor.addEventListener('click', this.contextMenuShow.bind(this), true); // capturing phase
 
 			/*var pasteHandler = function(e) {
 				var v;
@@ -62,22 +63,29 @@
 
 		contextMenuShow : function(ev) {
 			var cm = this.$.contextMenu, target = ev.target, flowTarget = target, captionWrapper,
-				mediaEditor = this.$.mediaEditor, that = this;
+				mediaEditor = this.$.mediaEditor, that = this, altTarget = ev.target, candidateTarget;
 
+			target = getClosestLightDomTarget(target, this.$.editor);
 
-			//if(target.tagName == "A")
-			//	return ev.preventDefault();
-
-			if(!target.tagName.match("IMG|VIDEO")) // add more as implemented
+			if(target && isInCustomElement(target))
 			{
-				ev.stopPropagation(), ev.stopImmediatePropagation();
+				ev.stopPropagation();
+				ev.stopImmediatePropagation();
+			}
+
+			if(!target || target.is || target == this.$.editor || !target.tagName.match("IMG|VIDEO")) // add more as implemented
+			{
+				ev.stopPropagation(); 
+				ev.stopImmediatePropagation();
 				cm.disabled = true;
 				return
 			}
 
 			if(!this.__resizeState || (this.__resizeState.target != target))
 			{
-				this.resizeTarget(ev.target);
+				target.style.display = "inline-block";
+				target.style.position = "relative";
+				this.resizeTarget(target);
 				ev.stopPropagation();
 				cm.disabled = true;
 				return;
@@ -91,7 +99,7 @@
 
 			cm.options = [];
 
-			cm.options.push({label: 'Resize', icon: 'icons:size', info: '', value : ev.target, action : this.resizeTarget.bind(this)});
+			cm.options.push({label: 'Resize', icon: 'icons:size', info: '', value : target, action : this.resizeTarget.bind(this)});
 
 			var imageAction = function(f) {
 				return function(param)
@@ -115,13 +123,13 @@
 
 			cm.options.push({label: 'Float', icon: 'icons:align', info: '', options: floatOptions});
 			if(captionWrapper)
-				cm.options.push({label: 'Remove caption', icon: 'icons:align', value : ev.target, action : imageAction(mediaEditor.captionRemove.bind(mediaEditor))});
+				cm.options.push({label: 'Remove caption', icon: 'icons:align', value : target, action : imageAction(mediaEditor.captionRemove.bind(mediaEditor))});
 			else
-				cm.options.push({label: 'Add caption', icon: 'icons:align', info: '', value : ev.target, action : imageAction(mediaEditor.captionSet.bind(mediaEditor))});
-			cm.options.push({label: 'Remove media',  icon: 'icons:align', info: '', value : ev.target, action : imageAction(this.deleteTarget.bind(this))});
-			cm.options.push({label: 'More...',  icon: 'icons:align', info: '', value : ev.target, action : imageAction(mediaEditor.open.bind(mediaEditor))});
+				cm.options.push({label: 'Add caption', icon: 'icons:align', info: '', value : target, action : imageAction(mediaEditor.captionSet.bind(mediaEditor))});
+			cm.options.push({label: 'Remove media',  icon: 'icons:align', info: '', value : target, action : imageAction(this.deleteTarget.bind(this))});
+			cm.options.push({label: 'More...',  icon: 'icons:align', info: '', value : target, action : imageAction(mediaEditor.open.bind(mediaEditor))});
 
-
+			cm._openGroup(ev);
 		},
 
 		deleteCmd : function() {
@@ -567,7 +575,7 @@
 			if(this.__resizeState)
 				this.__resizeState.target.style.border = this.__resizeState.border;
 
-      		this.value =  this.$.editor.innerHTML.replace(/(\r\n|\n|\r)/gm," ").replace(/\<pre\>/gmi,"<span>").replace(/\<\/?pre\>/gmi,"</span>");
+      		this.value =  recursiveInnerHTML(this.$.editor).replace(/(\r\n|\n|\r)/gm," ").replace(/\<pre\>/gmi,"<span>").replace(/\<\/?pre\>/gmi,"</span>");
 
 			var h = getComputedStyle(this.$.editor).height;
 			this.$.editor.style.minHeight = this.offsetHeight;
@@ -832,4 +840,87 @@
 			}
 		}
 
+		
+		var recursiveInnerHTML = function(el) {
+			if(!((el.is ? Polymer.dom(el) : el).childNodes.length))
+				return tagOutline(el);
+
+			return Array.prototype.map.call(el.childNodes, function(node) {
+					if((node.is ? Polymer.dom(node) : node).childNodes.length)
+						return outerHTML(node);
+					else
+						return tagOutline(node);
+				}).join('');
+		}
+		
+		var tagOutline = function(el){ // effectively outerHTML - innerHTML
+			var nn = el.cloneNode(false),
+				d = document.createElement('div');
+			
+			d.appendChild(nn);
+			while(nn.childNodes.length) 
+				nn.removeChild(nn.childNodes[0]);
+			
+			return d.innerHTML;
+		}
+
+		var outerHTML = function(node){
+			var outerHTML, innerHTML, childNodes, res;
+
+			if(node.nodeType == 3) 
+				return node.textContent;
+
+			if(!node.is && node.outerHTML)
+				return node.outerHTML;
+
+			childNodes = node.is ? Polymer.dom(node).childNodes : node.childNodes;
+			if(!childNodes.length)
+				return tagOutline(node);
+			
+			innerHTML = Array.prototype.map.call(childNodes, function(n) { return recursiveInnerHTML(n) }).join('');
+			
+			res = tagOutline(node)
+			if(innerHTML)
+				res = res.replace(/(\<[^\>]+\>)/, function(m) { return m + innerHTML })
+			
+			return res;
+		}
+		
+		// if node is in light dom tree will return the node, 
+		// otherwise will return the closest parent custom element that is in light dom
+		var getClosestLightDomTarget = function(node, top) {
+			var customParents = [], cn, n = node, i, goDeeper;
+			while(n != top)
+			{
+				if(n.is)
+					customParents.push(n);
+				n = n.parentNode;
+			}
+			while(customParents.length)
+			{
+				n = customParents.pop();
+				cn = Polymer.dom(n).childNodes;
+
+				for(i = 0; !goDeeper && i < cn.length; i++)
+				{
+					if(cn[i] == node)
+						return node
+					
+					goDeeper = (cn[i] == customParents[customParents.length-1]);
+				}
+				if(!goDeeper)
+					return n;
+			}
+		}
+		
+		var isInCustomElement = function(node, top) {
+			while(node != top && node.is != document.body)
+				if(node.is)
+					return true;
+				else
+					node = node.parentNode;
+				
+			
+			return false;
+		}
 })();
