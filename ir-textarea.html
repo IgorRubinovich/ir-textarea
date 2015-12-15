@@ -1,0 +1,221 @@
+<link rel="import" href="../ir-reflect-to-native-behavior/ir-reflect-to-native-behavior.html">
+<link rel="import" href="../paper-dropdown-menu/paper-dropdown-menu.html">
+<link rel="import" href="../paper-tabs/paper-tabs.html">
+<link rel="import" href="../paper-dialog/paper-dialog.html">
+<link rel="import" href="../paper-dialog-scrollable/paper-dialog-scrollable.html">
+<link rel="import" href="../iron-image/iron-image.html">
+<link rel="import" href="../iron-icons/iron-icons.html">
+<link rel="import" href="../iron-icons/image-icons.html">
+<link rel="import" href="../iron-icons/editor-icons.html">
+<link rel="import" href="../paper-icon-button/paper-icon-button.html">
+<link rel="import" href="../paper-button/paper-button.html">
+<link rel="import" href="../paper-radio-group/paper-radio-group.html">
+<link rel="import" href="../paper-checkbox/paper-checkbox.html">
+<link rel="import" href="../io-menu/io-menu.html">
+
+<link rel="import" href="./lib/ir-selectors-behavior.html">
+<link rel="import" href="./lib/ir-textarea-mediaeditor.html">
+<link rel="import" href="./lib/ir-textarea-mediaembedder.html">
+<link rel="import" href="./lib/ir-textarea-linkeditor.html">
+<link rel="import" href="./lib/ir-textarea-table.html">
+<link rel="import" href="./commands.html">
+
+<script src="./htmlparser.js"></script>
+
+<script src="../interact/interact.js"></script>
+
+<!--
+@license
+Copyright (c) 2015 Igor Rubinovich <igor.rubinovich@gmail.com>. All rights reserved.
+This code may only be used under the MIT license found at http://opensource.org/licenses/MIT
+-->
+<!--
+# ir-textarea
+
+**A wysiwyg editor custom component for Polymer 1.0**
+
+Just what it says.
+
+## To-do
+- All of it
+- Docs
+- Demo
+
+## Contribution
+Issues and pull requests are most welcome. Fork it [here](https://github.com/IgorRubinovich/ir-textarea).
+
+## License
+[MIT](http://opensource.org/licenses/MIT)
+
+
+@group GUI Elements
+@element ir-textarea
+@homepage http://igorrubinovich.github.io/ir-textarea/
+@demo demo/index.html
+-->
+<dom-module id="ir-textarea">
+  <style>
+    :host {
+      display: block;
+    }
+	paper-button {
+		border-radius : 50px;
+		padding : 0;
+	}
+	iron-icon-button {
+		width : 15px;
+	}
+	#editor {
+		outline : none;
+		height : 400px;
+		width : 100%;
+	}
+
+	#editor a:link, a:hover, a:active, a:visited {
+		borrder-bottom : 1px dashed darkslateblue;
+		cursor : pointer;
+	}
+
+	pages {
+		min-height : 200px;
+		margin-top  : 10px;
+		padding : 5px;
+		display : flex
+	}
+
+	toremove {
+		display : none;
+	}
+
+	.separator {
+		width : 2px;
+		height : 20px;
+		display : inline-block;
+		background : #eee;
+	}
+
+	#htmlTextArea {
+		width : 100%;
+		height : 300px
+	}
+
+	paper-dialog {
+		padding : 20px;
+	}
+
+	paper-dialog paper-input
+	{
+		padding : 5px;
+	}
+
+	#borderWrapper {
+		border : 1px solid #e0e0e0;
+	}
+
+	#floatWrapper {
+		display : inline-block;
+		padding : 15px;
+		width : 95%;
+		min-height : 400px;
+	}
+
+
+	.embed-aspect-ratio
+	{
+		position: relative;
+		width: 100%;
+		height: 0;
+		padding-bottom: 51%;
+	}
+
+	.embed-aspect-ratio iframe {
+		position: absolute;
+		width: 100%;
+		height: 100%;
+		left: 0; top: 0;
+	}
+
+  </style>
+  <template>
+	<div>
+		<paper-tabs selected="{{ viewMode }}">
+			<paper-tab>WYSIWYG</paper-tab>
+			<paper-tab>HTML</paper-tab>
+		</paper-tabs>
+	</div>
+	<iron-pages id="pages" selected="{{ viewMode }}">
+		<div>
+			<div id="toolbar">
+				<paper-dropdown-menu label="Font" raised>
+					<paper-menu cmd-name="fontName" on-iron-select="clickedPresetCommand" class="dropdown-content" attr-for-selected="value">
+						<paper-item value="sans-serif"><font face="sans-serif">Sans-serif</font></paper-item>
+						<paper-item value="serif"><font face="serif">Serif</font></paper-item>
+						<paper-item value="cursive"><font face="cursive">Cursive</font></paper-item>
+						<paper-item value="fantasy"><font face="fantasy">Fantasy</font></paper-item>
+						<paper-item value="monospace"><font face="monospace">Monospace</font></paper-item>
+					</paper-menu>
+				</paper-dropdown-menu>
+				<paper-dropdown-menu label="Paragraph heading" raised>
+					<paper-menu cmd-name="formatBlock" on-iron-select="clickedPresetCommand" class="dropdown-content" attr-for-selected="value">
+						<paper-item value="h1"><h1>H1</h1></paper-item>
+						<paper-item value="h2"><h2>H2</h2></paper-item>
+						<paper-item value="h3"><h3>H3</h3></paper-item>
+						<paper-item value="h4"><h4>H4</h4></paper-item>
+						<paper-item value="h5"><h5>H5</h5></paper-item>
+						<paper-item value="h6"><h6>H6</h6></paper-item>
+					</paper-menu>
+				</paper-dropdown-menu>
+				<paper-dropdown-menu label="Font size" raised>
+					<paper-menu cmd-name="fontSize" on-iron-select="clickedPresetCommand" class="dropdown-content" attr-for-selected="value">
+						<paper-item value="6"><font size="6">6</font></paper-item>
+						<paper-item value="5"><font size="5">5</font></paper-item>
+						<paper-item value="4"><font size="4">4</font></paper-item>
+						<paper-item value="3"><font size="3">3</font></paper-item>
+						<paper-item value="2"><font size="2">2</font></paper-item>
+						<paper-item value="1"><font size="1">1</font></paper-item>
+					</paper-menu>
+				</paper-dropdown-menu>
+				<paper-icon-button raised icon="icons:undo" on-tap="undo" alt="undo"></paper-icon-button>
+				<paper-icon-button raised icon="icons:redo" on-tap="redo" alt="redo"></paper-icon-button>
+				
+				<span class="separator"></span>
+				<template is="dom-repeat" items="{{ toolbarButtons }}">
+					<template is="dom-if" if="{{ item }}">
+						<template is="dom-if" if="{{ !item.icon }}">
+							<paper-button raised on-mousedown="clickedCommand" cmd-def="{{ item }}">{{ item.cmd }}</paper-button>
+						</template>
+						<template is="dom-if" if="{{ item.icon }}">
+							<paper-icon-button raised on-mousedown="clickedCommand" icon="{{ item.icon }}" cmd-def="{{ item }}" alt="{{ item.cmd }}"></paper-icon-button>
+						</template>
+					</template>
+					<template is="dom-if" if="{{ !item }}">
+						<span class="separator"></span>
+					</template>
+				</template>
+				<span class="separator"></span>
+				<paper-icon-button raised icon="icons:delete" on-mousedown="deleteCmd" alt="delete selection"></paper-icon-button>
+				<paper-icon-button raised icon="editor:format-clear" on-tap="removeFormat" alt="remove format"></paper-icon-button>
+				<paper-icon-button raised icon="code" on-tap="insertHtml" alt="insert html"></paper-icon-button>
+				<paper-icon-button raised icon="icons:link" on-tap="createLink" alt="create link"></paper-icon-button>
+				<paper-icon-button raised icon="image:grid-on" on-tap="createTable" alt="create table"></paper-icon-button>
+			</div>
+			<div id="borderWrapper">
+				<div id="floatWrapper">
+					<div id="editor" on-tap="contextMenuShow" on-focus="_focusedEditor" on-blur="_blurredEditor" contenteditable>
+						<content></content>
+					</div>
+				</div>
+				<io-menu id="contextMenu" listener="click"></io-menu>
+			</div>
+		</div>
+		<div>
+			<textarea id="htmlTextArea" value="{{ value }}"></textarea>
+		</div>
+	</iron-pages>
+	<ir-textarea-mediaeditor id="mediaEditor" on-accepted="_updateValue"></ir-textarea-mediaeditor>
+	<ir-textarea-mediaembedder id="mediaEmbedder" wrapper-class="{{ wrapperClass }}" on-accepted="_updateValue"></ir-textarea-mediaembedder>
+	  <ir-textarea-linkeditor id="linkEditor"  on-accepted="_updateValue"></ir-textarea-linkeditor>
+	  <ir-textarea-table id="tableCreator"  on-accepted="_updateValue"></ir-textarea-table>
+  </template>
+</dom-module>
+<script src="ir-textarea.js"></script>
