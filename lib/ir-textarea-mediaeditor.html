@@ -139,7 +139,7 @@
 		},		
 		
 		captionSet : function(el, text) {
-			var caption, p, newEl;
+			var caption, p, newEl, captionEl;
 			
 			if(!text) 
 				text = "new caption";
@@ -147,18 +147,24 @@
 			caption = this.captionGet(el);
 			
 			if(!caption) {
-				p = el.parentNode;
+				p = Polymer.dom(el).parentNode;
 				newEl = document.createElement('div');
 
-				p.insertBefore(newEl, el);
+				p = Polymer.dom(p);
+				//p.replaceChild(newEl, el);
 				p.removeChild(el);
+				p.appendChild(newEl);
 				newEl.appendChild(el);
 
 				newEl.style.float = el.style.float;
-
 				newEl.classList.add('caption-wrapper');
-				newEl.innerHTML += "<p class='caption'>" + text + "</p>";
-				newEl.style.textAlign = "center";
+				captionEl = document.createElement('p');
+				captionEl.classList.add('caption');
+				captionEl.innerHTML = text;
+				
+				newEl.appendChild(captionEl);
+				
+				newEl.style.textAlign = captionEl.style.textAlign = "center";
 			}
 			else
 				caption.innerHTML = text;
@@ -175,14 +181,17 @@
 		},
 		
 		captionRemove : function(el) {
-			var c = this.captionWrapperGet(el)
+			var c = this.captionWrapperGet(el), p = Polymer.dom(c).parentNode;
 
 			if(!c)
 				return;
 			
+			if(p.is)
+				p = Polymer.dom(p);
+			
 			el.style.float = c.style.float;
-			c.parentNode.insertBefore(el, c);
-			c.parentNode.removeChild(c);
+			p.insertBefore(el, c);
+			p.removeChild(c);
 		},
 		
 		setFloat : function(params) {

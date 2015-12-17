@@ -1,23 +1,27 @@
 <script>
 if(!window.ir) window.ir = {};
 
-ir.SelectorBehavior = {	
+window.ir.SelectorBehavior = {	
 	/** select `el`'s ancestor corresponding to `selector`, but go no higher than `top` */
 	selectAncestor : function(el, selector, top) {
-		if(!top) top = document;
-		if(!el.parentNode || el == top) 
-			return null;
-		if(el.parentNode.matchesSelector(selector)) {
-			return el.parentNode
+		if(!top) top = document.body;
+
+		el = Polymer.dom(el).parentNode;
+		while(el && !window.ir.SelectorBehavior.isOrIsAncestorOf(el, top))
+		{
+			if(el.matchesSelector(selector))
+				return el;
+
+			el = Polymer.dom(el).parentNode;
 		}
-		
-		return this.selectAncestor(el.parentNode, selector, top)
+
+		return null;
 	},
 
 	isItWhatIWant: function(el, selector, top){
 
 		if(!top) top = document;
-		if(!el.parentNode || el == top) return null;
+		if(!Polymer.dom(el).parentNode || el == top) return null;
 		if(el.matchesSelector(selector)) {
 			return el
 		}
@@ -26,9 +30,9 @@ ir.SelectorBehavior = {
 		}
 	},
 		
-	/** select `el`'s descendant corresponding to `selector` */
+	/** select `el`'s descendant matching `selector` */
 	selectDescendant : function(el, selector, top) {
-		var children = el.childNodes, i, deeper;
+		var children = Polymer.dom(el).childNodes, i, deeper;
 		
 		if(!children.length) 
 			return null;
@@ -42,7 +46,7 @@ ir.SelectorBehavior = {
 			
 		return deeper;
 	},
-	// code by Tim Down
+
 	isOrIsAncestorOf : function (ancestor, descendant) {
 	  var n = descendant;
 	  while (n) {
@@ -64,7 +68,7 @@ this.Element && function(ElementPrototype) {
 	ElementPrototype.oMatchesSelector ||
 	ElementPrototype.webkitMatchesSelector ||
 	function (selector) {
-		var node = this, nodes = (node.parentNode || node.document).querySelectorAll(selector), i = -1;
+		var node = this, nodes = (Polymer.dom(node).parentNode || node.document).querySelectorAll(selector), i = -1;
 
 		while (nodes[++i] && nodes[i] != node);
 

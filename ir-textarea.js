@@ -25,18 +25,19 @@
 
 			this.$.editor.addEventListener('click', this.contextMenuShow.bind(this), true); // capturing phase
 
-			/*var pasteHandler = function(e) {
-				var v;
-				if(typeof clipboardData != 'undefined')
-					v = clipboardData.getData();
-				else
-					v = e.originalEvent ? e.originalEvent.clipboardData.getData('text') : e.clipboardData.getData('text');
+			// var pasteHandler = function(e) {
+				// var v;
+				// if(typeof clipboardData != 'undefined')
+					// v = clipboardData.getData();
+				// else
+					// v = e.originalEvent ? e.originalEvent.clipboardData.getData('text') : e.clipboardData.getData('text');
 
-				e.preventDefault();
-				console.log(v)
-			};
+				// e.preventDefault();
+				
+				// this.$.editor.innerHTML = v;
+			// };
 
-			that.$.editor.addEventListener('paste', pasteHandler);*/
+			//that.$.editor.addEventListener('paste', pasteHandler);
 
 			var defs = {};
 			window.ir.textarea.commands
@@ -48,32 +49,34 @@
 			// get them in order
 			this.toolbarButtons = commands.map(function(c) { return c ? defs[c] : ""; });
 
-			this.$.htmlTextArea.addEventListener("change", function () { that.$.editor.innerHTML = that.value = that.$.htmlTextArea.value });
+			this.$.htmlTextArea.addEventListener("change", function () { 
+				that.$.editor.innerHTML = that.value = that.$.htmlTextArea.value 
+			});
 
 			this.$.mediaEditor.editor = this.$.editor;
 
-			this.set('customUndo', CustomUndoEngine(this.$.editor));
-
-			this._updateValue();
+			this.set('customUndo', CustomUndoEngine(this.$.editor, { timeout : false }))
 		},
 
 		attached: function(){
-		  this.insertPlugins();
+			this.insertPlugins();
+			setTimeout(function() { this._updateValue(); }.bind(this), 300);
 		},
 
 		contextMenuShow : function(ev) {
 			var cm = this.$.contextMenu, target = ev.target, flowTarget = target, captionWrapper,
-				mediaEditor = this.$.mediaEditor, that = this, altTarget = ev.target, candidateTarget;
+				mediaEditor = this.$.mediaEditor, that = this, altTarget = ev.target, candidateTarget, parentCustomEl;
 
 			target = getClosestLightDomTarget(target, this.$.editor);
 
-			if(target && isInCustomElement(target))
+			parentCustomEl = getTopParentCustomElement(target, this.$.editor);
+			if(target && parentCustomEl)
 			{
 				ev.stopPropagation();
 				ev.stopImmediatePropagation();
 			}
 
-			if(!target || target.is || target == this.$.editor || !target.tagName.match("IMG|VIDEO")) // add more as implemented
+			if(!target || target == this.$.editor || !(target.is || target.tagName.match("IMG|VIDEO"))) // add more as implemented
 			{
 				ev.stopPropagation(); 
 				ev.stopImmediatePropagation();
@@ -81,25 +84,31 @@
 				return
 			}
 
-			if(!this.__resizeState || (this.__resizeState.target != target))
+			if(!target.is && (!this.__resizeState || (this.__resizeState.target != target)))
 			{
 				target.style.display = "inline-block";
 				target.style.position = "relative";
 				this.resizeTarget(target);
 				ev.stopPropagation();
 				cm.disabled = true;
+
 				return;
 			}
-
+			
+			if(this.__resizeState && this.__resizeState.justResized)
+				return this.__resizeState.justResized = false;
+			
+			
 			cm.disabled = false;
-
+			
 			ev.screenX = ev.clientX = ev.detail.x
 			ev.screenY = ev.clientY = ev.detail.y
 			ev.preventDefault();
 
 			cm.options = [];
 
-			cm.options.push({label: 'Resize', icon: 'icons:size', info: '', value : target, action : this.resizeTarget.bind(this)});
+			if(!target.is)
+				cm.options.push({label: 'Resize', icon: 'icons:size', info: '', value : target, action : this.resizeTarget.bind(this)});
 
 			var imageAction = function(f) {
 				return function(param)
@@ -112,23 +121,28 @@
 				}
 			};
 
-			if(captionWrapper = mediaEditor.captionWrapperGet(target))
-				flowTarget = captionWrapper;
-
-			floatOptions = [
-				{ label: 'default', value : { target : flowTarget, value : "none" }, action : imageAction(mediaEditor.setFloat.bind(mediaEditor)) },
-				{ label: 'Left', value : { target : flowTarget, value : "left" }, action : imageAction(mediaEditor.setFloat.bind(mediaEditor)) },
-				{ label: 'Right', value : { target : flowTarget, value : "right" }, action : imageAction(mediaEditor.setFloat.bind(mediaEditor)) }
-			];
-
-			cm.options.push({label: 'Float', icon: 'icons:align', info: '', options: floatOptions});
-			if(captionWrapper)
-				cm.options.push({label: 'Remove caption', icon: 'icons:align', value : target, action : imageAction(mediaEditor.captionRemove.bind(mediaEditor))});
-			else
-				cm.options.push({label: 'Add caption', icon: 'icons:align', info: '', value : target, action : imageAction(mediaEditor.captionSet.bind(mediaEditor))});
 			cm.options.push({label: 'Remove media',  icon: 'icons:align', info: '', value : target, action : imageAction(this.deleteTarget.bind(this))});
-			cm.options.push({label: 'More...',  icon: 'icons:align', info: '', value : target, action : imageAction(mediaEditor.open.bind(mediaEditor))});
 
+			if(!target.is)
+			{
+				
+				if(captionWrapper = mediaEditor.captionWrapperGet(target))
+					flowTarget = captionWrapper;
+
+				floatOptions = [
+					{ label: 'default', value : { target : flowTarget, value : "none" }, action : imageAction(mediaEditor.setFloat.bind(mediaEditor)) },
+					{ label: 'Left', value : { target : flowTarget, value : "left" }, action : imageAction(mediaEditor.setFloat.bind(mediaEditor)) },
+					{ label: 'Right', value : { target : flowTarget, value : "right" }, action : imageAction(mediaEditor.setFloat.bind(mediaEditor)) }
+				];
+
+				cm.options.push({label: 'Float', icon: 'icons:align', info: '', options: floatOptions});
+				if(captionWrapper)
+					cm.options.push({label: 'Remove caption', icon: 'icons:align', value : target, action : imageAction(mediaEditor.captionRemove.bind(mediaEditor))});
+				else
+					cm.options.push({label: 'Add caption', icon: 'icons:align', info: '', value : target, action : imageAction(mediaEditor.captionSet.bind(mediaEditor))});
+				cm.options.push({label: 'More...',  icon: 'icons:align', info: '', value : target, action : imageAction(mediaEditor.open.bind(mediaEditor))});
+			}
+			
 			cm._openGroup(ev);
 		},
 
@@ -140,21 +154,30 @@
 		},
 
 		deleteTarget : function(target) {
+			var deleteTarget, p;
 			if(this.__resizeState && this.__resizeState.target == target)
 			{
 				target.style.border = this.__resizeState.border;
-				this.__resizeState = null;
-			}
-
+				target = this.__resizeState.target;
+				this.__resizeState = null;				
+			};
 
 			var caption = this.$.mediaEditor.captionRemove(target);
 				this.$.mediaEditor.captionRemove(target);
 
-			target.parentNode.removeChild(target);
+			if(!(deleteTarget = getTopParentCustomElement(target, this.$.editor)))
+				deleteTarget = target;
+
+			
+			p = deleteTarget.parentNode; // delete target is a top parent custom element, meaning its parent is surely no in another custom element's dom
+			if(p.is)
+				p = Polymer.dom(p);
+
+			p.removeChild(deleteTarget);
 			this._updateValue();
 
-			target.parentNode.removeChild(target);
-			this._updateValue();
+			//Polymer.dom(target).removeChild(target);
+			//this._updateValue();
 		},
 
 		resizeTargetStop : function(ev) {
@@ -210,9 +233,15 @@
 				})
 				.on('resizeend', function() {
 					that.__resizeState.justResized = true;
+					that.__resizeState.target.style.cursor="default"
+					that.$.editor.style.cursor="default"
 				});
 
-			this.__resizeState = { target : target, interactable : interactable, border : target.style.border };
+			this.__resizeState = { 
+									target : target, 
+									interactable : interactable, 
+									border : target.style.border 
+								};
 			this.__resizeState.target.style.border = "3px dashed grey";
 		},
 
@@ -476,7 +505,7 @@
 					if(actualCmd =='insertImage' && ext && ext.match(/(mp4|ogg|webm|ogv)$/i)){
 						val = "<video controls ><source src='" + val + "' type='video/" + ext + "'></video>"
 						//document.execCommand("insertHTML", false, val);
-						that.insertHTMLCmd(val);
+						that.insertHTMLCmd(" ", val, " ");
 					}
 					else if(actualCmd =='insertImage' && isHtml){
 						that.insertHTMLCmd(val);
@@ -485,8 +514,8 @@
 						if(val)
 						{
 							that.selectionRestore();
-
 							that._execCommand(actualCmd, false, val);
+							that.$.editor.focus();
 
 							//that.selectionForget();
 						}
@@ -526,6 +555,7 @@
 				//	this.selectionForget();
 				//});
 
+				this.$.editor.focus();
 				this._updateValue();
 			});
 		},
@@ -570,22 +600,66 @@
 
 			return range;
 		},
+		
+		frameContent : function() { // wraps content in <p><br></p>[content]<p><br></p>
+			var ed = this.$.editor, nn, i, d,
+			
+				isFramingEl = function(d) { return 	d.tagName && 
+													d.tagName.toLowerCase() == 'p' && 
+													d.childNodes.length == 1 && 
+													d.childNodes[0].tagName &&
+													d.childNodes[0].tagName.toLowerCase() == 'br'; },
+				newFramingEl = function() { var el; el = document.createElement('p'); el.appendChild(document.createElement('br')); return el };
+			
+			if(!ed.childNodes.length)
+				return ed.appendChild(newFramingEl());
+
+			if(!isFramingEl(ed.childNodes[0]))
+				ed.insertBefore(newFramingEl(), ed.childNodes[0]);
+			
+			if(ed.childNodes.length > 1 && !isFramingEl(ed.childNodes[ed.childNodes.length - 1]))
+				ed.appendChild(newFramingEl());
+		},
 
 		_updateValue : function(e) {
-			if(this.__resizeState)
-				this.__resizeState.target.style.border = this.__resizeState.border;
+			if(this._updateValueTimeout)
+				return;
+			
+			// this is too much work to execute on every event
+			// so we schedule it once per 500ms as long as there are actions happening
+			this._updateValueTimeout = setTimeout(function() {
+				var bottomPadding, topPadding, that = this;
+							
+				if(this.__resizeState)
+					this.__resizeState.target.style.border = this.__resizeState.border;
 
-      		this.value =  recursiveInnerHTML(this.$.editor).replace(/(\r\n|\n|\r)/gm," ").replace(/\<pre\>/gmi,"<span>").replace(/\<\/?pre\>/gmi,"</span>");
+				this.value = recursiveInnerHTML(this.$.editor)
+								.replace(/(\r\n|\n|\r)/gm," ")
+								.replace(/\<pre\>/gmi,"<span>").replace(/\<\/?pre\>/gmi,"</span>")
+								.trim()
+								.replace(/^\<p\>\<br\>\<\/p\>/, '')
+								.replace(/\<p\>\<br\>\<\/p\>$/, '');
 
-			var h = getComputedStyle(this.$.editor).height;
-			this.$.editor.style.minHeight = this.offsetHeight;
+				if(this.value.match(/style-scope/)) debugger;
+							
+				this.frameContent();
 
-			this.customUndo.pushUndo();
+				//var h = getComputedStyle(this.$.editor).height;
+				//this.$.editor.style.minHeight = this.$.editor.offsetHeight+"px"; // = this.$.editor.scrollHeight + "px";
 
-			if(this.__resizeState)
-				this.__resizeState.target.style.border = "3px dashed grey";
+				if(that.customUndo.lastTimeout)
+					clearTimeout(that.customUndo.lastTimeout);
+				that.customUndo.lastTimeout = setTimeout(function() {
+					that.customUndo.pushUndo();
+				}, 1000);
 
-			this.selectionSave();
+				if(this.__resizeState)
+					this.__resizeState.target.style.border = "3px dashed grey";
+				
+				this.selectionSave();
+				
+				this._updateValueTimeout = null;
+			}.bind(this), 400);
 		},
 
 		_focusedEditor : function() {
@@ -722,81 +796,86 @@
 
 			if(!options) options = {};
 			if(!options.maxUndoItems) options.maxUndoItems = 30;
-			if(!options.timeout) options.timeout = 15000;
+			if(typeof options.timeout == 'undefined') options.timeout = 15000;
 
 			var undoCommand = function() {
-				var sel, r, lastUndo, lur;
+					var sel, r, lastUndo, lur;
 
-        if(undoRecord.length==1){
-          lastUndo = undoRecord[0];
-        }
-        else{
-          lastUndo = undoRecord.pop();
-        }
+					if(undoRecord.length==1){
+					  lastUndo = undoRecord[0];
+					}
+					else{
+					  lastUndo = undoRecord.pop();
+					}
 
-				if(!lastUndo)
-					return;
+					if(!lastUndo)
+						return;
 
-				if(lastUndo.content == editor.innerHTML)
-				{
+					if(lastUndo.content == editor.innerHTML)
+					{
+						if(undoRecord.length==1){
+							lastUndo = undoRecord[0];
+						}
+						else{
+							redoRecord.push(lastUndo);
+							lastUndo = undoRecord.pop();
+						}
+					}
+					else
+					{
+						pushUndo(true);
+						redoRecord.push(undoRecord.pop());
+					}
 
-          if(undoRecord.length==1){
-            lastUndo = undoRecord[0];
-          }
-          else{
-            redoRecord.push(lastUndo);
-            lastUndo = undoRecord.pop();
+					if(!lastUndo)
+						return;
 
-          }
+					restoreState(lastUndo);
+					lastRestoredStateContent = lastUndo.content;
 				}
-				else
-				{
-					pushUndo(true);
-					redoRecord.push(undoRecord.pop());
+
+				var redoCommand = function(e) {
+					var sel, r, lastRedo = redoRecord.pop();
+
+					if(lastRedo)
+					{
+						pushUndo(true);
+						restoreState(lastRedo);
+						lastRestoredStateContent = lastRedo.content;
+					}
 				}
 
-				if(!lastUndo)
-					return;
-
-				restoreState(lastUndo);
-				lastRestoredStateContent = lastUndo.content;
-			}
-
-			var redoCommand = function(e) {
-				var sel, r, lastRedo = redoRecord.pop();
-
-				if(lastRedo)
+				var restoreState = function(state)
 				{
-					pushUndo(true);
-					restoreState(lastRedo);
-					lastRestoredStateContent = lastRedo.content;
+					var stateRange = state.range, sn, en, so, eo;
+
+					sel = document.getSelection();
+
+					editor.innerHTML = state.content;
+
+					sel.removeAllRanges();
+					r = document.createRange();
+
+					Polymer.dom.flush();
+					setTimeout(function() {
+						sn = stateRange.startMemo.restore() || editor;
+						en = stateRange.endMemo.restore() || sn;
+						so = sn ? stateRange.startOffset : 0;
+						eo = sn && en ? stateRange.endOffset : 0;
+						r.setStart(sn, so);
+						r.setEnd(en, eo);
+						sel.addRange(r);
+						editor.focus();
+					});
+
 				}
-			}
 
-			var restoreState = function(state)
-			{
-				var stateRange = state.range;
+				var pushUndo = function(force) {
+					var r, sel, innerHTML = recursiveInnerHTML(editor), startMemo, endMemo, sc, ec;
 
-				sel = document.getSelection();
-
-				editor.innerHTML = state.content;
-
-				sel.removeAllRanges();
-				r = document.createRange();
-
-				r.setStart(stateRange.startContainer, stateRange.startOffset);
-				r.setEnd(stateRange.endContainer, stateRange.endOffset);
-
-				sel.addRange(r);
-
-				editor.focus();
-			}
-
-			var pushUndo = function(force) {
-				var r, sel;
-
-				if(force || ((lastRestoredStateContent != editor.innerHTML) && (!undoRecord.length || (undoRecord[undoRecord.length-1].content != editor.innerHTML))))
-				{
+					if(!(force || ((lastRestoredStateContent != innerHTML) && (!undoRecord.length || (undoRecord[undoRecord.length-1].content != innerHTML)))))
+						return;
+					
 					lastRestoredStateContent == null;
 
 					while(undoRecord.length >= options.maxUndoItems)
@@ -806,14 +885,20 @@
 					if(sel.rangeCount)
 					{
 						r = sel.getRangeAt(0);
-						undoRecord.push({ content : editor.innerHTML, range : { startContainer : r.startContainer, endContainer : r.endContainer, startOffset : r.startOffset, endOffset : r.endOffset }});
+						sc = r.startContainer == editor ? editor : (getTopParentCustomElement(r.startContainer, editor) || r.startContainer);
+						ec = r.endContainer  == editor ? editor : (getTopParentCustomElement(r.endContainer, editor) || r.endContainer);
+						startMemo = getDomPathMemo(sc, editor);
+						endMemo = getDomPathMemo(ec, editor);
+						undoRecord.push({ content : innerHTML, range : { startMemo : startMemo, endMemo : endMemo, startOffset : r.startOffset, endOffset : r.endOffset }});
 					}
 					else
-						undoRecord.push({ content : editor.innerHTML, range : { startContainer : editor, endContainer : editor, startOffset : 0, endOffset : 0 }});;
+					{
+						startMemo = endMemo = getDomPathMemo(editor, editor);
+						undoRecord.push({ content : innerHTML, range : { startContainer : null, endContainer : null, startOffset : 0, endOffset : 0 }});;
+					}
 
 					if(!force && redoRecord.length)
-						redoRecord = [];
-				}
+						redoRecord = [];				
 			};
 
 
@@ -830,7 +915,8 @@
 				}
 			})
 
-			setInterval(pushUndo, options.timeout);
+			if(options.timeout)
+				setInterval(pushUndo, options.timeout);
 			pushUndo();
 
 			return {
@@ -843,41 +929,65 @@
 		
 		var recursiveInnerHTML = function(el) {
 			if(!((el.is ? Polymer.dom(el) : el).childNodes.length))
-				return tagOutline(el);
+				return "";
 
 			return Array.prototype.map.call(el.childNodes, function(node) {
 					if((node.is ? Polymer.dom(node) : node).childNodes.length)
-						return outerHTML(node);
+						return recursiveOuterHTML(node);
 					else
 						return tagOutline(node);
 				}).join('');
 		}
 		
+		var isCustomElementName = (function(n) {
+			var cache = {};
+			return function(tagName) {
+				var c = cache[tagName];
+				if(c = cache[tagName]) 
+					return c;
+				else 
+					return cache[tagName] = !!document.createElement(tagName).is;
+			}
+		})();
+		
 		var tagOutline = function(el){ // effectively outerHTML - innerHTML
 			var nn = el.cloneNode(false),
-				d = document.createElement('div');
+				d = document.createElement('div'),
+				classList;
 			
+			if(nn.classList)
+			{
+				var classList = Array.prototype.map.call(nn.classList, function(n){return n});
+				
+				classList.forEach(function(cl) { if(isCustomElementName(cl)) nn.classList.remove(cl); });
+				nn.classList.remove('style-scope');
+				
+				if(!nn.classList.length) nn.removeAttribute("class");
+			}
+			
+				
 			d.appendChild(nn);
+			
 			while(nn.childNodes.length) 
 				nn.removeChild(nn.childNodes[0]);
 			
 			return d.innerHTML;
 		}
 
-		var outerHTML = function(node){
+		var recursiveOuterHTML = function(node){
 			var outerHTML, innerHTML, childNodes, res;
 
 			if(node.nodeType == 3) 
 				return node.textContent;
 
-			if(!node.is && node.outerHTML)
-				return node.outerHTML;
+			//if(!node.is && node.outerHTML)
+			//	return node.outerHTML;
 
 			childNodes = node.is ? Polymer.dom(node).childNodes : node.childNodes;
 			if(!childNodes.length)
 				return tagOutline(node);
 			
-			innerHTML = Array.prototype.map.call(childNodes, function(n) { return recursiveInnerHTML(n) }).join('');
+			innerHTML = Array.prototype.map.call(childNodes, function(n) { return recursiveOuterHTML(n) }).join('');
 			
 			res = tagOutline(node)
 			if(innerHTML)
@@ -908,19 +1018,82 @@
 					
 					goDeeper = (cn[i] == customParents[customParents.length-1]);
 				}
-				if(!goDeeper)
+				if(!goDeeper && customParents.length)
 					return n;
 			}
+
+			return node;
 		}
 		
-		var isInCustomElement = function(node, top) {
-			while(node != top && node.is != document.body)
+		// returns topmost custom element or null
+		var getTopParentCustomElement = function(node, top) {
+			var res = null;
+			while(node && node != top && node.is != document.body)
+			{
 				if(node.is)
-					return true;
-				else
-					node = node.parentNode;
+					res = node;
 				
-			
-			return false;
+				node = node.parentNode;
+			}
+
+			return res;
 		}
+
+		// DomPathMemo - remember and restore child via an array of childNode order path - used in undo
+		function getDomPathMemo(child, ancestor) {
+			return new DomPathMemo(child, ancestor);
+		}
+
+		var DomPathMemo = (function() {
+			var DomPathMemo = function(child, ancestor) {
+				this.posistionArray = getChildPathFromTop(child, ancestor);
+				this.restore = function() {
+					return getChildFromPath(this.posistionArray, ancestor);
+				}.bind(this);
+			}
+			var getChildPositionInParent = function(child) { 
+				var i, cn, p;
+				if(!child || child == document.body)
+					return null;
+				
+				cn = Polymer.dom(child).parentNode.childNodes; 
+				for(i=0; cn[i] != child && i < cn.length; i++) 
+					;
+			 
+				return i;
+			}
+
+
+			var getChildPathFromTop = function(child, top) { 
+				var t, p; 
+
+				if(child == document.body && top != document.body) 
+					return null; 
+				if(child == top) 
+					return []; 
+
+				p = Polymer.dom(child).parentNode; 
+				t = getChildPathFromTop(p, top); 
+				if(!t)
+					return null;
+				t.push(getChildPositionInParent(child)); 
+				return t; 
+			}
+
+			var getChildFromPath = function(pathArr, top)
+			{
+				var res = top;
+				
+				if(!pathArr)
+					return null;
+				
+				pathArr.forEach(function(pos) { 
+					res = (res.is ? Polymer.dom(res) : res).childNodes[pos];
+				});
+
+				return res;
+			}
+			
+			return DomPathMemo;
+		})()
 })();
