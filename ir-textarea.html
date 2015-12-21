@@ -136,6 +136,23 @@ Issues and pull requests are most welcome. Fork it [here](https://github.com/Igo
 		left: 0; top: 0;
 	}
 
+	.fixit {
+		position: fixed;
+		margin: 0;
+		background: white;
+		width: 1028px;
+		z-index: 1000;
+		border: 1px solid #ccc;
+
+	}
+
+	@media (max-width:@screen-sm) {
+		.fixit {
+		width: 100%;
+		left: 0;
+		}
+	}
+
   </style>
   <template>
 	<div>
