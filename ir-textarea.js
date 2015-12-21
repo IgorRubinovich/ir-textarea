@@ -33,7 +33,7 @@
 					// v = e.originalEvent ? e.originalEvent.clipboardData.getData('text') : e.clipboardData.getData('text');
 
 				// e.preventDefault();
-				
+
 				// this.$.editor.innerHTML = v;
 			// };
 
@@ -49,8 +49,8 @@
 			// get them in order
 			this.toolbarButtons = commands.map(function(c) { return c ? defs[c] : ""; });
 
-			this.$.htmlTextArea.addEventListener("change", function () { 
-				that.$.editor.innerHTML = that.value = that.$.htmlTextArea.value 
+			this.$.htmlTextArea.addEventListener("change", function () {
+				that.$.editor.innerHTML = that.value = that.$.htmlTextArea.value
 			});
 
 			this.$.mediaEditor.editor = this.$.editor;
@@ -61,6 +61,36 @@
 		attached: function(){
 			this.insertPlugins();
 			setTimeout(function() { this._updateValue(); }.bind(this), 300);
+
+			var that = this;
+
+			var tbar = {};
+			tbar.toolbarOffsetTop = this.offsetTop;
+			tbar.toolbarOffsetHeight = this.offsetHeight;
+			tbar.toolbarOffsetWidth = this.offsetWidth;
+			tbar.setPosition = function(x){
+				if(tbar.scrollTop > tbar.toolbarOffsetTop){
+					that.set("toolbarfix",'fixit');
+					if(tbar.headerState == 0){
+						that.set("toolbarstyle",'top:'+tbar.headerHeight+'px');
+					}
+					else if(tbar.headerState == 2){
+						that.set("toolbarstyle",'top:'+tbar.condensedHeaderHeight+'px');
+					}
+				}
+				else{
+					that.set("toolbarfix",'nofix');
+					that.set("toolbarstyle",'top:0');
+				}
+			};
+
+			mediator.subscribe('scrolling', function( arg ){
+				tbar.scrollTop = arg.scrollTop;
+				tbar.headerState = arg.headerState;
+				tbar.condensedHeaderHeight = arg.condensedHeaderHeight;
+				tbar.headerHeight = arg.headerHeight;
+				tbar.setPosition();
+			});
 		},
 
 		contextMenuShow : function(ev) {
@@ -78,7 +108,7 @@
 
 			if(!target || target == this.$.editor || !(target.is || target.tagName.match("IMG|VIDEO"))) // add more as implemented
 			{
-				ev.stopPropagation(); 
+				ev.stopPropagation();
 				ev.stopImmediatePropagation();
 				cm.disabled = true;
 				return
@@ -94,13 +124,13 @@
 
 				return;
 			}
-			
+
 			if(this.__resizeState && this.__resizeState.justResized)
 				return this.__resizeState.justResized = false;
-			
-			
+
+
 			cm.disabled = false;
-			
+
 			ev.screenX = ev.clientX = ev.detail.x
 			ev.screenY = ev.clientY = ev.detail.y
 			ev.preventDefault();
@@ -125,7 +155,7 @@
 
 			if(!target.is)
 			{
-				
+
 				if(captionWrapper = mediaEditor.captionWrapperGet(target))
 					flowTarget = captionWrapper;
 
@@ -142,7 +172,7 @@
 					cm.options.push({label: 'Add caption', icon: 'icons:align', info: '', value : target, action : imageAction(mediaEditor.captionSet.bind(mediaEditor))});
 				cm.options.push({label: 'More...',  icon: 'icons:align', info: '', value : target, action : imageAction(mediaEditor.open.bind(mediaEditor))});
 			}
-			
+
 			cm._openGroup(ev);
 		},
 
@@ -159,7 +189,7 @@
 			{
 				target.style.border = this.__resizeState.border;
 				target = this.__resizeState.target;
-				this.__resizeState = null;				
+				this.__resizeState = null;
 			};
 
 			var caption = this.$.mediaEditor.captionRemove(target);
@@ -168,7 +198,7 @@
 			if(!(deleteTarget = getTopParentCustomElement(target, this.$.editor)))
 				deleteTarget = target;
 
-			
+
 			p = deleteTarget.parentNode; // delete target is a top parent custom element, meaning its parent is surely no in another custom element's dom
 			if(p.is)
 				p = Polymer.dom(p);
@@ -237,10 +267,10 @@
 					that.$.editor.style.cursor="default"
 				});
 
-			this.__resizeState = { 
-									target : target, 
-									interactable : interactable, 
-									border : target.style.border 
+			this.__resizeState = {
+									target : target,
+									interactable : interactable,
+									border : target.style.border
 								};
 			this.__resizeState.target.style.border = "3px dashed grey";
 		},
@@ -600,23 +630,23 @@
 
 			return range;
 		},
-		
+
 		frameContent : function() { // wraps content in <p><br></p>[content]<p><br></p>
 			var ed = this.$.editor, nn, i, d,
-			
-				isFramingEl = function(d) { return 	d.tagName && 
-													d.tagName.toLowerCase() == 'p' && 
-													d.childNodes.length == 1 && 
+
+				isFramingEl = function(d) { return 	d.tagName &&
+													d.tagName.toLowerCase() == 'p' &&
+													d.childNodes.length == 1 &&
 													d.childNodes[0].tagName &&
 													d.childNodes[0].tagName.toLowerCase() == 'br'; },
 				newFramingEl = function() { var el; el = document.createElement('p'); el.appendChild(document.createElement('br')); return el };
-			
+
 			if(!ed.childNodes.length)
 				return ed.appendChild(newFramingEl());
 
 			if(!isFramingEl(ed.childNodes[0]))
 				ed.insertBefore(newFramingEl(), ed.childNodes[0]);
-			
+
 			if(ed.childNodes.length > 1 && !isFramingEl(ed.childNodes[ed.childNodes.length - 1]))
 				ed.appendChild(newFramingEl());
 		},
@@ -624,12 +654,12 @@
 		_updateValue : function(e) {
 			if(this._updateValueTimeout)
 				return;
-			
+
 			// this is too much work to execute on every event
 			// so we schedule it once per 500ms as long as there are actions happening
 			this._updateValueTimeout = setTimeout(function() {
 				var bottomPadding, topPadding, that = this;
-							
+
 				if(this.__resizeState)
 					this.__resizeState.target.style.border = this.__resizeState.border;
 
@@ -641,7 +671,7 @@
 								.replace(/\<p\>\<br\>\<\/p\>$/, '');
 
 				if(this.value.match(/style-scope/)) debugger;
-							
+
 				this.frameContent();
 
 				//var h = getComputedStyle(this.$.editor).height;
@@ -655,9 +685,9 @@
 
 				if(this.__resizeState)
 					this.__resizeState.target.style.border = "3px dashed grey";
-				
+
 				this.selectionSave();
-				
+
 				this._updateValueTimeout = null;
 			}.bind(this), 400);
 		},
@@ -760,6 +790,16 @@
 
 			value : {
 				type : String,
+				notify : true
+			},
+			toolbarfix : {
+				type: String,
+				value: 'nofix',
+				notify : true
+			},
+			toolbarstyle : {
+				type: String,
+				value: 'nofix',
 				notify : true
 			}
 		},
@@ -875,7 +915,7 @@
 
 					if(!(force || ((lastRestoredStateContent != innerHTML) && (!undoRecord.length || (undoRecord[undoRecord.length-1].content != innerHTML)))))
 						return;
-					
+
 					lastRestoredStateContent == null;
 
 					while(undoRecord.length >= options.maxUndoItems)
@@ -898,7 +938,7 @@
 					}
 
 					if(!force && redoRecord.length)
-						redoRecord = [];				
+						redoRecord = [];
 			};
 
 
@@ -926,7 +966,7 @@
 			}
 		}
 
-		
+
 		var recursiveInnerHTML = function(el) {
 			if(!((el.is ? Polymer.dom(el) : el).childNodes.length))
 				return "";
@@ -938,46 +978,46 @@
 						return tagOutline(node);
 				}).join('');
 		}
-		
+
 		var isCustomElementName = (function(n) {
 			var cache = {};
 			return function(tagName) {
 				var c = cache[tagName];
-				if(c = cache[tagName]) 
+				if(c = cache[tagName])
 					return c;
-				else 
+				else
 					return cache[tagName] = !!document.createElement(tagName).is;
 			}
 		})();
-		
+
 		var tagOutline = function(el){ // effectively outerHTML - innerHTML
 			var nn = el.cloneNode(false),
 				d = document.createElement('div'),
 				classList;
-			
+
 			if(nn.classList)
 			{
 				var classList = Array.prototype.map.call(nn.classList, function(n){return n});
-				
+
 				classList.forEach(function(cl) { if(isCustomElementName(cl)) nn.classList.remove(cl); });
 				nn.classList.remove('style-scope');
-				
+
 				if(!nn.classList.length) nn.removeAttribute("class");
 			}
-			
-				
+
+
 			d.appendChild(nn);
-			
-			while(nn.childNodes.length) 
+
+			while(nn.childNodes.length)
 				nn.removeChild(nn.childNodes[0]);
-			
+
 			return d.innerHTML;
 		}
 
 		var recursiveOuterHTML = function(node){
 			var outerHTML, innerHTML, childNodes, res;
 
-			if(node.nodeType == 3) 
+			if(node.nodeType == 3)
 				return node.textContent;
 
 			//if(!node.is && node.outerHTML)
@@ -986,17 +1026,17 @@
 			childNodes = node.is ? Polymer.dom(node).childNodes : node.childNodes;
 			if(!childNodes.length)
 				return tagOutline(node);
-			
+
 			innerHTML = Array.prototype.map.call(childNodes, function(n) { return recursiveOuterHTML(n) }).join('');
-			
+
 			res = tagOutline(node)
 			if(innerHTML)
 				res = res.replace(/(\<[^\>]+\>)/, function(m) { return m + innerHTML })
-			
+
 			return res;
 		}
-		
-		// if node is in light dom tree will return the node, 
+
+		// if node is in light dom tree will return the node,
 		// otherwise will return the closest parent custom element that is in light dom
 		var getClosestLightDomTarget = function(node, top) {
 			var customParents = [], cn, n = node, i, goDeeper;
@@ -1015,7 +1055,7 @@
 				{
 					if(cn[i] == node)
 						return node
-					
+
 					goDeeper = (cn[i] == customParents[customParents.length-1]);
 				}
 				if(!goDeeper && customParents.length)
@@ -1024,7 +1064,7 @@
 
 			return node;
 		}
-		
+
 		// returns topmost custom element or null
 		var getTopParentCustomElement = function(node, top) {
 			var res = null;
@@ -1032,7 +1072,7 @@
 			{
 				if(node.is)
 					res = node;
-				
+
 				node = node.parentNode;
 			}
 
@@ -1051,49 +1091,49 @@
 					return getChildFromPath(this.posistionArray, ancestor);
 				}.bind(this);
 			}
-			var getChildPositionInParent = function(child) { 
+			var getChildPositionInParent = function(child) {
 				var i, cn, p;
 				if(!child || child == document.body)
 					return null;
-				
-				cn = Polymer.dom(child).parentNode.childNodes; 
-				for(i=0; cn[i] != child && i < cn.length; i++) 
+
+				cn = Polymer.dom(child).parentNode.childNodes;
+				for(i=0; cn[i] != child && i < cn.length; i++)
 					;
-			 
+
 				return i;
 			}
 
 
-			var getChildPathFromTop = function(child, top) { 
-				var t, p; 
+			var getChildPathFromTop = function(child, top) {
+				var t, p;
 
-				if(child == document.body && top != document.body) 
-					return null; 
-				if(child == top) 
-					return []; 
+				if(child == document.body && top != document.body)
+					return null;
+				if(child == top)
+					return [];
 
-				p = Polymer.dom(child).parentNode; 
-				t = getChildPathFromTop(p, top); 
+				p = Polymer.dom(child).parentNode;
+				t = getChildPathFromTop(p, top);
 				if(!t)
 					return null;
-				t.push(getChildPositionInParent(child)); 
-				return t; 
+				t.push(getChildPositionInParent(child));
+				return t;
 			}
 
 			var getChildFromPath = function(pathArr, top)
 			{
 				var res = top;
-				
+
 				if(!pathArr)
 					return null;
-				
-				pathArr.forEach(function(pos) { 
+
+				pathArr.forEach(function(pos) {
 					res = (res.is ? Polymer.dom(res) : res).childNodes[pos];
 				});
 
 				return res;
 			}
-			
+
 			return DomPathMemo;
 		})()
 })();

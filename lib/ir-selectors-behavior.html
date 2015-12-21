@@ -1,7 +1,7 @@
 <script>
 if(!window.ir) window.ir = {};
 
-window.ir.SelectorBehavior = {	
+window.ir.SelectorBehavior = {
 	/** select `el`'s ancestor corresponding to `selector`, but go no higher than `top` */
 	selectAncestor : function(el, selector, top) {
 		if(!top) top = document.body;
@@ -29,12 +29,12 @@ window.ir.SelectorBehavior = {
 			return null;
 		}
 	},
-		
+
 	/** select `el`'s descendant matching `selector` */
 	selectDescendant : function(el, selector, top) {
 		var children = Polymer.dom(el).childNodes, i, deeper;
-		
-		if(!children.length) 
+
+		if(!children.length)
 			return null;
 
 		for(i = 0; i < children.length; i++)
@@ -43,7 +43,7 @@ window.ir.SelectorBehavior = {
 
 		for(i = 0; i < children.length; i++)
 			deeper = this.selectDescendant(children[i]);
-			
+
 		return deeper;
 	},
 
@@ -60,9 +60,35 @@ window.ir.SelectorBehavior = {
 	}
 };
 
+var mediator = (function(){
+	var channels = {};
+	var subscribe = function(channel, fn){
+		if (!channels[channel]) channels[channel] = [];
+		channels[channel].push({ context: this, callback: fn });
+		return this;
+	};
+
+	var publish = function(channel){
+		if (!channels[channel]) return false;
+		var args = Array.prototype.slice.call(arguments, 1);
+		for (var i = 0, l = channels[channel].length; i < l; i++) {
+			var subscription = channels[channel][i];
+			subscription.callback.apply(subscription.context, args);
+		}
+		return this;
+	};
+	return {
+		publish: publish,
+		subscribe: subscribe,
+		installTo: function(obj){
+			obj.subscribe = subscribe;
+			obj.publish = publish;
+		}
+	};
+}());
 
 this.Element && function(ElementPrototype) {
-	ElementPrototype.matchesSelector = ElementPrototype.matchesSelector || 
+	ElementPrototype.matchesSelector = ElementPrototype.matchesSelector ||
 	ElementPrototype.mozMatchesSelector ||
 	ElementPrototype.msMatchesSelector ||
 	ElementPrototype.oMatchesSelector ||
