@@ -49,6 +49,8 @@ Works with arrays of (node fs.Stats)[https://nodejs.org/api/fs.html#fs_class_fs_
                 },
 
                 populateTable : function (table, rows, cells, content) {
+                    var wrapper = document.createElement('div');
+                    wrapper.className='table-wraper';
                     if (!table) table = document.createElement('table');
 
                     for (var i = 0; i < rows; ++i) {
@@ -59,7 +61,9 @@ Works with arrays of (node fs.Stats)[https://nodejs.org/api/fs.html#fs_class_fs_
                         }
                         table.appendChild(row);
                     }
-                    return table;
+                    wrapper.appendChild(table);
+
+                    return wrapper;
                 },
 
                 createTable2: function(e){
