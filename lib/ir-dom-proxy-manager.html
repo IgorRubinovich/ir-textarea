@@ -1,0 +1,165 @@
+<script>
+if(!window.ir) window.ir = {};
+
+window.ir.DomProxyManager = {
+	// Create proxy elements covering targets - for manipulation of iframe and other non-manipulable elements (like what?)
+	//
+	// getProxyManager() - returns a new proxyManager object	//
+	//
+	// proxyManager.createProxies(targetsSelector, opts)
+	//
+	// Where opts are:
+	//  - rootNode - the element against which targetsSelector will be run
+	//	- rootNodeCreate - the element to which proxy elements will be attached
+	//	- reusePool - if set to false all pool elements will be removed and created anew.
+	//
+	// Usage: createProxies();
+	//
+
+	getProxyManager : function(targetsSelector, _opts) {
+		return (function() {
+			var pool = [], opts = {}, lastResult, covernodes = [];
+
+			var getCumulativeDimensions = function(element, fromElement) {
+				var top = 0, left = 0, width = 0, height = 0, cs;
+					fromElement = fromElement || document.body;
+
+				cs = element.getBoundingClientRect(); // getComputedStyle(element);
+
+				width = numerify(cs.width) + numerify(cs.borderLeftWidth) + numerify(cs.borderRightWidth);
+				height = numerify(cs.height) + numerify(cs.borderTopWidth) + numerify(cs.borderBottomWidth);
+			  
+				cs = element.getBoundingClientRect(); // getComputedStyle(element);
+				top += element.offsetTop || 0;
+				left += element.offsetLeft || 0;
+				element = element.offsetParent;
+				/*do {
+					cs = element.getBoundingClientRect(); // getComputedStyle(element);
+					top += element.offsetTop || 0;
+					left += element.offsetLeft || 0;
+					element = element.offsetParent;
+				} while(element && isChildOf(element, fromElement));*/
+
+				return {
+					top: top, left: left, width : width, height : height
+				};
+			};
+
+			var cover = function(node, relativeTo, createRootNode) {
+			  var cd,d,i, actualCoverNodes = [], l;
+			  
+			  if(!node)
+				node = [];
+			  
+			  if(node && !node.length && !node.length === 0)
+				node = [node];
+
+			  for(i = 0; i < node.length; i++)
+			  {
+				cd = getCumulativeDimensions(node[i], relativeTo);
+				d = covernodes[i];
+				
+				if(!d || !d.parentNode) {
+					if(!d)
+						d = document.createElement('div');
+					if(!d.parentNode)
+						createRootNode.appendChild(d);
+					d.style.background = 'red';
+					d.style.opacity = '.5';
+					d.style.position = 'absolute';
+					d.classList.add('cover');										
+				}
+				
+				d.style.display = "inline-block";
+				d.style.left = cd.left + "px";
+				d.style.top = cd.top + "px";
+				d.style.width = cd.width + "px";
+				d.style.height = cd.height + "px";
+
+				d.proxyTarget = node[i];
+				
+				covernodes[i] = d;
+				
+				actualCoverNodes.push(d);
+				
+				return actualCoverNodes;
+			  }
+			  
+			  while(i < covernodes.length)
+			  {
+				l = covernodes.pop();
+				if(l.parentNode == createRootNode)
+					createRootNode.removeChild(l);
+				i++;
+			  }
+				
+			  return actualCoverNodes;
+			};
+			
+			var syncPool = function(current) {
+				current = current || [];
+
+				if(pool.length)
+					for(i = 0; i < pool.length; i++)
+						if(pool[i] && pool[i].parentNode && current.indexOf(pool[i]) == -1)
+							pool[i].parentNode.removeChild(pool[i]);
+
+				pool = current;
+			}
+
+			var createProxies = function(forcesyncPool) {
+				var targets, result, i;
+				
+				if(forcesyncPool)
+					syncPool();
+				
+				opts.rootNode = opts.rootNode || document.body;
+				opts.createRootNode = opts.createRootNode || document.body;
+				
+				targets = opts.rootNode.querySelectorAll(targetsSelector);
+				
+				
+				if(opts.reusePool === false || !pool)
+					syncPool();
+					
+				result = cover(targets, opts.rootNode, opts.createRootNode, pool);
+				
+				syncPool(result);
+				
+				return lastResult = result;
+			};
+			
+			if(_opts)
+				opts = _opts;
+			
+			return {
+				createProxies : createProxies,
+				lastResult : null,
+				clearProxyPool : syncPool
+			}
+		})();
+		
+		function numerify(x){
+			if(typeof x == 'undefined' || !x)
+				return 0;
+
+			if(typeof x == 'number')
+				return x;
+				
+			return Number(x.replace ? x.replace(/[^\d\.]/g, '') : x);
+		};
+		
+		function isChildOf(child, ancestor) {
+			while(child != document.body)
+				if(child.parentNode == ancestor)
+					return true;
+				else
+					child = child.parentNode;
+					
+			return false;
+		}
+	}
+}
+	
+
+</script>

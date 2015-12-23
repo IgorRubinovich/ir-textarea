@@ -32,9 +32,9 @@
 						<hr>
 						<h3>Float</h3>
 						<paper-radio-group selected="{{ _mediaDialogState.data.float }}" attr-for-selected="name">
-							<paper-radio-button name="left">Left</paper-radio-button>
+							<paper-radio-button name="float-left">Left</paper-radio-button>
 							<paper-radio-button name="">None</paper-radio-button>
-							<paper-radio-button name="right">Right</paper-radio-button>
+							<paper-radio-button name="float-right">Right</paper-radio-button>
 						</paper-radio-group>
 					</paper-material>
 			</div>
@@ -62,7 +62,7 @@
 		},
 		
 		open : function(target) {			
-			var d = {}, cw;
+			var d = {}, cw, cl;
 			
 			"src,alt".split(",").forEach(function(f) { d[f] = target[f] });
 
@@ -72,7 +72,11 @@
 			d.height = String(target.style.height || cs.height).replace(/[^\.\d]+/g, "");
 			
 			cw = this.captionWrapperGet(target);
-			d.float = (cw || target).style.float;
+			
+			cl = (cw || target).classList;
+			
+			d.float = cl.contains('float-right') && "left";
+			d.float = cl.contains('float-left') && "right";
 			
 			if(d.captionEl = this.captionGet(target))
 				d.caption = d.captionEl.textContent;
@@ -120,8 +124,6 @@
 			
 			target.style.width = d.width + "px";
 			target.style.height = d.height + "px";
-			
-			target.style.float = d.float;
 			
 			if(d.caption)
 				this.captionSet(target, d.caption);
@@ -197,12 +199,18 @@
 		setFloat : function(params) {
 			var target = params.target,
 				c = this.captionWrapperGet(target),
-				t = c || target;
+				t = c || target,
+				v = params.value;
 			
 			if(c)
 				target.style.float = "";
-			
-			t.style.float = params.value
+
+			t.classList.remove('float-right');
+			t.classList.remove('float-left');
+			if(v)
+				t.classList.add(v);
+
+			//t.style.float = params.value
 		},
 		
 		mouseOut : function() {

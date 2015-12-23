@@ -1,4 +1,4 @@
-	(function () {
+(function () {
 	Polymer({
 		is : 'ir-textarea',
 		ready : function() {
@@ -7,26 +7,25 @@
 				newButton, cmdDef, icon, ev, handler, altTarget;
 
 			this.skipNodes = [];
-			this.__actionData = {};
-			
+				
 			handler = function(ev) {
-				if((ev.type == 'keydown' && ev.keyCode == 8 || ev.keyCode == 46) && that.__actionData.target)
+				if((ev.type == 'keydown' && ev.keyCode == 8 || ev.keyCode == 46) && that.__actionData)
 				{
 					ev.preventDefault();
 					that.deleteTarget(that.__actionData.target);
 				}
 
 				altTarget = getTopParentCustomElement(ev.target, that.$.editor) || ev.target.proxyTarget;
-				if(ev.type == 'mousedown' && altTarget && that.__actionData.type != 'drag')
+				if(ev.type == 'mousedown' && altTarget && (!that.__actionData || that.__actionData && that.__actionData.type != 'drag'))
 				{
 					that.moveTarget.call(that, altTarget);
 					ev.preventDefault();
 				}
 				if(ev.type == 'mouseup')
 				{
-					if(that.__actionData.dragTarget)
+					if(that.__actionData)
 					{
-						that.moveTarget.call(that, that.__actionData.dragTarget, true);
+						that.moveTarget.call(that, altTarget, true);
 						ev.preventDefault();
 					}
 				}
@@ -41,11 +40,10 @@
 					that.selectionSave();
 				});
 
-			this.domProxyManager = ir.DomProxyManager.getProxyManager(':not(.embed-aspect-ratio)>iframe,.embed-aspect-ratio', { rootNode : this.$.editor, createRootNode : this.$.editor, fromElement : this.$.editor });
+			this.domProxyManager = ir.DomProxyManager.getProxyManager('iframe', { rootNode : this.$.editor, createRootNode : this.$.editor, fromElement : this.$.editor });
 
 			this.$.editor.addEventListener('click', this.contextMenuShow.bind(this), true); // capturing phase
 
-			
 			// var pasteHandler = function(e) {
 				// var v;
 				// if(typeof clipboardData != 'undefined')
@@ -54,7 +52,7 @@
 					// v = e.originalEvent ? e.originalEvent.clipboardData.getData('text') : e.clipboardData.getData('text');
 
 				// e.preventDefault();
-
+				
 				// this.$.editor.innerHTML = v;
 			// };
 
@@ -70,8 +68,8 @@
 			// get them in order
 			this.toolbarButtons = commands.map(function(c) { return c ? defs[c] : ""; });
 
-			this.$.htmlTextArea.addEventListener("change", function () {
-				that.$.editor.innerHTML = that.value = that.$.htmlTextArea.value
+			this.$.htmlTextArea.addEventListener("change", function () { 
+				that.$.editor.innerHTML = that.value = that.$.htmlTextArea.value 
 			});
 
 			this.$.mediaEditor.editor = this.$.editor;
@@ -82,45 +80,6 @@
 		attached: function(){
 			this.insertPlugins();
 			setTimeout(function() { this._updateValue(); }.bind(this), 300);
-
-			var that = this;
-
-			var tbar = {};
-			tbar.toolbarOffsetTop = this.offsetTop;
-			tbar.toolbarOffsetHeight = this.offsetHeight;
-			tbar.toolbarOffsetWidth = this.offsetWidth;
-
-			tbar.setPosition = function(x){
-				if(tbar.scrollTop > tbar.toolbarOffsetTop && (that.clientHeight + tbar.toolbarOffsetTop - tbar.toolbarOffsetHeight) > tbar.scrollTop){
-					console.log(that);
-
-					that.set("toolbarfix",'fixit');
-					if(tbar.headerState == 0){
-						that.set("toolbarstyle",'top:'+tbar.headerHeight+'px');
-					}
-					else if(tbar.headerState == 2){
-						that.set("toolbarstyle",'top:'+tbar.condensedHeaderHeight+'px');
-					}
-					else if(tbar.headerState == 3){
-
-
-						that.set("toolbarstyle",'top:'+ (tbar.headerHeight- tbar.transformOffset) +'px');
-					}
-				}
-				else{
-					that.set("toolbarfix",'nofix');
-					that.set("toolbarstyle",'top:0');
-				}
-			};
-
-			mediator.subscribe('scrolling', function( arg ){
-				tbar.scrollTop = arg.scrollTop;
-				tbar.headerState = arg.headerState;
-				tbar.condensedHeaderHeight = arg.condensedHeaderHeight;
-				tbar.headerHeight = arg.headerHeight;
-				tbar.transformOffset = arg.transformOffset;;
-				tbar.setPosition();
-			});
 		},
 
 		contextMenuShow : function(ev) {
@@ -128,11 +87,11 @@
 				mediaEditor = this.$.mediaEditor, that = this, altTarget = ev.target, candidateTarget, parentCustomEl,
 
 				menuGroups = {
-						resizeable : "video,img,iframe,.embed-aspect-ratio",
-						floatable : "video,img,iframe,.embed-aspect-ratio",
-						removeable : "video,img,table,iframe,.embed-aspect-ratio"
+						resizeable : "video,img".split(','),
+						floatable : "video,img".split(','),
+						removeable : "video,img,iframe,table".split(',')
 				},
-				actionableTags = [menuGroups.resizeable, menuGroups.floatable, menuGroups.removeable].join(",");
+				actionableTags = menuGroups.resizeable.concat(menuGroups.floatable).concat(menuGroups.removeable);
 
 			cm.disabled = true;
 				
@@ -145,53 +104,51 @@
 				ev.stopImmediatePropagation();
 			}
 
-			if(this.__actionData.target != target)
-				this.clearActionData();
-
-			// check whether target is...
-			if(!target || target == this.$.editor || // interesting
-				!(target.proxyTarget || target.is || target.matchesSelector(actionableTags))) // and actionable
-			{
-				this.__actionData.showMenuFor = null;
-				this.clearActionData();
+			if((!target || target == this.$.editor) && !this.__actionData)
 				return;
-			}
+
+			if(!(target.proxyTarget || target.is || (actionableTags.indexOf(target.tagName.toLowerCase()) > -1)) && !this.__actionData)
+				return;
+
+			if(this.__actionData && this.__actionData.target != target)
+				this.clearActionData();
 			
-			// check whether target is actionable
+			this.selectForAction(target);
 			
-			// select target for action			
-			if(!this.__actionData.target)
-				this.selectForAction(target);
+			return;
 			
-			// if target is resizable and wasn't set up do set it up for resize
-			if(target.matchesSelector(menuGroups.resizeable) ||
-				(target.proxyTarget && target.proxyTarget.matchesSelector(menuGroups.resizeable))
-				&& (this.__actionData.resizableTarget != target))
+			if(this.__actionData && this.__actionData.lastAction)
+				return this.__actionData.lastAction = null;
+
+			if(!this.__actionData || !this.__actionData.showMenu)
 			{
+				if(!target.style.position || target.style.position == 'static')
+					target.style.position = "relative";
+
+				this.selectForAction(target);				
 				this.resizeTarget(target);
 				
 				ev.stopImmediatePropagation();
 				ev.stopPropagation();
+				
+				this.__actionData.showMenu = true;
+				
+				return;
 			}
 
-			// return if just made an action
-			if(this.__actionData.lastAction)
-				return this.__actionData.lastAction = null;
+			this.__actionData.showMenu = false;
 			
-			if(this.__actionData.showMenuFor != target) // show menu next time
-				return this.__actionData.showMenuFor = target;
-
 			console.log('showing context menu');
-
+			
 			cm.disabled = false;
-
+			
 			ev.screenX = ev.clientX = ev.detail.x
 			ev.screenY = ev.clientY = ev.detail.y
 			ev.preventDefault();
 
 			cm.options = [];
 
-			if(target.matchesSelector(menuGroups.resizeable) || target.proxyTarget.matchesSelector(menuGroups.resizeable))
+			if(!(menuGroups.resizeable.indexOf(target.tagName.toLowerCase()) > 0))
 				cm.options.push({label: 'Resize', icon: 'icons:size', info: '', value : target, action : this.resizeTarget.bind(this)});
 
 			var imageAction = function(f) {
@@ -207,7 +164,7 @@
 					
 					f.call(that, param);
 
-					that.clearActionData();
+					that.__actionData = null;
 					that._updateValue();
 				}
 			};
@@ -216,7 +173,7 @@
 
 			flowTarget = target;
 
-			if(target.matchesSelector(menuGroups.floatable))
+			if(!(menuGroups.floatable.indexOf(target.tagName.toLowerCase) > 0))
 			{
 				if(captionWrapper = mediaEditor.captionWrapperGet(target))
 					flowTarget = captionWrapper;
@@ -234,33 +191,33 @@
 					cm.options.push({label: 'Add caption', icon: 'icons:align', info: '', value : target, action : imageAction(mediaEditor.captionSet.bind(mediaEditor))});
 				cm.options.push({label: 'More...',  icon: 'icons:align', info: '', value : target, action : imageAction(mediaEditor.open.bind(mediaEditor))});
 			}
-
+			
 			cm._openGroup(ev);
 		},
 
-		selectForAction : function(target, type) {
-			var ad = this.__actionData;
-
-			if(this.__actionData.target == target)
-				return;
-				
-			this.clearActionData()
-
-			this.__actionData._border = target.style.border;
+		selectForAction : function(target, action) {
+			if(this.__actionData)
+			{
+				if(this.__actionData.target == target)
+					return;
+					
+				this.clearActionData()
+				this.__actionData = {};
+			}
+			else
+				this.__actionData = {};
+			this.__actionData.border = target.style.border;
 			this.__actionData.target = target;
-			this.__actionData.type = type;
-
-			target = getClosestLightDomTarget(target, this.$.editor);
 			
 			target.style.border = "3px dashed grey";
 		},
 		
 		clearActionData : function() {
-			var ad = this.__actionData
-			if(ad.target)
-				this.__actionData.target.style.border = this.__actionData._border || "none";
+			if(!this.__actionData)
+				return;
 
-			ad.target = ad.lastAction = ad.type = null
+			this.__actionData.target.style.border = this.__actionData._border || "none";
+			this.__actionData = null;
 		},
 
 		deleteCmd : function() {
@@ -279,7 +236,7 @@
 			{
 				target.style.border = this.__actionData.border;
 				target = this.__actionData.target;
-				this.clearActionData();
+				this.__actionData = null;				
 			};
 
 			var caption = this.$.mediaEditor.captionRemove(target);
@@ -300,11 +257,11 @@
 		},
 
 		resizeTargetStop : function(ev) {
-			if(!(ev === true || ev.target != this.__actionData.resizeTarget))
+			if(!(this.__actionData && (ev === true || ev.target != this.__actionData.target)))
 				return;
 
 			var interactable = this.__actionData.interactable,
-				target = this.__actionData.resizeTarget;
+				target = this.__actionData.target;
 
 			if(interactable)
 				interactable.unset();
@@ -318,11 +275,9 @@
 		resizeTarget : function(target) {
 			var that = this, resizeHandler;
 
-			if(this.__actionData.resizableTarget)
-				this.resizeTargetStop(true);
+			if(this.__actionData)
+				return;
 
-			that.__actionData.resizeTarget = target;
-			
 			document.addEventListener('mouseup', this.resizeTargetStop.bind(this));
 			document.addEventListener('click', this.resizeTargetStop.bind(this));
 
@@ -332,13 +287,13 @@
 				})
 				.on('resizemove', resizeHandler = function (event) {
 					var target = event.target,
-						computedStyle = target.getBoundingClientRect(),
+						computedStyle = getComputedStyle(target),
 
 						x = (parseFloat(target.getAttribute('data-x')) || 0),
 						y = (parseFloat(target.getAttribute('data-y')) || 0),
 
-						sw = Number(target.style.width.replace(/px/, '') || 0) || computedStyle.width,
-						sh = Number(target.style.height.replace(/px/, '') || 0) || computedStyle.height,
+						sw = Number((target.style.width || computedStyle.width).replace(/px/, '')),
+						sh = Number((target.style.height || computedStyle.height).replace(/px/, '')),
 						ratio, w, h;
 
 					ratio = sh/sw;
@@ -356,45 +311,25 @@
 						target.setAttribute("height", h + 'px');
 					}
 					
-					
-					that.__actionData.dragTarget = null; // resize takes over drag
 					// translate when resizing from top or left edges
 					//x += event.deltaRect.left; //y += event.deltaRect.top;
 				})
 				.on('resizeend', function() {
-					var t, st;
-
-					if(t = st = that.__actionData.resizeTarget)
+					var t;
+					if(that.__actionData)
 					{
+						t = that.__actionData.target;
 						if(t.proxyTarget)
 						{
-							if(t.proxyTarget.matchesSelector('.embed-aspect-ratio'))
-							{
-								t.proxyTarget.style.paddingBottom = "0";
-								st = t.proxyTarget.childNodes[0];
-							}
-							else
-							if(t.proxyTarget.matchesSelector('iframe'))
-								st = t.proxyTarget
-							st = t.proxyTarget;
-							st.style.width = t.style.width
-							st.style.webkitTransform = st.style.transform = t.style.transform;
-							st.style.height = t.style.height
+							t.proxyTarget.style.width = t.style.width
+							t.proxyTarget.style.height = t.style.height
+							t.proxyTarget.style.webkitTransform = t.proxyTarget.style.transform = t.style.transform;
 						}
-						
-						if(that.__actionData.resizePosition)
-							t.style.position = that.__actionData.resizePosition;
-
-						that.clearActionData();
 						that.__actionData.lastAction = "resize";
+						that.__actionData.target.style.cursor="default"
 					}
+					that.$.editor.style.cursor="default"
 				});
-
-			if(!target.style.position || target.style.position == 'static')
-			{
-				this.__actionData.resizePosition = target.style.position;
-				target.style.position = "relative";
-			}
 
 			this.__actionData.interactable = interactable;
 		},
@@ -402,56 +337,51 @@
 		moveTarget : function(target, done) {
 			var html, actualTarget, handler;
 			
-			if(this.__actionData.dragTarget && !done)
+			return;
+			
+			if(this.__actionData && this.__actionData.type == 'drag' && !done)
 				return console.log("skipping");
 			
 			if(done)
 			{
-				if(this.__actionData.caretPosData && this.isOrIsAncestorOf(this.$.editor, this.__actionData.caretPosData.node))
-				{
-					actualTarget = this.__actionData.dragTarget.proxyTarget || this.__actionData.dragTarget;
-										
-					this.clearActionData();				
-					this.__actionData.caretPosData = null;
+				document.removeEventListener('mousemove', this.__actionData.dragMoveListener);
 
+				if(this.__actionData.lastAction == 'drag' && this.__actionData.caretPosData && this.isOrIsAncestorOf(this.$.editor, this.__actionData.caretPosData.node))
+				{
+					actualTarget = this.__actionData.target.proxyTarget || this.__actionData.target;
+					
+					this.__actionData.target.style.border = "";
 					html = recursiveOuterHTML(actualTarget, this.skipNodes);
 					actualTarget.parentNode.removeChild(actualTarget);
-
 					this.pasteHtmlAtCaret(html);
 				}
+				else
+					this.__actionData.type = null;
 
-				document.removeEventListener('mousemove', this.__actionData.dragMoveListener);
-				this.__actionData.dragTarget = null
-				
 				console.log('drag occured:', this.__actionData.lastAction == 'drag');
 
 				return;
 			}
-					
+		
+			if(!this.__actionData)
+				this.__actionData = {};
+			
 			console.log('start drag');
 
-			if(this.__actionData.dragMoveListener)
-				document.removeEventListener('mousemove', this.__actionData.dragMoveListener);
-				
-			this.__actionData.caretPosData = null;
-			this.__actionData.dragTarget = target;
+			this.__actionData.target = target;
 			this.__actionData.dragMoveListener = function(event) {
 				var ad = this.__actionData;
 				var caretPosData = caretPositionFromPoint(event.clientX, event.clientY);
 
 				console.log('dragging');
 				
-				if(!ad.dragTarget)
-					document.removeEventListener('mousemove', this.__actionData.dragMoveListener);
-				
 				if(!ad.caretPosData || ad.caretPosData.node != caretPosData.node || ad.caretPosData.offset != caretPosData.offset)
 				{
 					setCaretAt(caretPosData.node, caretPosData.offset);
 					ad.caretPosData = caretPosData;
-					ad.caretPosData.changed = true;
-					this.__actionData.lastAction = 'drag';
 				}
 				
+				this.__actionData.lastAction = 'drag';
 			}.bind(this);
 
 			document.addEventListener('mousemove', this.__actionData.dragMoveListener);
@@ -808,38 +738,37 @@
 
 			return range;
 		},
-
+		
 		frameContent : function() { // wraps content in <p><br></p>[content]<p><br></p>
 			var ed = this.$.editor, nn, i, d,
-
-				isFramingEl = function(d) { return 	d.tagName &&
-													d.tagName.toLowerCase() == 'p' &&
-													d.childNodes.length == 1 &&
+			
+				isFramingEl = function(d) { return 	d.tagName && 
+													d.tagName.toLowerCase() == 'p' && 
+													d.childNodes.length == 1 && 
 													d.childNodes[0].tagName &&
 													d.childNodes[0].tagName.toLowerCase() == 'br'; },
 				newFramingEl = function() { var el; el = document.createElement('p'); el.appendChild(document.createElement('br')); return el };
-
+			
 			if(!ed.childNodes.length)
 				return ed.appendChild(newFramingEl());
 
 			if(!isFramingEl(ed.childNodes[0]))
 				ed.insertBefore(newFramingEl(), ed.childNodes[0]);
-
+			
 			if(ed.childNodes.length > 1 && !isFramingEl(ed.childNodes[ed.childNodes.length - 1]))
 				ed.appendChild(newFramingEl());
 		},
 
 		_updateValue : function(e) {
-			if(this._updateValueTimeout)
+			if(this._updateValueTimeout || this.__actionData)
 				return;
-
+			
 			// this is too much work to execute on every event
 			// so we schedule it once per 500ms as long as there are actions happening
 			this._updateValueTimeout = setTimeout(function() {
-				console.log('updating value!');
 				var bottomPadding, topPadding, that = this, editor = this.$.editor;
-
-				if(this.__actionData.target)
+							
+				if(this.__actionData)
 					this.__actionData.target.style.border = this.__actionData.border;
 
 				this.value = recursiveInnerHTML(this.$.editor, this.skipNodes)
@@ -851,7 +780,7 @@
 							
 				this.frameContent();
 
-				this.skipNodes = []; // [editor.childNodes[0], editor.childNodes[1]];
+				//this.skipNodes = [editor.childNodes[0], editor.childNodes[1]];
 
 				if(that.customUndo.lastTimeout)
 					clearTimeout(that.customUndo.lastTimeout);
@@ -860,12 +789,11 @@
 					that.customUndo.pushUndo(false, this.skipNodes);
 				}, 1000);
 
-				if(this.__actionData.target)
+				if(this.__actionData)
 					this.__actionData.target.style.border = "3px dashed grey";
-
 				
 				this.selectionSave();
-
+				
 				setTimeout(function() {
 					this.skipNodes = this.skipNodes.concat(this.domProxyManager.createProxies());
 				}.bind(this),50);
@@ -975,16 +903,6 @@
 
 			value : {
 				type : String,
-				notify : true
-			},
-			toolbarfix : {
-				type: String,
-				value: 'nofix',
-				notify : true
-			},
-			toolbarstyle : {
-				type: String,
-				value: 'nofix',
 				notify : true
 			}
 		},
@@ -1100,7 +1018,7 @@
 
 					if(!(force || ((lastRestoredStateContent != innerHTML) && (!undoRecord.length || (undoRecord[undoRecord.length-1].content != innerHTML)))))
 						return;
-
+					
 					lastRestoredStateContent == null;
 
 					while(undoRecord.length >= options.maxUndoItems)
@@ -1123,7 +1041,7 @@
 					}
 
 					if(!force && redoRecord.length)
-						redoRecord = [];
+						redoRecord = [];				
 			};
 
 
@@ -1151,7 +1069,7 @@
 			}
 		}
 
-
+		
 		var recursiveInnerHTML = function(el, skipNodes) {
 			skipNodes = skipNodes || [];
 			
@@ -1168,39 +1086,39 @@
 						return tagOutline(node);
 				}).join('');
 		}
-
+		
 		var isCustomElementName = (function(n) {
 			var cache = {};
 			return function(tagName) {
 				var c = cache[tagName];
-				if(c = cache[tagName])
+				if(c = cache[tagName]) 
 					return c;
-				else
+				else 
 					return cache[tagName] = !!document.createElement(tagName).is;
 			}
 		})();
-
+		
 		var tagOutline = function(el){ // effectively outerHTML - innerHTML
 			var nn = el.cloneNode(false),
 				d = document.createElement('div'),
 				classList;
-
+			
 			if(nn.classList)
 			{
 				var classList = Array.prototype.map.call(nn.classList, function(n){return n});
-
+				
 				classList.forEach(function(cl) { if(isCustomElementName(cl)) nn.classList.remove(cl); });
 				nn.classList.remove('style-scope');
-
+				
 				if(!nn.classList.length) nn.removeAttribute("class");
 			}
-
-
+			
+				
 			d.appendChild(nn);
-
-			while(nn.childNodes.length)
+			
+			while(nn.childNodes.length) 
 				nn.removeChild(nn.childNodes[0]);
-
+			
 			return d.innerHTML;
 		}
 
@@ -1210,7 +1128,7 @@
 			if(skipNodes.indexOf(node) > -1)
 				return "";
 			
-			if(node.nodeType == 3)
+			if(node.nodeType == 3) 
 				return node.textContent;
 
 			//if(!node.is && node.outerHTML)
@@ -1219,17 +1137,17 @@
 			childNodes = node.is ? Polymer.dom(node).childNodes : node.childNodes;
 			if(!childNodes.length)
 				return tagOutline(node);
-
+			
 			innerHTML = Array.prototype.map.call(childNodes, function(n) { return recursiveOuterHTML(n, skipNodes) }).join('');
-
+			
 			res = tagOutline(node)
 			if(innerHTML)
 				res = res.replace(/(\<[^\>]+\>)/, function(m) { return m + innerHTML })
-
+			
 			return res;
 		}
-
-		// if node is in light dom tree will return the node,
+		
+		// if node is in light dom tree will return the node, 
 		// otherwise will return the closest parent custom element that is in light dom
 		var getClosestLightDomTarget = function(node, top) {
 			var customParents = [], cn, n = node, i, goDeeper;
@@ -1248,7 +1166,7 @@
 				{
 					if(cn[i] == node)
 						return node
-
+					
 					goDeeper = (cn[i] == customParents[customParents.length-1]);
 				}
 				if(!goDeeper && customParents.length)
@@ -1257,7 +1175,7 @@
 
 			return node;
 		}
-
+		
 		// returns topmost custom element or null
 		var getTopParentCustomElement = function(node, top) {
 			var res = null;
@@ -1265,7 +1183,7 @@
 			{
 				if(node.is)
 					res = node;
-
+				
 				node = node.parentNode;
 			}
 
@@ -1284,49 +1202,49 @@
 					return getChildFromPath(this.posistionArray, ancestor);
 				}.bind(this);
 			}
-			var getChildPositionInParent = function(child) {
+			var getChildPositionInParent = function(child) { 
 				var i, cn, p;
 				if(!child || child == document.body)
 					return null;
-
-				cn = Polymer.dom(child).parentNode.childNodes;
-				for(i=0; cn[i] != child && i < cn.length; i++)
+				
+				cn = Polymer.dom(child).parentNode.childNodes; 
+				for(i=0; cn[i] != child && i < cn.length; i++) 
 					;
-
+			 
 				return i;
 			}
 
 
-			var getChildPathFromTop = function(child, top) {
-				var t, p;
+			var getChildPathFromTop = function(child, top) { 
+				var t, p; 
 
 				if(!child || (child == document.body && top != document.body) )
 					return null; 
 				if(child == top) 
 					return []; 
 
-				p = Polymer.dom(child).parentNode;
-				t = getChildPathFromTop(p, top);
+				p = Polymer.dom(child).parentNode; 
+				t = getChildPathFromTop(p, top); 
 				if(!t)
 					return null;
-				t.push(getChildPositionInParent(child));
-				return t;
+				t.push(getChildPositionInParent(child)); 
+				return t; 
 			}
 
 			var getChildFromPath = function(pathArr, top)
 			{
 				var res = top;
-
+				
 				if(!pathArr)
 					return null;
-
-				pathArr.forEach(function(pos) {
+				
+				pathArr.forEach(function(pos) { 
 					res = (res.is ? Polymer.dom(res) : res).childNodes[pos];
 				});
 
 				return res;
 			}
-
+			
 			return DomPathMemo;
 		})()
 
