@@ -68,14 +68,22 @@
 			tbar.toolbarOffsetTop = this.offsetTop;
 			tbar.toolbarOffsetHeight = this.offsetHeight;
 			tbar.toolbarOffsetWidth = this.offsetWidth;
+
 			tbar.setPosition = function(x){
-				if(tbar.scrollTop > tbar.toolbarOffsetTop){
+				if(tbar.scrollTop > tbar.toolbarOffsetTop && (that.clientHeight + tbar.toolbarOffsetTop - tbar.toolbarOffsetHeight) > tbar.scrollTop){
+					console.log(that);
+
 					that.set("toolbarfix",'fixit');
 					if(tbar.headerState == 0){
 						that.set("toolbarstyle",'top:'+tbar.headerHeight+'px');
 					}
 					else if(tbar.headerState == 2){
 						that.set("toolbarstyle",'top:'+tbar.condensedHeaderHeight+'px');
+					}
+					else if(tbar.headerState == 3){
+
+
+						that.set("toolbarstyle",'top:'+ (tbar.headerHeight- tbar.transformOffset) +'px');
 					}
 				}
 				else{
@@ -89,6 +97,7 @@
 				tbar.headerState = arg.headerState;
 				tbar.condensedHeaderHeight = arg.condensedHeaderHeight;
 				tbar.headerHeight = arg.headerHeight;
+				tbar.transformOffset = arg.transformOffset;;
 				tbar.setPosition();
 			});
 		},
