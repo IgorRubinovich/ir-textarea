@@ -4,41 +4,53 @@ if(!window.ir) window.ir = {};
 window.ir.DomProxyManager = {
 	// Create proxy elements covering targets - for manipulation of iframe and other non-manipulable elements (like what?)
 	//
-	// getProxyManager() - returns a new proxyManager object	//
-	//
-	// proxyManager.createProxies(targetsSelector, opts)
+	// pm = proxyManager.getProxyManager(targetsSelector, opts)  // returns a new proxyManager object
 	//
 	// Where opts are:
 	//  - rootNode - the element against which targetsSelector will be run
 	//	- rootNodeCreate - the element to which proxy elements will be attached
 	//	- reusePool - if set to false all pool elements will be removed and created anew.
 	//
-	// Usage: createProxies();
+	// Usage: pm.createProxies(); // returns a list of current proxy nodes. old nodes are reused.
 	//
 
-	getProxyManager : function(targetsSelector, _opts) {
+	getProxyManager : function(targetsSelector, _opts, dimSource) {
 		return (function() {
 			var pool = [], opts = {}, lastResult, covernodes = [];
+			
+			if(!dimSource)
+				dimSource = {};
 
 			var getCumulativeDimensions = function(element, fromElement) {
-				var top = 0, left = 0, width = 0, height = 0, cs;
+				if(!element)
+					return;
+					
+				var top = 0, left = 0, width = 0, height = 0, cs, i, dimSourceKeys;
 					fromElement = fromElement || document.body;
 
+				dimSourceKeys = Object.keys(dimSource);
+				for(i = 0; i < dimSourceKeys.length && !element.matchesSelector(dimSourceKeys[i]); i++)
+					;
+					
+				if(dimSource[dimSourceKeys[i]])
+					element = dimSource[dimSourceKeys[i]](element);
+				
 				cs = element.getBoundingClientRect(); // getComputedStyle(element);
 
 				width = numerify(cs.width) + numerify(cs.borderLeftWidth) + numerify(cs.borderRightWidth);
 				height = numerify(cs.height) + numerify(cs.borderTopWidth) + numerify(cs.borderBottomWidth);
 			  
-				cs = element.getBoundingClientRect(); // getComputedStyle(element);
 				top += element.offsetTop || 0;
 				left += element.offsetLeft || 0;
 				element = element.offsetParent;
-				/*do {
+				
+				while(element && isChildOf(element, fromElement))
+				{
 					cs = element.getBoundingClientRect(); // getComputedStyle(element);
 					top += element.offsetTop || 0;
 					left += element.offsetLeft || 0;
 					element = element.offsetParent;
-				} while(element && isChildOf(element, fromElement));*/
+				}
 
 				return {
 					top: top, left: left, width : width, height : height
@@ -57,6 +69,7 @@ window.ir.DomProxyManager = {
 			  for(i = 0; i < node.length; i++)
 			  {
 				cd = getCumulativeDimensions(node[i], relativeTo);
+				
 				d = covernodes[i];
 				
 				if(!d || !d.parentNode) {
@@ -64,7 +77,7 @@ window.ir.DomProxyManager = {
 						d = document.createElement('div');
 					if(!d.parentNode)
 						createRootNode.appendChild(d);
-					d.style.background = 'red';
+					//d.style.background = 'red';
 					d.style.opacity = '.5';
 					d.style.position = 'absolute';
 					d.classList.add('cover');										
@@ -81,8 +94,6 @@ window.ir.DomProxyManager = {
 				covernodes[i] = d;
 				
 				actualCoverNodes.push(d);
-				
-				return actualCoverNodes;
 			  }
 			  
 			  while(i < covernodes.length)
@@ -108,7 +119,7 @@ window.ir.DomProxyManager = {
 			}
 
 			var createProxies = function(forcesyncPool) {
-				var targets, result, i;
+				var targets, result = [], i;
 				
 				if(forcesyncPool)
 					syncPool();
@@ -121,8 +132,9 @@ window.ir.DomProxyManager = {
 				
 				if(opts.reusePool === false || !pool)
 					syncPool();
-					
-				result = cover(targets, opts.rootNode, opts.createRootNode, pool);
+				
+				if(targets)
+					result = cover(targets, opts.rootNode, opts.createRootNode, pool);
 				
 				syncPool(result);
 				
