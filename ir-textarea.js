@@ -104,8 +104,6 @@
 
 			tbar.setPosition = function(x){
 				if(tbar.scrollTop > tbar.toolbarOffsetTop && (that.clientHeight + tbar.toolbarOffsetTop - tbar.toolbarOffsetHeight) > tbar.scrollTop){
-					console.log(that);
-
 					that.set("toolbarfix",'fixit');
 					if(tbar.headerState == 0){
 						that.set("toolbarstyle",'top:'+tbar.headerHeight+'px');
