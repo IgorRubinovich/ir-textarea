@@ -4,7 +4,7 @@
 		ready : function() {
 			var that = this,
 				commands = this.commands.split(/,/),
-				newButton, cmdDef, icon, ev, handler, altTarget;
+				newButton, cmdDef, icon, ev, handler, altTarget, moveOccured;
 
 			this.skipNodes = [];
 			this.__actionData = {};
@@ -17,21 +17,27 @@
 				}
 
 				altTarget = getTopParentCustomElement(ev.target, that.$.editor) || ev.target.proxyTarget;
-				if(ev.type == 'mousedown' && altTarget && that.__actionData.type != 'drag')
+				if(ev.type == 'mousedown' && altTarget && that.__actionData.type != 'drag' && 
+					(altTarget == getClosestLightDomTarget(altTarget, that.$.editor) || 			// we're either 
+					!(ev.target.childNodes.length == 1 && ev.target.childNodes[0].nodeType == 3)))
 				{
+					console.log(ev.target);
 					that.moveTarget.call(that, altTarget);
 					ev.preventDefault();
 				}
+
+				ensureCaretIsInLightDom(that.$.editor);
+
 				if(ev.type == 'mouseup')
 				{
 					if(that.__actionData.dragTarget)
 					{
-						that.moveTarget.call(that, that.__actionData.dragTarget, true);
-						ev.preventDefault();
+						moveOccured = that.moveTarget.call(that, that.__actionData.dragTarget, true);
+						if(moveOccured)
+							ev.preventDefault();
 					}
 				}
 
-				ensureCaretIsInLightDom(that.$.editor);
 				that._updateValue();
 			};
 
@@ -76,7 +82,11 @@
 			this.toolbarButtons = commands.map(function(c) { return c ? defs[c] : ""; });
 
 			this.$.htmlTextArea.addEventListener("change", function () {
-				that.$.editor.innerHTML = that.value = that.$.htmlTextArea.value
+				if(that.$.htmlTextArea.value == that.value)
+					return;
+				
+				that.$.editor.innerHTML = that.value = that.$.htmlTextArea.value;
+				that.cleanHTML();
 			});
 
 			this.$.mediaEditor.editor = this.$.editor;
@@ -430,7 +440,7 @@
 		},
 
 		moveTarget : function(target, done) {
-			var html, actualTarget, handler, caretPosData;
+			var html, actualTarget, handler, caretPosData, moveOccured;
 			
 			if(this.__actionData.dragTarget && !done)
 				return;
@@ -449,8 +459,12 @@
 					this.__actionData.caretPosData = null;
 
 					html = recursiveOuterHTML(actualTarget, this.skipNodes);
+
+					ensureCaretIsInLightDom(this.$.editor);
 					this.pasteHtmlAtCaret(html);
 					actualTarget.parentNode.removeChild(actualTarget);
+					
+					moveOccured = true;
 				}
 				else
 					this.__actionData.lastAction = null;
@@ -458,7 +472,7 @@
 				document.removeEventListener('mousemove', this.__actionData.dragMoveListener);
 				this.__actionData.dragTarget = null
 				
-				return;
+				return moveOccured;
 			}
 
 			if(this.__actionData.dragMoveListener)
@@ -892,6 +906,22 @@
 		selectionForget : function() {
 			this._selectionRange = null;
 		},
+		
+		ensureCursorLocationIsValid : function() {
+			var sni;
+			
+			// ensure caret is not in:
+			
+			// light dom
+			ensureCaretIsInLightDom(this.$.editor);
+			
+			// proxies
+			if(sni = this.skipNodes.indexOf(n))
+				moveCaretPast(this.skipNodes[n]);
+			
+			// caption-wrapper
+			//if()
+		},
 
 		selectionSelectElement : function(el) {
 			var range = document.createRange();
@@ -999,13 +1029,14 @@
 			this.selectionSave();
 		},
 
-		viewModeChanged : function(to, from)
+		/*viewModeChanged : function(to, from)
 		{
 			if(from == 1 && to == 0)
 			{
 				this.cleanHTML();
+				this.$.
 			}
-		},
+		},*/
 
 		getCaretCharacterOffset : function getCaretCharacterOffset() {
 			// modified from code by Tim Down http://stackoverflow.com/users/96100/tim-down
@@ -1076,8 +1107,8 @@
 
 			viewMode : {
 				type : Number,
-				value : 0,
-				observer : "viewModeChanged"
+				value : 0 /*,
+				observer : "viewModeChanged"*/
 			},
 
 			value : {
@@ -1426,17 +1457,22 @@
 
 			var getChildFromPath = function(pathArr, top)
 			{
-				var res = top, i = -1;
+				var res = top, i = -1, next;
 
 				if(!pathArr)
 					return null;
 
 				while(i < pathArr.length)
+				{
 					if(pathArr[++i])
-						res = (res.is ? Polymer.dom(res) : res).childNodes[pathArr[i]];
-					else
-						return res;
+						next = (res.is ? Polymer.dom(res) : res).childNodes[pathArr[i]];
 
+					if(!next)
+						return res;
+					
+					res = next;
+				};
+				
 				return res;
 			}
 
@@ -1476,6 +1512,8 @@
 			sel.removeAllRanges();
 			sel.addRange(range);
 		};
+		
+		//var setCaretAfterIf(condition, 
 		
 		var ensureCaretIsInLightDom = function(top) {
 			var r = getSelectionRange(), slc, elc;
