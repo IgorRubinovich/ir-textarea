@@ -1204,21 +1204,19 @@
 				so = sn ? stateRange.startOffset : 0;
 				eo = sn && en ? stateRange.endOffset : 0;
 				
-				if(sn.type != 3)
+				if(sn.nodeType != 3)
 				{
 					sn = sn.childNodes[0];
 					so = so < sn.length ? so : sn.length;
 				}
-				else
-					so = so < sn.childNodes.length ? so : sn.childNodes.length;
+				so = so < sn.length ? so : sn.length;
 				
-				if(en.type != 3)
+				if(en.nodeType != 3)
 				{
 					en = en.childNodes[0];
 					eo = eo < en.length ? eo : en.length;
 				}
-				else
-					eo = eo < en.childNodes.length ? eo : en.childNodes.length;
+				eo = eo < en.length ? eo : en.length;
 										
 				r.setStart(sn, so);
 				r.setEnd(en, eo);
