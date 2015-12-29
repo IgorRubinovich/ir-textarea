@@ -139,10 +139,12 @@
 				tbar.condensedHeaderHeight = arg.condensedHeaderHeight;
 				tbar.headerHeight = arg.headerHeight;
 				tbar.transformOffset = arg.transformOffset;;
-				tbar.setPosition();
-				
-				that._updateValue();
+				tbar.setPosition();				
 			});
+			
+			this.$.editor.innerHTML = this.getCleanValue();
+			
+			this._updateValue();
 		},
 
 		contextMenuShow : function(ev) {
@@ -1012,9 +1014,9 @@
 			v = recursiveInnerHTML(this.$.editor, this.skipNodes)
 					.replace(/(\r\n|\n|\r)/gm," ")
 					.replace(/\<pre\>/gmi,"<span>").replace(/\<\/?pre\>/gmi,"</span>")
-					.replace(/^(\s*\<p\>\<br\>\<\/p\>\s*)/, '')
-					.replace(/(\s*\<p\>\<br\>\<\/p\>\s*)+$/, '')
-					.trim();
+					.replace(/^\s*(\<p\>\<br\>\<\/p\>\s*)+/, '')
+					.replace(/\s*(\<p\>\<br\>\<\/p\>\s*)+$/, '')
+					.trim(); 
 					
 			this.addActionBorder();
 			
@@ -1194,6 +1196,7 @@
 
 				editor.innerHTML = options.contentFrame.replace('[content]', state.content);
 
+				//setTimeout(function() {
 				sel.removeAllRanges();
 				r = document.createRange();
 
@@ -1226,6 +1229,7 @@
 				sel.addRange(r);
 				if(options.onRestoreState)
 					options.onRestoreState(sn);
+				//});
 
 			}
 
@@ -1233,7 +1237,7 @@
 				var r, sel, startMemo, endMemo, sc, ec,
 					innerHTML = getValue();
 
-				if((!force || !undoRecord.length) && (undoRecord.length && (undoRecord[undoRecord.length-1].content == innerHTML)))
+				if(!force && undoRecord.length && (undoRecord[undoRecord.length-1].content == innerHTML))
 					return;
 
 				lastRestoredStateContent == null;
@@ -1258,7 +1262,10 @@
 				}
 
 				if(!force && redoRecord.length > 0 && lastRestoredStateContent  != innerHTML)
-					redoRecord = [];				
+					redoRecord = [];	
+
+				console.log(undoRecord);
+				console.log(redoRecord);
 			};
 
 
@@ -1277,7 +1284,8 @@
 
 			if(options.timeout)
 				setInterval(pushUndo, options.timeout);
-			pushUndo();
+
+			pushUndo(true);
 
 			return {
 				pushUndo : pushUndo,
@@ -1409,73 +1417,68 @@
 
 		// DomPathMemo - remember and restore child via an array of childNode order path - used in undo
 		var getDomPathMemo = function(child, ancestor) {
-			return DomPathMemo(child, ancestor);
+			return new DomPathMemo(child, ancestor);
 		}
 
-		var DomPathMemo = (function() {
-			var DomPathMemo = function(child, ancestor) {
-				var dpm = {};
-				
-				dpm.positionArray = getChildPathFromTop(child, ancestor);
-				
-				dpm.restore = function() {
-					return getChildFromPath(dpm.positionArray, ancestor);
-				};
-				
-				return dpm;
-			}
-			var getChildPositionInParent = function(child) {
-				var i, cn, p;
-				if(!child || child == document.body)
-					return null;
+		var DomPathMemo = function(child, ancestor) {
+			this.ancestor = ancestor;
+			this.positionArray = getChildPathFromTop(child, ancestor);
+		}
+		
+		DomPathMemo.prototype.restore = function() {
+			return getChildFromPath(this.positionArray, this.ancestor);
+		};
 
-				cn = Polymer.dom(child).parentNode.childNodes;
-				for(i=0; cn[i] != child && i < cn.length; i++)
-					;
+		var getChildPositionInParent = function(child) {
+			var i, cn, p;
+			if(!child || child == document.body)
+				return null;
 
-				return cn[i] == child ? i : null;
-			}
+			cn = child.parentNode.childNodes; //Polymer.dom(child).parentNode.childNodes;
+			for(i=0; cn[i] != child && i < cn.length; i++)
+				;
+
+			return cn[i] == child ? i : null;
+		}
 
 
-			var getChildPathFromTop = function(child, top) {
-				var t, p;
+		var getChildPathFromTop = function(child, top) {
+			var t, p;
 
-				if(!child || (child == document.body && top != document.body) )
-					return null; 
-				if(child == top) 
-					return []; 
+			if(!child || (child == document.body && top != document.body) )
+				return null; 
+			if(child == top) 
+				return []; 
 
-				p = Polymer.dom(child).parentNode;
-				t = getChildPathFromTop(p, top);
-				if(!t)
-					return null;
-				t.push(getChildPositionInParent(child));
-				return t;
-			}
+			p = child.parentNode; //Polymer.dom(child).parentNode;
+			t = getChildPathFromTop(p, top);
+			if(!t)
+				return null;
+			t.push(getChildPositionInParent(child));
+			return t;
+		}
 
-			var getChildFromPath = function(pathArr, top)
+		var getChildFromPath = function(pathArr, top)
+		{
+			var res = top, i = -1, next;
+
+			if(!pathArr)
+				return null;
+
+			while(i < pathArr.length)
 			{
-				var res = top, i = -1, next;
+				if(pathArr[++i] || pathArr[i] === 0)
+					next = (res.is ? Polymer.dom(res) : res).childNodes[pathArr[i]];
 
-				if(!pathArr)
-					return null;
-
-				while(i < pathArr.length)
-				{
-					if(pathArr[++i])
-						next = (res.is ? Polymer.dom(res) : res).childNodes[pathArr[i]];
-
-					if(!next)
-						return res;
-					
-					res = next;
-				};
+				if(!next)
+					return res;
 				
-				return res;
-			}
+				res = next;
+			};
+			
+			return res;
+		}
 
-			return DomPathMemo;
-		})()
 
 		var caretPositionFromPoint = function(x, y)
 		{
