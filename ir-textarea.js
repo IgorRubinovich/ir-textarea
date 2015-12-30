@@ -8,7 +8,7 @@
 
 			this.skipNodes = [];
 			this.__actionData = {};
-			
+
 			handler = function(ev) {
 				if((ev.type == 'keydown' && ev.keyCode == 8 || ev.keyCode == 46) && that.__actionData.target)
 				{
@@ -17,8 +17,8 @@
 				}
 
 				altTarget = getTopParentCustomElement(ev.target, that.$.editor) || ev.target.proxyTarget;
-				if(ev.type == 'mousedown' && altTarget && that.__actionData.type != 'drag' && 
-					(altTarget == getClosestLightDomTarget(altTarget, that.$.editor) || 			// we're either 
+				if(ev.type == 'mousedown' && altTarget && that.__actionData.type != 'drag' &&
+					(altTarget == getClosestLightDomTarget(altTarget, that.$.editor) || 			// we're either
 					!(ev.target.childNodes.length == 1 && ev.target.childNodes[0].nodeType == 3)))
 				{
 					console.log(ev.target);
@@ -49,14 +49,14 @@
 				});
 
 			this.domProxyManager = ir.DomProxyManager.getProxyManager( // last argument maps selector->transformation for cases when target is not the dimensions source
-										':not(.embed-aspect-ratio)>iframe,.embed-aspect-ratio', 
+										':not(.embed-aspect-ratio)>iframe,.embed-aspect-ratio',
 										{ rootNode : this.$.editor, createRootNode : this.$.editor, fromElement : this.$.editor },
 										{ '.embed-aspect-ratio' : function(el) { return el.childNodes[0]; } }
 									);
 
 			this.$.editor.addEventListener('click', this.contextMenuShow.bind(this), true); // capturing phase
 
-			
+
 			var pasteHandler = function(e) {
 				var v;
 				if(typeof clipboardData != 'undefined')
@@ -65,7 +65,7 @@
 					v = e.originalEvent ? e.originalEvent.clipboardData.getData('text/html') : e.clipboardData.getData('text/html');
 
 				that.pasteHtmlAtCaret(v, true);
-				
+
 				e.preventDefault();
 			};
 
@@ -84,19 +84,19 @@
 			this.$.htmlTextArea.addEventListener("change", function () {
 				if(that.$.htmlTextArea.value == that.value)
 					return;
-				
+
 				that.$.editor.innerHTML = that.value = that.$.htmlTextArea.value;
 				that.cleanHTML();
 			});
 
 			this.$.mediaEditor.editor = this.$.editor;
 
-			this.set('customUndo', CustomUndoEngine(this.$.editor, { 
+			this.set('customUndo', CustomUndoEngine(this.$.editor, {
 																		getValue : this.getCleanValue.bind(this),
 																		contentFrame : "<p><br></p>[content]<p><br></p>",
 																		timeout : false,
 																		onRestoreState : function(el) {
-																			this.fire('scroll-into-view', el)
+																			this.fire('scroll-into-view', el.parentNode.offsetTop)
 																		}.bind(this)
 																	}))
 		},
@@ -139,11 +139,11 @@
 				tbar.condensedHeaderHeight = arg.condensedHeaderHeight;
 				tbar.headerHeight = arg.headerHeight;
 				tbar.transformOffset = arg.transformOffset;;
-				tbar.setPosition();				
+				tbar.setPosition();
 			});
-			
+
 			this.$.editor.innerHTML = this.getCleanValue();
-			
+
 			this._updateValue();
 		},
 
@@ -159,7 +159,7 @@
 				actionableTags = [menuGroups.resizeable, menuGroups.floatable, menuGroups.removeable].join(",");
 
 			cm.disabled = true;
-				
+
 			target = actionTarget = getClosestLightDomTarget(target, this.$.editor);
 
 			parentCustomEl = getTopParentCustomElement(target, this.$.editor);
@@ -182,22 +182,22 @@
 			}
 
 			if(target && target.matchesSelector('.embed-aspect-ratio'))
-				actionTarget = target.childNodes[0];	
+				actionTarget = target.childNodes[0];
 
-			// select target for action			
+			// select target for action
 			if(!this.__actionData.target)
 			{
 				this.selectForAction(actionTarget || target);
 				//this.rangeSelectElement(target);
 			}
-			
+
 			// if target is resizable and wasn't set up do set it up for resize
 			if(target.matchesSelector(menuGroups.resizeable) ||
 				(target.proxyTarget && target.proxyTarget.matchesSelector(menuGroups.resizeable))
 					&& (this.__actionData.resizableTarget != target))
 			{
 				this.resizeTarget(target);
-				
+
 				ev.stopImmediatePropagation();
 				ev.stopPropagation();
 			}
@@ -205,7 +205,7 @@
 			// return if just made an action
 			if(this.__actionData.lastAction)
 				return this.__actionData.lastAction = null;
-			
+
 			if(this.__actionData.showMenuFor != target) // show menu next time
 				return this.__actionData.showMenuFor = actionTarget;
 
@@ -224,13 +224,13 @@
 				return function(param)
 				{
 					that.resizeTargetStop.call(that, true); // true means force stop dispite the event target being same as current resize target
-					
+
 					if(param.target && param.target.proxyTarget)
 						param.target = param.target.proxyTarget;
 					else
 					if(param.proxyTarget)
 						param = param.proxyTarget;
-					
+
 					f.call(that, param);
 
 					that.clearActionData();
@@ -246,7 +246,7 @@
 			{
 				if(captionWrapper = mediaEditor.captionWrapperGet(target))
 					flowTarget = captionWrapper;
-				
+
 				floatOptions = [
 					{ label: 'default', value : { target : flowTarget, value : "none" }, action : imageAction(mediaEditor.setFloat.bind(mediaEditor)) },
 					{ label: 'Left', value : { target : flowTarget, value : "float-left" }, action : imageAction(mediaEditor.setFloat.bind(mediaEditor)) },
@@ -266,7 +266,7 @@
 
 		addActionBorder : function() {
 			var t = this.__actionData.target;
-			
+
 			if(!t)
 				return;
 
@@ -280,28 +280,28 @@
 
 			this.__actionData.target.style.border = this.__actionData._border || "none";
 		},
-		
+
 		selectForAction : function(target, type) {
 			var ad = this.__actionData;
 
 			if(this.__actionData.target == target)
 				return;
-				
+
 			this.clearActionData;
 
 			this.__actionData.target = target;
 			this.__actionData.type = type;
 
 			target = getClosestLightDomTarget(target, this.$.editor);
-			
+
 			this.addActionBorder();
 		},
-		
+
 		clearActionData : function() {
 			var ad = this.__actionData
 
 			this.removeActionBorder();
-			
+
 			ad.target = ad.lastAction = ad.type = null
 		},
 
@@ -329,7 +329,7 @@
 
 			if(!(deleteTarget = getTopParentCustomElement(target, this.$.editor)))
 				deleteTarget = target;
-			
+
 			p = deleteTarget.parentNode; // delete target is a top parent custom element, meaning its parent is surely no in another custom element's dom
 			if(p.is)
 				p = Polymer.dom(p);
@@ -352,11 +352,11 @@
 				interactable.unset();
 
 			this.clearActionData();
-			
+
 			document.removeEventListener('mouseup', this.resizeTargetStop);
 			document.removeEventListener('click', this.resizeTargetStop);
 		},
-		
+
 		resizeTarget : function(target) {
 			var that = this, resizeHandler;
 
@@ -364,7 +364,7 @@
 				this.resizeTargetStop(true);
 
 			that.__actionData.resizeTarget = target;
-			
+
 			document.addEventListener('mouseup', this.resizeTargetStop.bind(this));
 			document.addEventListener('click', this.resizeTargetStop.bind(this));
 
@@ -397,8 +397,8 @@
 						target.setAttribute("width", w + 'px');
 						target.setAttribute("height", h + 'px');
 					}
-					
-					
+
+
 					that.__actionData.dragTarget = null; // resize takes over drag
 					// translate when resizing from top or left edges
 					//x += event.deltaRect.left; //y += event.deltaRect.top;
@@ -418,12 +418,12 @@
 							else
 							if(t.proxyTarget.matchesSelector('iframe'))
 								st = t.proxyTarget
-							
+
 							st.style.width = t.style.width
 							st.style.height = t.style.height
 							st.style.webkitTransform = st.style.transform = t.style.transform;
 						}
-						
+
 						if(that.__actionData.resizePosition)
 							t.style.position = that.__actionData.resizePosition;
 
@@ -443,21 +443,21 @@
 
 		moveTarget : function(target, done) {
 			var html, actualTarget, handler, caretPosData, moveOccured;
-			
+
 			if(this.__actionData.dragTarget && !done)
 				return;
-			
+
 			if(done)
 			{
 				actualTarget = this.__actionData.dragTarget.proxyTarget || this.__actionData.dragTarget;
 				caretPosData = this.__actionData.caretPosData;
-				
+
 				if(caretPosData && caretPosData.node)
 					caretPosData.node = getTopParentCustomElement(caretPosData.node, editor) || caretPosData.node;
-				
+
 				if((caretPosData && this.isOrIsAncestorOf(this.$.editor, caretPosData.node)) && caretPosData.node != actualTarget)
 				{
-					this.clearActionData();				
+					this.clearActionData();
 					this.__actionData.caretPosData = null;
 
 					html = recursiveOuterHTML(actualTarget, this.skipNodes);
@@ -465,7 +465,7 @@
 					ensureCaretIsInLightDom(this.$.editor);
 					this.pasteHtmlAtCaret(html);
 					actualTarget.parentNode.removeChild(actualTarget);
-					
+
 					moveOccured = true;
 				}
 				else
@@ -473,28 +473,28 @@
 
 				document.removeEventListener('mousemove', this.__actionData.dragMoveListener);
 				this.__actionData.dragTarget = null
-				
+
 				return moveOccured;
 			}
 
 			if(this.__actionData.dragMoveListener)
 				document.removeEventListener('mousemove', this.__actionData.dragMoveListener);
-				
+
 			this.__actionData.caretPosData = null;
 			this.__actionData.dragTarget = target;
 			this.__actionData.dragMoveListener = function(event) {
 				var ad = this.__actionData;
 				var caretPosData = caretPositionFromPoint(event.clientX, event.clientY);
-				
+
 				if(!ad.dragTarget)
 					document.removeEventListener('mousemove', this.__actionData.dragMoveListener);
-				
+
 				if(!caretPosData)
 				{
 					ad.caretPosData = null;
 					return;
 				}
-				
+
 				if(!ad.caretPosData || ad.caretPosData.node != caretPosData.node || ad.caretPosData.offset != caretPosData.offset)
 				{
 					setCaretAt(caretPosData.node, caretPosData.offset);
@@ -503,11 +503,11 @@
 					ad.caretPosData.changed = true;
 					this.__actionData.lastAction = 'drag';
 				}
-				
+
 			}.bind(this);
 
 			document.addEventListener('mousemove', this.__actionData.dragMoveListener);
-			
+
 		},
 
 		clickedPresetCommand : function(ev) {
@@ -596,16 +596,16 @@
 
 				if(!parent)
 					return;
-				
+
 				while (el.hasChildNodes()) {
 					movedChildren.push(el.firstChild);
 					parent.insertBefore(el.firstChild, el);
 				}
 				parent.removeChild(el);
-				
+
 				return movedChildren;
 			}
-			
+
 			function replaceTagName(el, tag) {
 				var nn = document.createElement(tag),
 					parent = el.parentNode, ch;
@@ -615,29 +615,29 @@
 					el.removeChild(ch);
 					nn.appendChild(ch);
 				};
-				[].forEach.call(el.attributes, function(attr) { 
+				[].forEach.call(el.attributes, function(attr) {
 					nn.setAttribute(attr.name, attr.value);
 				});
-				
+
 				parent.insertBefore(nn, el);
 				parent.removeChild(el);
-				
+
 				return nn;
 			}
 
 			function removeSelectedElements(opts, top) {
-				var 
+				var
 					removeTags = opts.removeTags.toLowerCase().split(","),
 					mapTags = {},
 					attrNamesArray = opts.attributeNames.toLowerCase().split(","),
 					root, movedChildren, node, mt;
-					
+
 				Object.keys(opts.mapTags).forEach(function(src) {
 					src.split(',').forEach(function(t) {
 						mapTags[t] = opts.mapTags[src];
 					});
 				});
-					
+
 				if(opts.root)
 					nodes = [].slice.call(opts.root.children);
 				else
@@ -652,7 +652,7 @@
 					{
 						if(node.children)
 							nodes = nodes.concat([].slice.call(node.children));
-						
+
 						nlc = node.tagName.toLowerCase();
 						if (node.nodeType == 1)
 						{
@@ -695,15 +695,15 @@
 					var el = document.createElement("div");
 					el.innerHTML = html;
 					var frag = document.createDocumentFragment(), node, lastNode;
-					
+
 					while ( (node = el.firstChild) ) {
 						lastNode = frag.appendChild(node);
 					}
-					var firstNode = frag.firstChild;					
-					
+					var firstNode = frag.firstChild;
+
 					if(removeFormat)
-						this.removeFormat(frag);					
-					
+						this.removeFormat(frag);
+
 					range.insertNode(frag);
 
 					// Preserve the selection
@@ -732,8 +732,8 @@
 
 			this._updateValue();
 		},
-		
-		rangeSelectElement : function(node) 
+
+		rangeSelectElement : function(node)
 		{
 			var sel = document.getSelection();
 			var range = document.createRange();
@@ -887,7 +887,7 @@
 				this._updateValue();
 			});
 		},
-		
+
 		selectionSave : function () {
 			this._selectionRange = getSelectionRange();
 		},
@@ -908,19 +908,19 @@
 		selectionForget : function() {
 			this._selectionRange = null;
 		},
-		
+
 		ensureCursorLocationIsValid : function() {
 			var sni;
-			
+
 			// ensure caret is not in:
-			
+
 			// light dom
 			ensureCaretIsInLightDom(this.$.editor);
-			
+
 			// proxies
 			if(sni = this.skipNodes.indexOf(n))
 				moveCaretPast(this.skipNodes[n]);
-			
+
 			// caption-wrapper
 			//if()
 		},
@@ -934,7 +934,7 @@
 
 			return range;
 		},
-		
+
 		// wraps content in <p><br></p>[content]<p><br></p>
 		frameContent : function() {
 			var ed = this.$.editor, nn, i, d,
@@ -959,7 +959,7 @@
 		_updateValue : function(force) {
 			if(!this._updateValueSkipped)
 				this._updateValueSkipped = 0;
-				
+
 			if(!force && (this._updateValueTimeout && this._updateValueSkipped++ < 30))
 				return;
 
@@ -968,12 +968,12 @@
 				clearTimeout(this._updateValueTimeout);
 				this._updateValueTimeout = null;
 			}
-			
+
 			this._updateValueSkipped = 0;
 
 			// this is too much work to execute on every event
 			// so we schedule it once per 500ms as long as there are actions happening
-			this._updateValueTimeout = setTimeout(function() {			
+			this._updateValueTimeout = setTimeout(function() {
 				var val;
 				var bottomPadding, topPadding, that = this, editor = this.$.editor;
 
@@ -992,7 +992,7 @@
 
 				this.selectionSave();
 
-				this.value = val;				
+				this.value = val;
 
 				this.customUndo.pushUndo(false);
 				/*if(that.customUndo.lastTimeout)
@@ -1003,23 +1003,23 @@
 
 				//if(this.__actionData.target)
 				//	this.__actionData.target.style.border = "3px dashed grey";
-				
+
 			}.bind(this), 400);
 		},
-		
+
 		getCleanValue : function() {
 			var v;
 			this.removeActionBorder();
-			
+
 			v = recursiveInnerHTML(this.$.editor, this.skipNodes)
 					.replace(/(\r\n|\n|\r)/gm," ")
 					.replace(/\<pre\>/gmi,"<span>").replace(/\<\/?pre\>/gmi,"</span>")
 					.replace(/^\s*(\<p\>\<br\>\<\/p\>\s*)+/, '')
 					.replace(/\s*(\<p\>\<br\>\<\/p\>\s*)+$/, '')
-					.trim(); 
-					
+					.trim();
+
 			this.addActionBorder();
-			
+
 			return v;
 		},
 
@@ -1158,12 +1158,12 @@
 
 				if(undoRecord.length > 1)
 					redoRecord.push(undoRecord.pop());
-				
+
 				lastUndo = undoRecord[undoRecord.length - 1];
-				
+
 				if(undoRecord.length > 1)
 					undoRecord.pop();
-								
+
 				//pushUndo(true);
 				//redoRecord.push(currState = undoRecord.pop());
 
@@ -1206,21 +1206,21 @@
 				en = (stateRange && stateRange.endMemo && stateRange.endMemo.restore()) || sn;
 				so = sn ? stateRange.startOffset : 0;
 				eo = sn && en ? stateRange.endOffset : 0;
-				
+
 				if(sn.nodeType != 3)
 				{
 					sn = sn.childNodes[0];
 					so = so < sn.length ? so : sn.length;
 				}
 				so = so < sn.length ? so : sn.length;
-				
+
 				if(en.nodeType != 3)
 				{
 					en = en.childNodes[0];
 					eo = eo < en.length ? eo : en.length;
 				}
 				eo = eo < en.length ? eo : en.length;
-										
+
 				r.setStart(sn, so);
 				r.setEnd(en, eo);
 
@@ -1262,7 +1262,7 @@
 				}
 
 				if(!force && redoRecord.length > 0 && lastRestoredStateContent  != innerHTML)
-					redoRecord = [];	
+					redoRecord = [];
 
 				console.log(undoRecord);
 				console.log(redoRecord);
@@ -1297,14 +1297,14 @@
 
 		var recursiveInnerHTML = function(el, skipNodes) {
 			skipNodes = skipNodes || [];
-			
+
 			if(!((el.is ? Polymer.dom(el) : el).childNodes.length))
 				return "";
 
 			return Array.prototype.map.call(el.childNodes, function(node) {
 					if(skipNodes.indexOf(node) > -1)
 						return "";
-					
+
 					if((node.is ? Polymer.dom(node) : node).childNodes.length)
 						return recursiveOuterHTML(node, skipNodes);
 					else
@@ -1352,7 +1352,7 @@
 
 			if(skipNodes.indexOf(node) > -1)
 				return "";
-			
+
 			if(node.nodeType == 3)
 				return node.textContent;
 
@@ -1424,7 +1424,7 @@
 			this.ancestor = ancestor;
 			this.positionArray = getChildPathFromTop(child, ancestor);
 		}
-		
+
 		DomPathMemo.prototype.restore = function() {
 			return getChildFromPath(this.positionArray, this.ancestor);
 		};
@@ -1446,9 +1446,9 @@
 			var t, p;
 
 			if(!child || (child == document.body && top != document.body) )
-				return null; 
-			if(child == top) 
-				return []; 
+				return null;
+			if(child == top)
+				return [];
 
 			p = child.parentNode; //Polymer.dom(child).parentNode;
 			t = getChildPathFromTop(p, top);
@@ -1472,10 +1472,10 @@
 
 				if(!next)
 					return res;
-				
+
 				res = next;
 			};
-			
+
 			return res;
 		}
 
@@ -1501,9 +1501,9 @@
 
 			return res.range ? res : null;
 		}
-		
+
 		var setCaretAt = function(target, offset) {
-			var sel = window.getSelection(), 
+			var sel = window.getSelection(),
 				range = document.createRange();
 
 			range = range.cloneRange();
@@ -1513,27 +1513,27 @@
 			sel.removeAllRanges();
 			sel.addRange(range);
 		};
-		
-		//var setCaretAfterIf(condition, 
-		
+
+		//var setCaretAfterIf(condition,
+
 		var ensureCaretIsInLightDom = function(top) {
 			var r = getSelectionRange(), slc, elc;
-			
+
 			if(!r)
 				return;
-		
+
 			slc = getClosestLightDomTarget(r.startContainer, top),
 			elc = getClosestLightDomTarget(r.endContainer, top);
 
 			if(r.startContainer == slc && r.endContainer == elc)
 				// this should in most cases be true except for when the user managed to move the carret into the shadow dom.
 				return;
-			
-			var sel = window.getSelection(), 
+
+			var sel = window.getSelection(),
 				range = document.createRange();
 
 			range = range.cloneRange();
-			
+
 			if(slc == elc)
 			{
 				range.setStartAfter(slc);
@@ -1545,13 +1545,13 @@
 				range.setStartBefore(slc);
 				range.setEndAfter(elc);
 			}
-			
+
 			sel.removeAllRanges();
 			sel.addRange(range);
 			// otherwise move the caret outside the shadow dom
-						
+
 		}
-		
+
 		function getSelectionRange() {
 			var sel, range;
 			if (window.getSelection) {
@@ -1562,11 +1562,11 @@
 			} else if (document.selection && document.selection.createRange) {
 				range = document.selection.createRange();
 			}
-			
+
 			return range;
 		}
 
-		function getElementCoordinates (elem) 
+		function getElementCoordinates (elem)
 		{
 			var elem, xPos, yPos;
 
@@ -1574,12 +1574,12 @@
 			xPos = elem.offsetLeft;
 			tempEl = elem.offsetParent;
 
-			while ( tempEl != null ) 
+			while ( tempEl != null )
 			{
 				xPos += tempEl.offsetLeft;
 				yPos += tempEl.offsetTop;
 				tempEl = tempEl.offsetParent;
-			}  
+			}
 
 			return { x : xPos, y : yPos };
 		}
