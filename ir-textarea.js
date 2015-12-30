@@ -10,15 +10,23 @@
 			this.__actionData = {};
 
 			handler = function(ev) {
-				if((ev.type == 'keydown' && ev.keyCode == 8 || ev.keyCode == 46) && that.__actionData.target)
+				var eac, deleted;
+				
+				if((ev.type == 'keydown' && (ev.keyCode == 8 || ev.keyCode == 46)))
 				{
-					ev.preventDefault();
-					that.deleteTarget(that.__actionData.target);
+					if(ev.keyCode == 8 && (eac = that.elementAfterCaret()) && eac.is && eac != that.__actionData.target)
+						that.deleteTarget(deleted = eac);
+					else
+					if(that.__actionData.target)
+						that.deleteTarget(deleted = that.__actionData.target);
+
+					if(deleted)
+						ev.preventDefault();
 				}
 
 				altTarget = getTopParentCustomElement(ev.target, that.$.editor) || ev.target.proxyTarget;
 				if(ev.type == 'mousedown' && altTarget && that.__actionData.type != 'drag' &&
-					(altTarget == getClosestLightDomTarget(altTarget, that.$.editor) || 			// we're either
+					(altTarget == getClosestLightDomTarget(altTarget, that.$.editor) && 
 					!(ev.target.childNodes.length == 1 && ev.target.childNodes[0].nodeType == 3)))
 				{
 					console.log(ev.target);
@@ -26,7 +34,7 @@
 					ev.preventDefault();
 				}
 
-				ensureCaretIsInLightDom(that.$.editor);
+				that.ensureCursorLocationIsValid();
 
 				if(ev.type == 'mouseup')
 				{
@@ -96,7 +104,7 @@
 																		contentFrame : "<p><br></p>[content]<p><br></p>",
 																		timeout : false,
 																		onRestoreState : function(el) {
-																			this.fire('scroll-into-view', el.parentNode.offsetTop)
+																			this.ensureCursorLocationIsValid();
 																		}.bind(this)
 																	}))
 		},
@@ -271,7 +279,9 @@
 				return;
 
 			this.__actionData._border = t.style.border;
+			this.__actionData._display = t.style.display;
 			t.style.border = "3px dashed grey";
+			t.style.display = "inline-block";
 		},
 
 		removeActionBorder : function() {
@@ -279,6 +289,7 @@
 				return;
 
 			this.__actionData.target.style.border = this.__actionData._border || "none";
+			this.__actionData.target.style.display = this.__actionData._display || "";
 		},
 
 		selectForAction : function(target, type) {
@@ -294,6 +305,8 @@
 
 			target = getClosestLightDomTarget(target, this.$.editor);
 
+			moveCaretPastOrWrap(target);
+			
 			this.addActionBorder();
 		},
 
@@ -442,18 +455,19 @@
 		},
 
 		moveTarget : function(target, done) {
-			var html, actualTarget, handler, caretPosData, moveOccured;
+			var html, actualTarget, handler, caretPosData, moveOccured, tpce;
 
 			if(this.__actionData.dragTarget && !done)
 				return;
 
+			// calculate drop target and move drag target there
 			if(done)
 			{
 				actualTarget = this.__actionData.dragTarget.proxyTarget || this.__actionData.dragTarget;
 				caretPosData = this.__actionData.caretPosData;
 
 				if(caretPosData && caretPosData.node)
-					caretPosData.node = getTopParentCustomElement(caretPosData.node, editor) || caretPosData.node;
+					caretPosData.node = (tpce = getTopParentCustomElement(caretPosData.node, editor)) || caretPosData.node;
 
 				if((caretPosData && this.isOrIsAncestorOf(this.$.editor, caretPosData.node)) && caretPosData.node != actualTarget)
 				{
@@ -462,7 +476,12 @@
 
 					html = recursiveOuterHTML(actualTarget, this.skipNodes);
 
-					ensureCaretIsInLightDom(this.$.editor);
+					this.ensureCursorLocationIsValid();
+					
+					// for now, forbid explicitly to drop into custom elements. (for custom targets only - built-in text drop is still possible!)
+					if(tpce)
+						moveCaretPastOrWrap(tpce);
+					
 					this.pasteHtmlAtCaret(html);
 					actualTarget.parentNode.removeChild(actualTarget);
 
@@ -479,7 +498,9 @@
 
 			if(this.__actionData.dragMoveListener)
 				document.removeEventListener('mousemove', this.__actionData.dragMoveListener);
-
+			
+			// track drag target
+			
 			this.__actionData.caretPosData = null;
 			this.__actionData.dragTarget = target;
 			this.__actionData.dragMoveListener = function(event) {
@@ -498,7 +519,7 @@
 				if(!ad.caretPosData || ad.caretPosData.node != caretPosData.node || ad.caretPosData.offset != caretPosData.offset)
 				{
 					setCaretAt(caretPosData.node, caretPosData.offset);
-					ensureCaretIsInLightDom(this.$.editor);
+					this.ensureCursorLocationIsValid();
 					ad.caretPosData = caretPosData;
 					ad.caretPosData.changed = true;
 					this.__actionData.lastAction = 'drag';
@@ -746,13 +767,17 @@
 
 		// to use instead of execCommand('insertHTML') - modified from code by Tim Down
 		insertHTMLCmd : function (html) {
-			this.selectionRestore();
+			//this.selectionRestore();
+			this.ensureCursorLocationIsValid();
 			this.pasteHtmlAtCaret(html);
 		},
 
 
 		_execCommand : function(cmd, sdu, val) {
 			var that = this;
+			
+			this.ensureCursorLocationIsValid();
+			
 			if(cmd == 'replaceHTML')
 				this.insertHTMLCmd(val, true);
 			else
@@ -893,8 +918,14 @@
 		},
 
 		selectionRestore : function () {
-			var range = this._selectionRange, sel;
-			if (range) {
+			var range = this._selectionRange, sel, sc, ec;
+			
+			if(range) {
+				sc = range.startContainer;
+				ec = range.endContainer;
+			}
+			
+			if (range && sc && ec && this.isOrIsAncestorOf(this.$.editor, sc) && this.isOrIsAncestorOf(this.$.editor, ec)) {
 				if (window.getSelection) {
 					sel = window.getSelection();
 					sel.removeAllRanges();
@@ -903,6 +934,27 @@
 					range.select();
 				}
 			}
+			else
+			{
+				// if no selection, go to first 
+				//range = sel.getRangeAt(0);
+
+				if(!this.$.editor.childNodes.length)
+					this.$.editor.appendChild(document.createTextNode());
+				
+				range = document.createRange();
+				
+				range.setStartBefore(this.$.editor.childNodes[0], 0);
+				range.setEndBefore(this.$.editor.childNodes[0], 0);
+				
+				range.collapse(true);
+				
+				sel = window.getSelection();
+				this.$.editor.focus();
+				
+				sel.removeAllRanges();				
+				sel.addRange(range);
+			}			
 		},
 
 		selectionForget : function() {
@@ -910,18 +962,52 @@
 		},
 
 		ensureCursorLocationIsValid : function() {
-			var sni;
+			var r, slc, elc;
 
-			// ensure caret is not in:
+			// ensure caret is not:
 
-			// light dom
-			ensureCaretIsInLightDom(this.$.editor);
+			// outside editor
+			var r, sc, ec, sni, eni;
+			
+			r = getSelectionRange();
+			if(!r) {
+				this.selectionRestore();
+				r = getSelectionRange();
+			}
+			
+			sc = r.startContainer;
+			ec = r.endContainer;
 
-			// proxies
-			if(sni = this.skipNodes.indexOf(n))
-				moveCaretPast(this.skipNodes[n]);
+			if(!this.isOrIsAncestorOf(this.$.editor, sc) || !this.isOrIsAncestorOf(this.$.editor, ec)) {
+				this.selectionRestore();
+				r = getSelectionRange();
+				sc = r.startContainer;
+				ec = r.endContainer;
+			}
 
-			// caption-wrapper
+			// in shadow dom
+			ensureCaretIsInLightDom(this.$.editor);			
+
+			// in a proxy
+			sni = sc.proxyTarget;
+			eni = ec.proxyTarget;
+			if(sni || eni)
+				moveCaretPastOrWrap(sc.proxyTarget);
+
+			// in caption-wrapper
+			if(sni || eni) { // if there was a change for proxies, get range again
+				r = getSelectionRange();
+				sc = r.startContainer;
+				ec = r.endContainer;
+			}
+			
+			sni = sc.matchesSelector && sc.matchesSelector('.caption-wrapper');
+			eni = ec.matchesSelector && ec.matchesSelector('.caption-wrapper');
+			
+			if(sni || eni)
+				moveCaretPastOrWrap(sc);
+			
+
 			//if()
 		},
 
@@ -1077,9 +1163,11 @@
 		},
 
 		undo : function() {
+			this.selectionRestore();
 			this.customUndo.undo();
 		},
 		redo : function() {
+			this.selectionRestore();
 			this.customUndo.redo();
 		},
 
@@ -1145,7 +1233,7 @@
 				getValue = options.getValue || function() { return editor.innerHTML };
 
 			if(!options) options = {};
-			if(!options.maxUndoItems) options.maxUndoItems = 30;
+			if(!options.maxUndoItems) options.maxUndoItems = 50;
 			if(typeof options.timeout == 'undefined') options.timeout = 15000;
 
 			var undoCommand = function() {
@@ -1514,8 +1602,6 @@
 			sel.addRange(range);
 		};
 
-		//var setCaretAfterIf(condition,
-
 		var ensureCaretIsInLightDom = function(top) {
 			var r = getSelectionRange(), slc, elc;
 
@@ -1529,11 +1615,22 @@
 				// this should in most cases be true except for when the user managed to move the carret into the shadow dom.
 				return;
 
+			// otherwise move the caret outside the shadow dom
+			moveCaretPastOrWrap(slc, elc);
+		}
+
+		// params: slc - range start node, elc - range end node
+		// if slc != elc will select from befor slc to after elc
+		// otherwise will set caret after slc
+		function moveCaretPastOrWrap(slc, elc) {
 			var sel = window.getSelection(),
 				range = document.createRange();
 
 			range = range.cloneRange();
 
+			if(!slc) return
+			if(!elc) elc = slc;
+			
 			if(slc == elc)
 			{
 				range.setStartAfter(slc);
@@ -1548,8 +1645,6 @@
 
 			sel.removeAllRanges();
 			sel.addRange(range);
-			// otherwise move the caret outside the shadow dom
-
 		}
 
 		function getSelectionRange() {
