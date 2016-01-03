@@ -1,5 +1,5 @@
 # ir-textarea
- 
+
 **A wysiwyg  editor for Polymer 1.0**
 
 ## What it does

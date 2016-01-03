@@ -33,8 +33,13 @@
 					}
 				}
 
-				altTarget = getTopCustomElementAncestor(ev.target, that.$.editor) || ev.target.proxyTarget;
+<<<<<<< 682386b65fe10364b79ca5f981a58dba33b2cd06
+				altTarget = getTopParentCustomElement(ev.target, that.$.editor) || ev.target.proxyTarget;
 				if(ev.type == 'mousedown' && altTarget && that.__actionData.type != 'drag' &&
+=======
+				altTarget = getTopCustomElementAncestor(ev.target, that.$.editor) || ev.target.proxyTarget;
+				if(ev.type == 'mousedown' && altTarget && that.__actionData.type != 'drag' && 
+>>>>>>> more fixes for custom elements in contenteditable
 					(altTarget == getClosestLightDomTarget(altTarget, that.$.editor) && 
 					!(ev.target.childNodes.length == 1 && ev.target.childNodes[0].nodeType == 3)))
 				{
@@ -103,7 +108,6 @@
 																		contentFrame : "<p><br></p>[content]<p><br></p>",
 																		timeout : false,
 																		onRestoreState : function(el) {
-																			this.fire('scroll-into-view', el);
 																			this.ensureCursorLocationIsValid();
 																		}.bind(this)
 																	}))
@@ -148,8 +152,11 @@
 				tbar.headerHeight = arg.headerHeight;
 				tbar.transformOffset = arg.transformOffset;;
 				tbar.setPosition();
+<<<<<<< 682386b65fe10364b79ca5f981a58dba33b2cd06
+=======
 				
 				that.domProxyManager.createProxies()
+>>>>>>> more fixes for custom elements in contenteditable
 			});
 
 			this.$.editor.innerHTML = this.getCleanValue();
@@ -305,9 +312,15 @@
 			this.__actionData.target = target;
 			this.__actionData.type = type;
 
-			target = getTopCustomElementAncestor(target, this.$.editor);
+<<<<<<< 682386b65fe10364b79ca5f981a58dba33b2cd06
+			target = getClosestLightDomTarget(target, this.$.editor);
 
+			moveCaretPastOrWrap(target);
+=======
+			target = getTopCustomElementAncestor(target, this.$.editor);
+			
 			moveCaretAfterOrWrap(target);
+>>>>>>> more fixes for custom elements in contenteditable
 			
 			this.addActionBorder();
 		},
@@ -469,9 +482,15 @@
 				caretPosData = this.__actionData.caretPosData;
 
 				if(caretPosData && caretPosData.node)
-					caretPosData.node = (tpce = getTopCustomElementAncestor(caretPosData.node, editor)) || caretPosData.node;
+<<<<<<< 682386b65fe10364b79ca5f981a58dba33b2cd06
+					caretPosData.node = (tpce = getTopParentCustomElement(caretPosData.node, editor)) || caretPosData.node;
 
+				if((caretPosData && this.isOrIsAncestorOf(this.$.editor, caretPosData.node)) && caretPosData.node != actualTarget)
+=======
+					caretPosData.node = (tpce = getTopCustomElementAncestor(caretPosData.node, editor)) || caretPosData.node;
+				
 				if(actualTarget.parentNode && (caretPosData && this.isOrIsAncestorOf(this.$.editor, caretPosData.node)) && caretPosData.node != actualTarget)
+>>>>>>> more fixes for custom elements in contenteditable
 				{
 					this.clearActionData();
 					this.__actionData.caretPosData = null;
@@ -510,10 +529,7 @@
 				var caretPosData = caretPositionFromPoint(event.clientX, event.clientY);
 
 				if(!ad.dragTarget)
-				{
 					document.removeEventListener('mousemove', this.__actionData.dragMoveListener);
-					document.removeEventListener('mouseup', this.__actionData.dragStopListener);
-				}
 
 				if(!caretPosData)
 				{
@@ -532,25 +548,23 @@
 
 			}.bind(this);
 
-			this.__actionData.dragStopListener = function(ev) {
+			document.addEventListener('mousemove', this.__actionData.dragMoveListener);
+<<<<<<< 682386b65fe10364b79ca5f981a58dba33b2cd06
+
+=======
+			document.addEventListener('mouseup', function(ev) {
 				var moveOccured;
-
-				document.removeEventListener('mousemove', this.__actionData.dragMoveListener);
-				document.removeEventListener('mouseup', this.__actionData.dragStopListener);
-
 				if(this.__actionData.dragTarget)
 				{
 					moveOccured = this.moveTarget.call(this, this.__actionData.dragTarget, true);
 					if(moveOccured)
 						ev.preventDefault();
 				}
-			}.bind(this);
-			
-			document.addEventListener('mousemove', this.__actionData.dragMoveListener);
-			document.addEventListener('mouseup', this.__actionData.dragStopListener);
+			}.bind(this));
 			
 			
-
+			
+>>>>>>> more fixes for custom elements in contenteditable
 		},
 
 		clickedPresetCommand : function(ev) {
@@ -995,10 +1009,17 @@
 		selectionForget : function() {
 			this._selectionRange = null;
 		},
+<<<<<<< 682386b65fe10364b79ca5f981a58dba33b2cd06
 
+		ensureCursorLocationIsValid : function() {
+			var r, slc, elc;
+
+=======
+		
 		ensureCursorLocationIsValid : function(reverseDirection) { // if reverseDirection is true cursor is moving in reverse to typing direction
 			var r, slc, elc, forbiddenElements, i;
-
+			
+>>>>>>> more fixes for custom elements in contenteditable
 			// ensure caret is not:
 
 			// outside editor
@@ -1050,17 +1071,22 @@
 			sni = sc.is;
 			eni = ec.is;
 			
+<<<<<<< 682386b65fe10364b79ca5f981a58dba33b2cd06
+
+			//if()
+=======
 			for(i = 0; i < forbiddenElements.length - 1 && !sni && !eni; i++)
 			{
 				sni = sc.matchesSelector(forbiddenElements[i]);
 				eni = ec.matchesSelector(forbiddenElements[i]);
 			}
-
+			
 			if(sni || eni)
 			{
 				reverseDirection ? moveCaretBeforeOrWrap(sc) : moveCaretAfterOrWrap(sc);
 				this.ensureCursorLocationIsValid(reverseDirection);
 			}
+>>>>>>> more fixes for custom elements in contenteditable
 		},
 
 		selectionSelectElement : function(el) {
@@ -1154,9 +1180,14 @@
 					.replace(/\<pre\>/gmi,"<span>").replace(/\<\/?pre\>/gmi,"</span>")
 					.replace(/^\s*(\<p\>\<br\>\<\/p\>\s*)+/, '')
 					.replace(/\s*(\<p\>\<br\>\<\/p\>\s*)+$/, '')
-					.replace(/\<span\>(&#8203;)?\​<\/span\>/gmi, '') // empty spans are useless anyway
+<<<<<<< 682386b65fe10364b79ca5f981a58dba33b2cd06
 					.trim();
 
+=======
+					.replace(/\<span\>(&#8203;)?\​<\/span\>/gmi, '') // empty spans are useless anyway
+					.trim(); 
+					
+>>>>>>> more fixes for custom elements in contenteditable
 			this.addActionBorder();
 
 			return v;
@@ -1297,6 +1328,18 @@
 
 			currState = undoRecord[undoRecord.length - 1];
 
+<<<<<<< 682386b65fe10364b79ca5f981a58dba33b2cd06
+				if(undoRecord.length > 1)
+					redoRecord.push(undoRecord.pop());
+
+				lastUndo = undoRecord[undoRecord.length - 1];
+
+				if(undoRecord.length > 1)
+					undoRecord.pop();
+
+				//pushUndo(true);
+				//redoRecord.push(currState = undoRecord.pop());
+=======
 			if(undoRecord.length > 1)
 				redoRecord.push(undoRecord.pop());
 			
@@ -1307,6 +1350,7 @@
 							
 			//pushUndo(true);
 			//redoRecord.push(currState = undoRecord.pop());
+>>>>>>> more fixes for custom elements in contenteditable
 
 			//if(lastUndo.content == currState.content && undoRecord.length > 0)
 			//	lastUndo = undoRecord.pop();
@@ -1343,6 +1387,37 @@
 
 			Polymer.dom.flush();
 
+<<<<<<< 682386b65fe10364b79ca5f981a58dba33b2cd06
+				sn = (stateRange && stateRange.startMemo && stateRange.startMemo.restore()) || editor;
+				en = (stateRange && stateRange.endMemo && stateRange.endMemo.restore()) || sn;
+				so = sn ? stateRange.startOffset : 0;
+				eo = sn && en ? stateRange.endOffset : 0;
+
+				if(sn.nodeType != 3)
+				{
+					sn = sn.childNodes[0];
+					so = so < sn.length ? so : sn.length;
+				}
+				so = so < sn.length ? so : sn.length;
+
+				if(en.nodeType != 3)
+				{
+					en = en.childNodes[0];
+					eo = eo < en.length ? eo : en.length;
+				}
+				eo = eo < en.length ? eo : en.length;
+
+				r.setStart(sn, so);
+				r.setEnd(en, eo);
+
+				sel.removeAllRanges();
+				editor.focus();
+				sel.addRange(r);
+				if(options.onRestoreState)
+					options.onRestoreState(sn);
+				//});
+
+=======
 			sn = (stateRange && stateRange.startMemo && stateRange.startMemo.restore()) || editor;
 			en = (stateRange && stateRange.endMemo && stateRange.endMemo.restore()) || sn;
 			so = sn ? stateRange.startOffset : 0;
@@ -1359,6 +1434,7 @@
 			{
 				en = en.childNodes[0];
 				eo = eo < en.length ? eo : en.length;
+>>>>>>> more fixes for custom elements in contenteditable
 			}
 			eo = eo < en.length ? eo : en.length;
 									
@@ -1381,7 +1457,12 @@
 			if(!force && undoRecord.length && (undoRecord[undoRecord.length-1].content == innerHTML))
 				return;
 
+<<<<<<< 682386b65fe10364b79ca5f981a58dba33b2cd06
+				if(!force && redoRecord.length > 0 && lastRestoredStateContent  != innerHTML)
+					redoRecord = [];
+=======
 			lastRestoredStateContent == null;
+>>>>>>> more fixes for custom elements in contenteditable
 
 			while(undoRecord.length >= options.maxUndoItems)
 				undoRecord.shift();
@@ -1426,6 +1507,23 @@
 		if(options.timeout)
 			setInterval(pushUndo, options.timeout);
 
+<<<<<<< 682386b65fe10364b79ca5f981a58dba33b2cd06
+		var recursiveInnerHTML = function(el, skipNodes) {
+			skipNodes = skipNodes || [];
+
+			if(!((el.is ? Polymer.dom(el) : el).childNodes.length))
+				return "";
+
+			return Array.prototype.map.call(el.childNodes, function(node) {
+					if(skipNodes.indexOf(node) > -1)
+						return "";
+
+					if((node.is ? Polymer.dom(node) : node).childNodes.length)
+						return recursiveOuterHTML(node, skipNodes);
+					else
+						return tagOutline(node);
+				}).join('');
+=======
 		pushUndo(true);
 
 		return {
@@ -1434,6 +1532,7 @@
 			redo : redoCommand,
 			undoRecord : undoRecord,
 			redoRecord : redoRecord,
+>>>>>>> more fixes for custom elements in contenteditable
 		}
 	}
 
@@ -1482,7 +1581,15 @@
 		}
 
 
+<<<<<<< 682386b65fe10364b79ca5f981a58dba33b2cd06
+			if(skipNodes.indexOf(node) > -1)
+				return "";
+
+			if(node.nodeType == 3)
+				return node.textContent;
+=======
 		d.appendChild(nn);
+>>>>>>> more fixes for custom elements in contenteditable
 
 		while(nn.childNodes.length)
 			nn.removeChild(nn.childNodes[0]);
@@ -1554,6 +1661,16 @@
 
 		return node;*/
 
+<<<<<<< 682386b65fe10364b79ca5f981a58dba33b2cd06
+		var DomPathMemo = function(child, ancestor) {
+			this.ancestor = ancestor;
+			this.positionArray = getChildPathFromTop(child, ancestor);
+		}
+
+		DomPathMemo.prototype.restore = function() {
+			return getChildFromPath(this.positionArray, this.ancestor);
+		};
+=======
 	}
 	
 	var isInLightDom = function(node, top) { // is in light dom relative to top, i.e. top is considered the light dom root like a scoped document.body
@@ -1565,6 +1682,7 @@
 		
 		if(node != top && node != document.body)
 			return isInLightDom(Polymer.dom(node).parentNode, top);
+>>>>>>> more fixes for custom elements in contenteditable
 
 		return false;
 	}
@@ -1639,6 +1757,15 @@
 			if(pathArr[++i] || pathArr[i] === 0)
 				next = (res.is ? Polymer.dom(res) : res).childNodes[pathArr[i]];
 
+<<<<<<< 682386b65fe10364b79ca5f981a58dba33b2cd06
+		var getChildPathFromTop = function(child, top) {
+			var t, p;
+
+			if(!child || (child == document.body && top != document.body) )
+				return null;
+			if(child == top)
+				return [];
+=======
 			if(!next)
 				return res;
 			
@@ -1666,6 +1793,7 @@
 				res.offset = res.range.startOffset;
 			}
 		}
+>>>>>>> more fixes for custom elements in contenteditable
 
 		return res.range ? res : null;
 	}
@@ -1731,6 +1859,15 @@
 		var sel = window.getSelection(), 
 			range = document.createRange();
 
+<<<<<<< 682386b65fe10364b79ca5f981a58dba33b2cd06
+				if(!next)
+					return res;
+
+				res = next;
+			};
+
+			return res;
+=======
 		range = range.cloneRange();
 		
 		if(!slc) return
@@ -1741,12 +1878,64 @@
 			range.setStartAfter(slc);
 			range.setEndAfter(elc);
 			range.collapse(true);
+>>>>>>> more fixes for custom elements in contenteditable
 		}
 		else
 		{
 			range.setStartBefore(slc);
 			range.setEndAfter(elc);
 		}
+<<<<<<< 682386b65fe10364b79ca5f981a58dba33b2cd06
+
+		var setCaretAt = function(target, offset) {
+			var sel = window.getSelection(),
+				range = document.createRange();
+
+			range = range.cloneRange();
+			range.setStart(target, offset);
+			range.setEnd(target, offset);
+			range.collapse(true);
+			sel.removeAllRanges();
+			sel.addRange(range);
+		};
+
+		var ensureCaretIsInLightDom = function(top) {
+			var r = getSelectionRange(), slc, elc;
+
+			if(!r)
+				return;
+
+			slc = getClosestLightDomTarget(r.startContainer, top),
+			elc = getClosestLightDomTarget(r.endContainer, top);
+
+			if(r.startContainer == slc && r.endContainer == elc)
+				// this should in most cases be true except for when the user managed to move the carret into the shadow dom.
+				return;
+
+			// otherwise move the caret outside the shadow dom
+			moveCaretPastOrWrap(slc, elc);
+		}
+
+		// params: slc - range start node, elc - range end node
+		// if slc != elc will select from befor slc to after elc
+		// otherwise will set caret after slc
+		function moveCaretPastOrWrap(slc, elc) {
+			var sel = window.getSelection(),
+				range = document.createRange();
+
+			range = range.cloneRange();
+
+			if(!slc) return
+			if(!elc) elc = slc;
+			
+			if(slc == elc)
+			{
+				range.setStartAfter(slc);
+				range.setEndAfter(elc);
+				range.collapse(true);
+			}
+			else
+=======
 		
 		sel.removeAllRanges();
 		sel.addRange(range);
@@ -1766,6 +1955,7 @@
 		if(slc == elc)
 		{
 			if(slc.is)
+>>>>>>> more fixes for custom elements in contenteditable
 			{
 				if(!(slc.previousSibling && slc.previousSibling.tagName == 'span' && slc.previousSibling.innerHTML == "&#8203;"))
 				{					
@@ -1777,6 +1967,25 @@
 				else
 					slc = elc = slc.previousSibling;
 			}
+<<<<<<< 682386b65fe10364b79ca5f981a58dba33b2cd06
+
+			sel.removeAllRanges();
+			sel.addRange(range);
+		}
+
+		function getSelectionRange() {
+			var sel, range;
+			if (window.getSelection) {
+				sel = window.getSelection();
+				if (sel.getRangeAt && sel.rangeCount) {
+					range = sel.getRangeAt(0);
+				}
+			} else if (document.selection && document.selection.createRange) {
+				range = document.selection.createRange();
+			}
+
+			return range;
+=======
 			range.setStartBefore(slc);
 			range.setEndBefore(elc);
 			range.collapse(true);
@@ -1802,25 +2011,41 @@
 			}
 		} else if (document.selection && document.selection.createRange) {
 			range = document.selection.createRange();
+>>>>>>> more fixes for custom elements in contenteditable
 		}
 		
 		return range;
 	}
 
+<<<<<<< 682386b65fe10364b79ca5f981a58dba33b2cd06
+		function getElementCoordinates (elem)
+		{
+			var elem, xPos, yPos;
+=======
 	function getElementCoordinates (elem) 
 	{
 		var elem, xPos, yPos;
+>>>>>>> more fixes for custom elements in contenteditable
 
 		yPos = elem.offsetTop;
 		xPos = elem.offsetLeft;
 		tempEl = elem.offsetParent;
 
+<<<<<<< 682386b65fe10364b79ca5f981a58dba33b2cd06
+			while ( tempEl != null )
+			{
+				xPos += tempEl.offsetLeft;
+				yPos += tempEl.offsetTop;
+				tempEl = tempEl.offsetParent;
+			}
+=======
 		while ( tempEl != null ) 
 		{
 			xPos += tempEl.offsetLeft;
 			yPos += tempEl.offsetTop;
 			tempEl = tempEl.offsetParent;
 		}  
+>>>>>>> more fixes for custom elements in contenteditable
 
 		return { x : xPos, y : yPos };
 	}
