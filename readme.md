@@ -1,14 +1,14 @@
 # ir-textarea
-
+ 
 **A wysiwyg  editor for Polymer 1.0**
 
 ## What it does
-Just what it says.
+A rich textarea replacement with optional plugins. Makes manipulation of custom elements possible withing contenteditable.
 
 ### This is just a stub, to be updated shortly.
 
 ## To-do
-- All of it
+- Better separation of textarea features and add-ons and a nice cross-browser API including range manipulation.
 - Docs
 - Demo
 

@@ -39,7 +39,7 @@
 		<paper-dialog id="dialog" on-keydown="acceptOnEnter" auto-fit-on-attach>
 			<h2>Paste your embed code below</h2>
 			<div class="layout vertical">
-				<textarea rows="7" cols="40" value="{{ embedCode::change }}"></textarea>
+				<textarea rows="7" cols="40" value="{{ embedCode::keyup }}"></textarea>
 				<paper-checkbox checked="{{ noWrapper }}">no wrapper</paper-checkbox>
 			</div>
 			<div class="buttons">
@@ -72,9 +72,9 @@
 			
 			value = this.embedCode;
 			
-			value = HTMLtoXML(value);
+			value = HTMLtoXML(value).trim();
 			
-			if(!this.noWrapper)
+			if(!this.noWrapper && value)
 				value = '<div class=' + this.wrapperClass + '>' + value + '</div>';
 			
 			if(this._promptCallback)
@@ -83,6 +83,8 @@
 			this.set('embedCode', '');
 
 			this._promptCallback = null;							
+
+			this.$.dialog.close();
 		},
 		
 		prompt : function(callback) {

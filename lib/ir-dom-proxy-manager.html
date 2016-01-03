@@ -34,6 +34,9 @@ window.ir.DomProxyManager = {
 					
 				if(dimSource[dimSourceKeys[i]])
 					element = dimSource[dimSourceKeys[i]](element);
+					
+				if(!element ||  element.nodeType != 1)
+					return null;
 				
 				cs = element.getBoundingClientRect(); // getComputedStyle(element);
 
@@ -69,6 +72,9 @@ window.ir.DomProxyManager = {
 			  for(i = 0; i < node.length; i++)
 			  {
 				cd = getCumulativeDimensions(node[i], relativeTo);
+				
+				if(!cd)
+					continue;
 				
 				d = covernodes[i];
 				

@@ -12,7 +12,8 @@ window.ir.SelectorBehavior = {
 			if(el.matchesSelector(selector))
 				return el;
 
-			el = Polymer.dom(el).parentNode;
+			//el = Polymer.dom(el).parentNode;
+			el = el.parentNode;
 		}
 
 		return null;

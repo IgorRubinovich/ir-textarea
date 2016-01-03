@@ -1,4 +1,4 @@
-	(function () {
+(function () {
 	Polymer({
 		is : 'ir-textarea',
 		ready : function() {
@@ -10,41 +10,40 @@
 			this.__actionData = {};
 
 			handler = function(ev) {
-				var eac, deleted;
-				
-				if((ev.type == 'keydown' && (ev.keyCode == 8 || ev.keyCode == 46)))
-				{
-					if(ev.keyCode == 8 && (eac = that.elementAfterCaret()) && eac.is && eac != that.__actionData.target)
-						that.deleteTarget(deleted = eac);
-					else
-					if(that.__actionData.target)
-						that.deleteTarget(deleted = that.__actionData.target);
+				var el, toDelete, keyCode = ev.keyCode || ev.which;
 
-					if(deleted)
+				if(ev.type == 'keydown' && (ev.keyCode == 8 || ev.keyCode == 46))
+				{
+					if(that.__actionData.target)
+						toDelete = that.__actionData.target;
+					else
+					if(ev.keyCode == 46 && (el = that.getElementAfterCaret()))
+					{
+						if(el = getTopCustomElementAncestor(el, that.$.editor))
+							toDelete = el;
+					}
+					else
+					if(ev.keyCode == 8 && (el = that.getElementBeforeCaret()) && el.is)
+						toDelete = el;
+
+					if(toDelete)
+					{
+						that.deleteTarget(toDelete);
 						ev.preventDefault();
+					}
 				}
 
-				altTarget = getTopParentCustomElement(ev.target, that.$.editor) || ev.target.proxyTarget;
+				altTarget = getTopCustomElementAncestor(ev.target, that.$.editor) || ev.target.proxyTarget;
 				if(ev.type == 'mousedown' && altTarget && that.__actionData.type != 'drag' &&
 					(altTarget == getClosestLightDomTarget(altTarget, that.$.editor) && 
 					!(ev.target.childNodes.length == 1 && ev.target.childNodes[0].nodeType == 3)))
 				{
-					console.log(ev.target);
+					//console.log(ev.target);
 					that.moveTarget.call(that, altTarget);
 					ev.preventDefault();
 				}
 
-				that.ensureCursorLocationIsValid();
-
-				if(ev.type == 'mouseup')
-				{
-					if(that.__actionData.dragTarget)
-					{
-						moveOccured = that.moveTarget.call(that, that.__actionData.dragTarget, true);
-						if(moveOccured)
-							ev.preventDefault();
-					}
-				}
+				that.ensureCursorLocationIsValid(keyCode == 37 || keyCode == 38);
 
 				that._updateValue();
 			};
@@ -148,6 +147,8 @@
 				tbar.headerHeight = arg.headerHeight;
 				tbar.transformOffset = arg.transformOffset;;
 				tbar.setPosition();
+				
+				that.domProxyManager.createProxies()
 			});
 
 			this.$.editor.innerHTML = this.getCleanValue();
@@ -170,7 +171,7 @@
 
 			target = actionTarget = getClosestLightDomTarget(target, this.$.editor);
 
-			parentCustomEl = getTopParentCustomElement(target, this.$.editor);
+			parentCustomEl = getTopCustomElementAncestor(target, this.$.editor);
 			if(parentCustomEl)
 			{
 				ev.stopPropagation();
@@ -303,9 +304,9 @@
 			this.__actionData.target = target;
 			this.__actionData.type = type;
 
-			target = getClosestLightDomTarget(target, this.$.editor);
+			target = getTopCustomElementAncestor(target, this.$.editor);
 
-			moveCaretPastOrWrap(target);
+			moveCaretAfterOrWrap(target);
 			
 			this.addActionBorder();
 		},
@@ -340,7 +341,7 @@
 			var caption = this.$.mediaEditor.captionRemove(target);
 				this.$.mediaEditor.captionRemove(target);
 
-			if(!(deleteTarget = getTopParentCustomElement(target, this.$.editor)))
+			if(!(deleteTarget = getTopCustomElementAncestor(target, this.$.editor)))
 				deleteTarget = target;
 
 			p = deleteTarget.parentNode; // delete target is a top parent custom element, meaning its parent is surely no in another custom element's dom
@@ -467,9 +468,9 @@
 				caretPosData = this.__actionData.caretPosData;
 
 				if(caretPosData && caretPosData.node)
-					caretPosData.node = (tpce = getTopParentCustomElement(caretPosData.node, editor)) || caretPosData.node;
+					caretPosData.node = (tpce = getTopCustomElementAncestor(caretPosData.node, editor)) || caretPosData.node;
 
-				if((caretPosData && this.isOrIsAncestorOf(this.$.editor, caretPosData.node)) && caretPosData.node != actualTarget)
+				if(actualTarget.parentNode && (caretPosData && this.isOrIsAncestorOf(this.$.editor, caretPosData.node)) && caretPosData.node != actualTarget)
 				{
 					this.clearActionData();
 					this.__actionData.caretPosData = null;
@@ -478,9 +479,9 @@
 
 					this.ensureCursorLocationIsValid();
 					
-					// for now, forbid explicitly to drop into custom elements. (for custom targets only - built-in text drop is still possible!)
+					// for now, forbid explicitly to drop into custom elements. (for custom targets only - built-in text drop is still possible! - e.g., it's ok to move text into a caption inside a gallery)
 					if(tpce)
-						moveCaretPastOrWrap(tpce);
+						moveCaretAfterOrWrap(tpce);
 					
 					this.pasteHtmlAtCaret(html);
 					actualTarget.parentNode.removeChild(actualTarget);
@@ -528,6 +529,17 @@
 			}.bind(this);
 
 			document.addEventListener('mousemove', this.__actionData.dragMoveListener);
+			document.addEventListener('mouseup', function(ev) {
+				var moveOccured;
+				if(this.__actionData.dragTarget)
+				{
+					moveOccured = this.moveTarget.call(this, this.__actionData.dragTarget, true);
+					if(moveOccured)
+						ev.preventDefault();
+				}
+			}.bind(this));
+			
+			
 
 		},
 
@@ -552,20 +564,6 @@
 		},
 
 		removeFormat : function(element) {
-			function nextNode(node) {
-				if (node.hasChildNodes()) {
-					return node.firstChild;
-				} else {
-					while (node && !node.nextSibling) {
-						node = node.parentNode;
-					}
-					if (!node) {
-						return null;
-					}
-					return node.nextSibling;
-				}
-			}
-
 			function getRangeSelectedNodes(range, includePartiallySelectedContainers) {
 				var node = range.startContainer;
 				var endNode = range.endContainer;
@@ -698,6 +696,33 @@
 				this.selectionRestore();
 
 			removeSelectedElements({ root : element.children ? element : null, removeTags : "hr,b,i,span,font", mapTags : { "h1,h2,h3,h4,h5,h6,div" : "p" },  attributeNames : "style,class"}, this.$.editor);
+		},
+		
+		getElementAfterCaret : function() {
+			var r = getSelectionRange(), nn;
+			
+			if(!r || (!r.startOffset && r.startOffset != 0) || r.startOffset != r.endOffset)
+				return null;
+			
+			nn = r.endContainer
+			if(r.endOffset == (r.endContainer.length || 0))
+				while(nn = nextNode(nn))
+					if(nn instanceof Text)
+						return nn;
+			
+			return null;
+		},
+		
+		getElementBeforeCaret : function() {
+			var r = getSelectionRange();
+			
+			if(!r || (!r.startOffset && r.startOffset != 0)  || r.startOffset != r.endOffset)
+				return null;
+			
+			if(!r.startOffset)
+				return prevNode(r.startContainer);
+			
+			return null;
 		},
 
 		pasteHtmlAtCaret : function(html, removeFormat) {
@@ -936,9 +961,7 @@
 			}
 			else
 			{
-				// if no selection, go to first 
-				//range = sel.getRangeAt(0);
-
+				// if no selection, go to offset 0 of first child, creating one if needed
 				if(!this.$.editor.childNodes.length)
 					this.$.editor.appendChild(document.createTextNode());
 				
@@ -954,15 +977,17 @@
 				
 				sel.removeAllRanges();				
 				sel.addRange(range);
-			}			
+			}
+
+			this._selectionRange = range;
 		},
 
 		selectionForget : function() {
 			this._selectionRange = null;
 		},
 
-		ensureCursorLocationIsValid : function() {
-			var r, slc, elc;
+		ensureCursorLocationIsValid : function(reverseDirection) { // if reverseDirection is true cursor is moving in reverse to typing direction
+			var r, slc, elc, forbiddenElements, i;
 
 			// ensure caret is not:
 
@@ -986,29 +1011,46 @@
 			}
 
 			// in shadow dom
-			ensureCaretIsInLightDom(this.$.editor);			
+			if(ensureCaretIsInLightDom(this.$.editor, reverseDirection))
+			{
+				r = getSelectionRange();
+				sc = r.startContainer;
+				ec = r.endContainer;
+			}
 
-			// in a proxy
+			// in a proxy node
 			sni = sc.proxyTarget;
 			eni = ec.proxyTarget;
 			if(sni || eni)
-				moveCaretPastOrWrap(sc.proxyTarget);
+				moveCaretBeforeOrWrap(sc.proxyTarget);
 
-			// in caption-wrapper
 			if(sni || eni) { // if there was a change for proxies, get range again
 				r = getSelectionRange();
 				sc = r.startContainer;
 				ec = r.endContainer;
 			}
 			
-			sni = sc.matchesSelector && sc.matchesSelector('.caption-wrapper');
-			eni = ec.matchesSelector && ec.matchesSelector('.caption-wrapper');
+			if(!sc.matchesSelector) sc = getClosestLightDomTarget(sc.parentNode, this.$.editor);
+			if(!ec.matchesSelector) ec = getClosestLightDomTarget(ec.parentNode, this.$.editor);
 			
-			if(sni || eni)
-				moveCaretPastOrWrap(sc);
-			
+			// in a specific forbidden element
+			forbiddenElements = ".caption-wrapper,.embed-aspect-ratio,iframe".split(',')
 
-			//if()
+			// ... including directly in a custom element
+			sni = sc.is;
+			eni = ec.is;
+			
+			for(i = 0; i < forbiddenElements.length - 1 && !sni && !eni; i++)
+			{
+				sni = sc.matchesSelector(forbiddenElements[i]);
+				eni = ec.matchesSelector(forbiddenElements[i]);
+			}
+
+			if(sni || eni)
+			{
+				reverseDirection ? moveCaretBeforeOrWrap(sc) : moveCaretAfterOrWrap(sc);
+				this.ensureCursorLocationIsValid(reverseDirection);
+			}
 		},
 
 		selectionSelectElement : function(el) {
@@ -1102,6 +1144,7 @@
 					.replace(/\<pre\>/gmi,"<span>").replace(/\<\/?pre\>/gmi,"</span>")
 					.replace(/^\s*(\<p\>\<br\>\<\/p\>\s*)+/, '')
 					.replace(/\s*(\<p\>\<br\>\<\/p\>\s*)+$/, '')
+					.replace(/\<span\>(&#8203;)?\​<\/span\>/gmi, '') // empty spans are useless anyway
 					.trim();
 
 			this.addActionBorder();
@@ -1226,456 +1269,549 @@
 
 	// custom undo engine
 
-		function CustomUndoEngine(editor, options)  {
-			var undoRecord = [],
-				redoRecord = [],
-				lastRestoredStateContent,
-				getValue = options.getValue || function() { return editor.innerHTML };
-
-			if(!options) options = {};
-			if(!options.maxUndoItems) options.maxUndoItems = 50;
-			if(typeof options.timeout == 'undefined') options.timeout = 15000;
-
-			var undoCommand = function() {
-				var sel, r, lastUndo, lur, currState;
-
-				if(!undoRecord.length)
-					return;
-
-				currState = undoRecord[undoRecord.length - 1];
-
-				if(undoRecord.length > 1)
-					redoRecord.push(undoRecord.pop());
-
-				lastUndo = undoRecord[undoRecord.length - 1];
-
-				if(undoRecord.length > 1)
-					undoRecord.pop();
-
-				//pushUndo(true);
-				//redoRecord.push(currState = undoRecord.pop());
-
-				//if(lastUndo.content == currState.content && undoRecord.length > 0)
-				//	lastUndo = undoRecord.pop();
-
-				if(!lastUndo || lastUndo.content == currState.content)
-					return;
-
-				restoreState(lastUndo);
-				lastRestoredStateContent = lastUndo.content;
-			}
-
-			var redoCommand = function(e) {
-				var sel, r, lastRedo = redoRecord.pop();
-
-				if(lastRedo)
-				{
-					pushUndo(true);
-					restoreState(lastRedo);
-					lastRestoredStateContent = lastRedo.content;
-				}
-			}
-
-			var restoreState = function(state)
-			{
-				var stateRange = state.range, sn, en, so, eo;
-
-				sel = document.getSelection();
-
-				editor.innerHTML = options.contentFrame.replace('[content]', state.content);
-
-				//setTimeout(function() {
-				sel.removeAllRanges();
-				r = document.createRange();
-
-				Polymer.dom.flush();
-
-				sn = (stateRange && stateRange.startMemo && stateRange.startMemo.restore()) || editor;
-				en = (stateRange && stateRange.endMemo && stateRange.endMemo.restore()) || sn;
-				so = sn ? stateRange.startOffset : 0;
-				eo = sn && en ? stateRange.endOffset : 0;
-
-				if(sn.nodeType != 3)
-				{
-					sn = sn.childNodes[0];
-					so = so < sn.length ? so : sn.length;
-				}
-				so = so < sn.length ? so : sn.length;
-
-				if(en.nodeType != 3)
-				{
-					en = en.childNodes[0];
-					eo = eo < en.length ? eo : en.length;
-				}
-				eo = eo < en.length ? eo : en.length;
-
-				r.setStart(sn, so);
-				r.setEnd(en, eo);
-
-				sel.removeAllRanges();
-				editor.focus();
-				sel.addRange(r);
-				if(options.onRestoreState)
-					options.onRestoreState(sn);
-				//});
-
-			}
-
-			var pushUndo = function(force) {
-				var r, sel, startMemo, endMemo, sc, ec,
-					innerHTML = getValue();
-
-				if(!force && undoRecord.length && (undoRecord[undoRecord.length-1].content == innerHTML))
-					return;
-
-				lastRestoredStateContent == null;
-
-				while(undoRecord.length >= options.maxUndoItems)
-					undoRecord.shift();
-
-				sel = window.getSelection();
-				if(sel.rangeCount)
-				{
-					r = sel.getRangeAt(0);
-					sc = r.startContainer == editor ? editor : (getTopParentCustomElement(r.startContainer, editor) || r.startContainer);
-					ec = r.endContainer  == editor ? editor : (getTopParentCustomElement(r.endContainer, editor) || r.endContainer);
-					startMemo = getDomPathMemo(sc, editor);
-					endMemo = getDomPathMemo(ec, editor);
-					undoRecord.push({ content : innerHTML, range : { startMemo : startMemo, endMemo : endMemo, startOffset : r.startOffset, endOffset : r.endOffset }});
-				}
-				else
-				{
-					startMemo = endMemo = getDomPathMemo(editor, editor);
-					undoRecord.push({ content : innerHTML, range : { startOffset : 0, endOffset : 0 }});;
-				}
-
-				if(!force && redoRecord.length > 0 && lastRestoredStateContent  != innerHTML)
-					redoRecord = [];
-
-				console.log(undoRecord);
-				console.log(redoRecord);
-			};
-
-
-			editor.addEventListener('keydown', function(e) {
-				if(e.keyCode == 90 && e.ctrlKey) // is ^z
-				{
-					undoCommand();
-					e.preventDefault();
-				}
-				if(e.keyCode == 89 && e.ctrlKey) // is ^y
-				{
-					redoCommand();
-					e.preventDefault();
-				}
-			})
-
-			if(options.timeout)
-				setInterval(pushUndo, options.timeout);
-
-			pushUndo(true);
-
-			return {
-				pushUndo : pushUndo,
-				undo : undoCommand,
-				redo : redoCommand
-			}
-		}
-
-
-		var recursiveInnerHTML = function(el, skipNodes) {
-			skipNodes = skipNodes || [];
-
-			if(!((el.is ? Polymer.dom(el) : el).childNodes.length))
-				return "";
-
-			return Array.prototype.map.call(el.childNodes, function(node) {
-					if(skipNodes.indexOf(node) > -1)
-						return "";
-
-					if((node.is ? Polymer.dom(node) : node).childNodes.length)
-						return recursiveOuterHTML(node, skipNodes);
-					else
-						return tagOutline(node);
-				}).join('');
-		}
-
-		var isCustomElementName = (function(n) {
-			var cache = {};
-			return function(tagName) {
-				var c = cache[tagName];
-				if(c)
-					return c;
-				else
-					return cache[tagName] = !!document.createElement(tagName).is;
-			}
-		})();
-
-		var tagOutline = function(el){ // effectively outerHTML - innerHTML
-			var nn = el.cloneNode(false),
-				d = document.createElement('div'),
-				classList;
-
-			if(nn.classList)
-			{
-				var classList = Array.prototype.map.call(nn.classList, function(n){return n});
-
-				classList.forEach(function(cl) { if(isCustomElementName(cl)) nn.classList.remove(cl); });
-				nn.classList.remove('style-scope');
-
-				if(!nn.classList.length) nn.removeAttribute("class");
-			}
-
-
-			d.appendChild(nn);
-
-			while(nn.childNodes.length)
-				nn.removeChild(nn.childNodes[0]);
-
-			return d.innerHTML;
-		}
-
-		var recursiveOuterHTML = function(node, skipNodes){
-			var outerHTML, innerHTML, childNodes, res;
-
-			if(skipNodes.indexOf(node) > -1)
-				return "";
-
-			if(node.nodeType == 3)
-				return node.textContent;
-
-			//if(!node.is && node.outerHTML)
-			//	return node.outerHTML;
-
-			childNodes = node.is ? Polymer.dom(node).childNodes : node.childNodes;
-			if(!childNodes.length)
-				return tagOutline(node);
-
-			innerHTML = Array.prototype.map.call(childNodes, function(n) { return recursiveOuterHTML(n, skipNodes) }).join('');
-
-			res = tagOutline(node)
-			if(innerHTML)
-				res = res.replace(/(\<[^\>]+\>)/, function(m) { return m + innerHTML })
-
-			return res;
-		}
-
-		// if node is in light dom tree will return the node,
-		// otherwise will return the closest parent custom element that is in light dom
-		var getClosestLightDomTarget = function(node, top) {
-			var customParents = [], cn, n = node, i, goDeeper;
-			while(n && n != top)
-			{
-				if(n.is)
-					customParents.push(n);
-				n = n.parentNode;
-			}
-			while(customParents.length)
-			{
-				n = customParents.pop();
-				cn = Polymer.dom(n).childNodes;
-
-				for(i = 0; !goDeeper && i < cn.length; i++)
-				{
-					if(cn[i] == node)
-						return node
-
-					goDeeper = (cn[i] == customParents[customParents.length-1]);
-				}
-				if(!goDeeper && customParents.length)
-					return n;
-			}
-
-			return node;
-		}
-
-		// returns topmost custom element or null
-		var getTopParentCustomElement = function(node, top) {
-			var res = null;
-			while(node && node != top && node.is != document.body)
-			{
-				if(node.is)
-					res = node;
-
-				node = node.parentNode;
-			}
-
-			return res;
-		}
-
-		// DomPathMemo - remember and restore child via an array of childNode order path - used in undo
-		var getDomPathMemo = function(child, ancestor) {
-			return new DomPathMemo(child, ancestor);
-		}
-
-		var DomPathMemo = function(child, ancestor) {
-			this.ancestor = ancestor;
-			this.positionArray = getChildPathFromTop(child, ancestor);
-		}
-
-		DomPathMemo.prototype.restore = function() {
-			return getChildFromPath(this.positionArray, this.ancestor);
-		};
-
-		var getChildPositionInParent = function(child) {
-			var i, cn, p;
-			if(!child || child == document.body)
-				return null;
-
-			cn = child.parentNode.childNodes; //Polymer.dom(child).parentNode.childNodes;
-			for(i=0; cn[i] != child && i < cn.length; i++)
-				;
-
-			return cn[i] == child ? i : null;
-		}
-
-
-		var getChildPathFromTop = function(child, top) {
-			var t, p;
-
-			if(!child || (child == document.body && top != document.body) )
-				return null;
-			if(child == top)
-				return [];
-
-			p = child.parentNode; //Polymer.dom(child).parentNode;
-			t = getChildPathFromTop(p, top);
-			if(!t)
-				return null;
-			t.push(getChildPositionInParent(child));
-			return t;
-		}
-
-		var getChildFromPath = function(pathArr, top)
-		{
-			var res = top, i = -1, next;
-
-			if(!pathArr)
-				return null;
-
-			while(i < pathArr.length)
-			{
-				if(pathArr[++i] || pathArr[i] === 0)
-					next = (res.is ? Polymer.dom(res) : res).childNodes[pathArr[i]];
-
-				if(!next)
-					return res;
-
-				res = next;
-			};
-
-			return res;
-		}
-
-
-		var caretPositionFromPoint = function(x, y)
-		{
-			var res = {};
-			if (document.caretPositionFromPoint) {
-				res.range = document.caretPositionFromPoint(x, y);
-				if(res.range)
-				{
-					res.node = res.range.offsetNode;
-					res.offset = res.range.offset;
-				}
-			} else if (document.caretRangeFromPoint) {
-				res.range = document.caretRangeFromPoint(x, y);
-				if(res.range)
-				{
-					res.node = res.range.startContainer;
-					res.offset = res.range.startOffset;
-				}
-			}
-
-			return res.range ? res : null;
-		}
-
-		var setCaretAt = function(target, offset) {
-			var sel = window.getSelection(),
-				range = document.createRange();
-
-			range = range.cloneRange();
-			range.setStart(target, offset);
-			range.setEnd(target, offset);
-			range.collapse(true);
-			sel.removeAllRanges();
-			sel.addRange(range);
-		};
-
-		var ensureCaretIsInLightDom = function(top) {
-			var r = getSelectionRange(), slc, elc;
-
-			if(!r)
+	function CustomUndoEngine(editor, options)  {
+		var undoRecord = [],
+			redoRecord = [],
+			lastRestoredStateContent,
+			getValue = options.getValue || function() { return editor.innerHTML };
+
+		if(!options) options = {};
+		if(!options.maxUndoItems) options.maxUndoItems = 50;
+		if(typeof options.timeout == 'undefined') options.timeout = 15000;
+
+		var undoCommand = function() {
+			var sel, r, lastUndo, lur, currState;
+
+			if(!undoRecord.length)
 				return;
 
-			slc = getClosestLightDomTarget(r.startContainer, top),
-			elc = getClosestLightDomTarget(r.endContainer, top);
+			currState = undoRecord[undoRecord.length - 1];
 
-			if(r.startContainer == slc && r.endContainer == elc)
-				// this should in most cases be true except for when the user managed to move the carret into the shadow dom.
-				return;
-
-			// otherwise move the caret outside the shadow dom
-			moveCaretPastOrWrap(slc, elc);
-		}
-
-		// params: slc - range start node, elc - range end node
-		// if slc != elc will select from befor slc to after elc
-		// otherwise will set caret after slc
-		function moveCaretPastOrWrap(slc, elc) {
-			var sel = window.getSelection(),
-				range = document.createRange();
-
-			range = range.cloneRange();
-
-			if(!slc) return
-			if(!elc) elc = slc;
+			if(undoRecord.length > 1)
+				redoRecord.push(undoRecord.pop());
 			
-			if(slc == elc)
+			lastUndo = undoRecord[undoRecord.length - 1];
+			
+			if(undoRecord.length > 1)
+				undoRecord.pop();
+							
+			//pushUndo(true);
+			//redoRecord.push(currState = undoRecord.pop());
+
+			//if(lastUndo.content == currState.content && undoRecord.length > 0)
+			//	lastUndo = undoRecord.pop();
+
+			if(!lastUndo || lastUndo.content == currState.content)
+				return;
+
+			restoreState(lastUndo);
+			lastRestoredStateContent = lastUndo.content;
+		}
+
+		var redoCommand = function(e) {
+			var sel, r, lastRedo = redoRecord.pop();
+
+			if(lastRedo)
 			{
-				range.setStartAfter(slc);
-				range.setEndAfter(elc);
-				range.collapse(true);
+				pushUndo(true);
+				restoreState(lastRedo);
+				lastRestoredStateContent = lastRedo.content;
+			}
+		}
+
+		var restoreState = function(state)
+		{
+			var stateRange = state.range, sn, en, so, eo;
+
+			sel = document.getSelection();
+
+			editor.innerHTML = options.contentFrame.replace('[content]', state.content);
+
+			//setTimeout(function() {
+			sel.removeAllRanges();
+			r = document.createRange();
+
+			Polymer.dom.flush();
+
+			sn = (stateRange && stateRange.startMemo && stateRange.startMemo.restore()) || editor;
+			en = (stateRange && stateRange.endMemo && stateRange.endMemo.restore()) || sn;
+			so = sn ? stateRange.startOffset : 0;
+			eo = sn && en ? stateRange.endOffset : 0;
+			
+			if(sn.nodeType != 3)
+			{
+				sn = sn.childNodes[0];
+				so = so < sn.length ? so : sn.length;
+			}
+			so = so < sn.length ? so : sn.length;
+			
+			if(en.nodeType != 3)
+			{
+				en = en.childNodes[0];
+				eo = eo < en.length ? eo : en.length;
+			}
+			eo = eo < en.length ? eo : en.length;
+									
+			r.setStart(sn, so);
+			r.setEnd(en, eo);
+
+			sel.removeAllRanges();
+			editor.focus();
+			sel.addRange(r);
+			if(options.onRestoreState)
+				options.onRestoreState(sn);
+			//});
+
+		}
+
+		var pushUndo = function(force) {
+			var r, sel, startMemo, endMemo, sc, ec,
+				innerHTML = getValue();
+
+			if(!force && undoRecord.length && (undoRecord[undoRecord.length-1].content == innerHTML))
+				return;
+
+			lastRestoredStateContent == null;
+
+			while(undoRecord.length >= options.maxUndoItems)
+				undoRecord.shift();
+
+			sel = window.getSelection();
+			if(sel.rangeCount)
+			{
+				r = sel.getRangeAt(0);
+				sc = r.startContainer == editor ? editor : (getTopCustomElementAncestor(r.startContainer, editor) || r.startContainer);
+				ec = r.endContainer  == editor ? editor : (getTopCustomElementAncestor(r.endContainer, editor) || r.endContainer);
+				startMemo = getDomPathMemo(sc, editor);
+				endMemo = getDomPathMemo(ec, editor);
+				undoRecord.push({ content : innerHTML, range : { startMemo : startMemo, endMemo : endMemo, startOffset : r.startOffset, endOffset : r.endOffset }});
 			}
 			else
 			{
-				range.setStartBefore(slc);
-				range.setEndAfter(elc);
+				startMemo = endMemo = getDomPathMemo(editor, editor);
+				undoRecord.push({ content : innerHTML, range : { startOffset : 0, endOffset : 0 }});;
 			}
 
-			sel.removeAllRanges();
-			sel.addRange(range);
-		}
+			if(!force && redoRecord.length > 0 && lastRestoredStateContent  != innerHTML)
+				redoRecord = [];	
 
-		function getSelectionRange() {
-			var sel, range;
-			if (window.getSelection) {
-				sel = window.getSelection();
-				if (sel.getRangeAt && sel.rangeCount) {
-					range = sel.getRangeAt(0);
-				}
-			} else if (document.selection && document.selection.createRange) {
-				range = document.selection.createRange();
-			}
+			//console.log(undoRecord);
+			//console.log(redoRecord);
+		};
 
-			return range;
-		}
 
-		function getElementCoordinates (elem)
-		{
-			var elem, xPos, yPos;
-
-			yPos = elem.offsetTop;
-			xPos = elem.offsetLeft;
-			tempEl = elem.offsetParent;
-
-			while ( tempEl != null )
+		editor.addEventListener('keydown', function(e) {
+			if(e.keyCode == 90 && e.ctrlKey) // is ^z
 			{
-				xPos += tempEl.offsetLeft;
-				yPos += tempEl.offsetTop;
-				tempEl = tempEl.offsetParent;
+				undoCommand();
+				e.preventDefault();
 			}
+			if(e.keyCode == 89 && e.ctrlKey) // is ^y
+			{
+				redoCommand();
+				e.preventDefault();
+			}
+		})
 
-			return { x : xPos, y : yPos };
+		if(options.timeout)
+			setInterval(pushUndo, options.timeout);
+
+		pushUndo(true);
+
+		return {
+			pushUndo : pushUndo,
+			undo : undoCommand,
+			redo : redoCommand,
+			undoRecord : undoRecord,
+			redoRecord : redoRecord,
 		}
+	}
+
+
+	var recursiveInnerHTML = function(el, skipNodes) {
+		skipNodes = skipNodes || [];
+		
+		if(!((el.is ? Polymer.dom(el) : el).childNodes.length))
+			return "";
+
+		return Array.prototype.map.call(el.childNodes, function(node) {
+				if(skipNodes.indexOf(node) > -1)
+					return "";
+				
+				if((node.is ? Polymer.dom(node) : node).childNodes.length)
+					return recursiveOuterHTML(node, skipNodes);
+				else
+					return tagOutline(node);
+			}).join('');
+	}
+
+	var isCustomElementName = (function(n) {
+		var cache = {};
+		return function(tagName) {
+			var c = cache[tagName];
+			if(c)
+				return c;
+			else
+				return cache[tagName] = !!document.createElement(tagName).is;
+		}
+	})();
+
+	var tagOutline = function(el){ // effectively outerHTML - innerHTML
+		var nn = el.cloneNode(false),
+			d = document.createElement('div'),
+			classList;
+
+		if(nn.classList)
+		{
+			var classList = Array.prototype.map.call(nn.classList, function(n){return n});
+
+			classList.forEach(function(cl) { if(isCustomElementName(cl)) nn.classList.remove(cl); });
+			nn.classList.remove('style-scope');
+
+			if(!nn.classList.length) nn.removeAttribute("class");
+		}
+
+
+		d.appendChild(nn);
+
+		while(nn.childNodes.length)
+			nn.removeChild(nn.childNodes[0]);
+
+		return d.innerHTML;
+	}
+
+	var recursiveOuterHTML = function(node, skipNodes){
+		var outerHTML, innerHTML, childNodes, res;
+
+		if(skipNodes.indexOf(node) > -1)
+			return "";
+		
+		if(node.nodeType == 3)
+			return node.textContent;
+
+		//if(!node.is && node.outerHTML)
+		//	return node.outerHTML;
+
+		childNodes = node.is ? Polymer.dom(node).childNodes : node.childNodes;
+		if(!childNodes.length)
+			return tagOutline(node);
+
+		innerHTML = Array.prototype.map.call(childNodes, function(n) { return recursiveOuterHTML(n, skipNodes) }).join('');
+
+		res = tagOutline(node)
+		if(innerHTML)
+			res = res.replace(/(\<[^\>]+\>)/, function(m) { return m + innerHTML })
+
+		return res;
+	}
+
+	// if node is in light dom tree will return the node,
+	// otherwise will return the closest parent custom element that is in light dom
+	var getClosestLightDomTarget = function(node, top) {
+		var customParents = [], cn, n = node, i, goDeeper;
+		
+		while(n && n != top && n != document)
+		{
+			if(isInLightDom(n, top))
+				return n;
+			
+			n = n.parentNode;
+		}
+		
+		return n;
+		
+		/*while(n && n != top)
+		{
+			if(n.is)
+				customParents.push(n);
+			n = n.parentNode;
+		}
+		while(customParents.length)
+		{
+			n = customParents.pop();
+			cn = Polymer.dom(n).childNodes;
+
+			for(i = 0; !goDeeper && i < cn.length; i++)
+			{
+				if(cn[i] == node)
+					return node
+
+				goDeeper = (cn[i] == customParents[customParents.length-1]);
+			}
+			if(!goDeeper && customParents.length)
+				return n;
+		}
+
+		return node;*/
+
+	}
+	
+	var isInLightDom = function(node, top) { // is in light dom relative to top, i.e. top is considered the light dom root like a scoped document.body
+		if(!node)
+			return false;
+		
+		if(node.parentNode == top)
+			return true;
+		
+		if(node != top && node != document.body)
+			return isInLightDom(Polymer.dom(node).parentNode, top);
+
+		return false;
+	}
+
+	// returns topmost custom element or null below or equal to `top`
+	var getTopCustomElementAncestor = function(node, top) {
+		var res = null;
+		if(!top) top = document.body;
+		
+		while(node && node != top)
+		{
+			if(node.is)
+				res = node;
+
+			node = node.parentNode;
+		}
+
+		return (node == top) ? res : null;
+	}
+
+	// DomPathMemo - remember and restore child via an array of childNode order path - used in undo
+	var getDomPathMemo = function(child, ancestor) {
+		return new DomPathMemo(child, ancestor);
+	}
+
+	var DomPathMemo = function(child, ancestor) {
+		this.ancestor = ancestor;
+		this.positionArray = getChildPathFromTop(child, ancestor);
+	}
+	
+	DomPathMemo.prototype.restore = function() {
+		return getChildFromPath(this.positionArray, this.ancestor);
+	};
+
+	var getChildPositionInParent = function(child) {
+		var i, cn, p;
+		if(!child || child == document.body)
+			return null;
+
+		cn = child.parentNode.childNodes; //Polymer.dom(child).parentNode.childNodes;
+		for(i=0; cn[i] != child && i < cn.length; i++)
+			;
+
+		return cn[i] == child ? i : null;
+	}
+
+	var getChildPathFromTop = function(child, top) {
+		var t, p;
+
+		if(!child || (child == document.body && top != document.body) )
+			return null; 
+		if(child == top) 
+			return []; 
+
+		p = child.parentNode; //Polymer.dom(child).parentNode;
+		t = getChildPathFromTop(p, top);
+		if(!t)
+			return null;
+		t.push(getChildPositionInParent(child));
+		return t;
+	}
+
+	var getChildFromPath = function(pathArr, top)
+	{
+		var res = top, i = -1, next;
+
+		if(!pathArr)
+			return null;
+
+		while(i < pathArr.length)
+		{
+			if(pathArr[++i] || pathArr[i] === 0)
+				next = (res.is ? Polymer.dom(res) : res).childNodes[pathArr[i]];
+
+			if(!next)
+				return res;
+			
+			res = next;
+		};
+		
+		return res;
+	}
+
+	var caretPositionFromPoint = function(x, y)
+	{
+		var res = {};
+		if (document.caretPositionFromPoint) {
+			res.range = document.caretPositionFromPoint(x, y);
+			if(res.range)
+			{
+				res.node = res.range.offsetNode;
+				res.offset = res.range.offset;
+			}
+		} else if (document.caretRangeFromPoint) {
+			res.range = document.caretRangeFromPoint(x, y);
+			if(res.range)
+			{
+				res.node = res.range.startContainer;
+				res.offset = res.range.startOffset;
+			}
+		}
+
+		return res.range ? res : null;
+	}
+	
+	var setCaretAt = function(target, offset) {
+		var sel = window.getSelection(), 
+			range = document.createRange();
+
+		range = range.cloneRange();
+		range.setStart(target, offset);
+		range.setEnd(target, offset);
+		range.collapse(true);
+		sel.removeAllRanges();
+		sel.addRange(range);
+	};
+	
+	function nextNode(node) {
+		if (node.hasChildNodes()) {
+			return node.firstChild;
+		} else {
+			while (node && !node.nextSibling) {
+				node = node.parentNode;
+			}
+			if (!node) {
+				return null;
+			}
+			return node.nextSibling;
+		}
+	}
+
+	function prevNode(node) {
+		var ni;
+		if(node.previousSibling)
+			return node.previousSibling;
+		else
+			return node.parentNode;
+	}
+	
+	var ensureCaretIsInLightDom = function(top, reverseDirection) {
+		var r = getSelectionRange(), slc, elc;
+		
+		if(!r)
+			return;
+	
+		slc = getClosestLightDomTarget(r.startContainer, top),
+		elc = getClosestLightDomTarget(r.endContainer, top);
+
+		if(r.startContainer == slc && r.endContainer == elc)
+			// this should in most cases be true except for when the user managed to move the caret into local dom.
+			return;
+		
+		// otherwise move the caret outside the shadow dom
+		return reverseDirection ? moveCaretBeforeOrWrap(slc, elc) : moveCaretAfterOrWrap(slc, elc);
+				// moveCaretAfterOrWrap(slc, elc);
+				
+
+	}
+
+	// params: slc - range start node, elc - range end node
+	// if slc != elc will select from before slc to after elc
+	// otherwise will set caret after slc
+	function moveCaretAfterOrWrap(slc, elc) {
+		var sel = window.getSelection(), 
+			range = document.createRange();
+
+		range = range.cloneRange();
+		
+		if(!slc) return
+		if(!elc) elc = slc;
+		
+		if(slc == elc)
+		{
+			range.setStartAfter(slc);
+			range.setEndAfter(elc);
+			range.collapse(true);
+		}
+		else
+		{
+			range.setStartBefore(slc);
+			range.setEndAfter(elc);
+		}
+		
+		sel.removeAllRanges();
+		sel.addRange(range);
+		
+		return range;
+	}
+	
+	function moveCaretBeforeOrWrap(slc, elc) {
+		var sel = window.getSelection(), 
+			range = document.createRange(), zeroWidthDummy;
+
+		range = range.cloneRange();
+		
+		if(!slc) return
+		if(!elc) elc = slc;
+		
+		if(slc == elc)
+		{
+			if(slc.is)
+			{
+				if(!(slc.previousSibling && slc.previousSibling.tagName == 'span' && slc.previousSibling.innerHTML == "&#8203;"))
+				{					
+					zeroWidthDummy = document.createElement('span');
+					zeroWidthDummy.innerHTML = "&#8203;";
+					slc.parentNode.insertBefore(zeroWidthDummy, slc);
+					slc = elc = zeroWidthDummy;
+				}
+				else
+					slc = elc = slc.previousSibling;
+			}
+			range.setStartBefore(slc);
+			range.setEndBefore(elc);
+			range.collapse(true);
+		}
+		else
+		{
+			range.setStartBefore(slc);
+			range.setEndAfter(elc);
+		}
+
+		sel.removeAllRanges();
+		sel.addRange(range);
+		
+		return range;
+	}
+	
+	function getSelectionRange() {
+		var sel, range;
+		if (window.getSelection) {
+			sel = window.getSelection();
+			if (sel.getRangeAt && sel.rangeCount) {
+				range = sel.getRangeAt(0);
+			}
+		} else if (document.selection && document.selection.createRange) {
+			range = document.selection.createRange();
+		}
+		
+		return range;
+	}
+
+	function getElementCoordinates (elem) 
+	{
+		var elem, xPos, yPos;
+
+		yPos = elem.offsetTop;
+		xPos = elem.offsetLeft;
+		tempEl = elem.offsetParent;
+
+		while ( tempEl != null ) 
+		{
+			xPos += tempEl.offsetLeft;
+			yPos += tempEl.offsetTop;
+			tempEl = tempEl.offsetParent;
+		}  
+
+		return { x : xPos, y : yPos };
+	}
 })();
