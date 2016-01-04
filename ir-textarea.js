@@ -43,7 +43,7 @@
 					ev.preventDefault();
 				}
 
-				that.ensureCursorLocationIsValid(keyCode == 37 || keyCode == 38);
+				that.ensureCursorLocationIsValid(keyCode == 37 || keyCode == 38 || keyCode == 33); // left, up, pgup
 
 				that._updateValue();
 			};
@@ -300,7 +300,7 @@
 			if(this.__actionData.target == target)
 				return;
 
-			this.clearActionData;
+			this.clearActionData();
 
 			this.__actionData.target = target;
 			this.__actionData.type = type;
@@ -471,7 +471,7 @@
 				if(caretPosData && caretPosData.node)
 					caretPosData.node = (tpce = getTopCustomElementAncestor(caretPosData.node, editor)) || caretPosData.node;
 
-				if(actualTarget.parentNode && (caretPosData && this.isOrIsAncestorOf(this.$.editor, caretPosData.node)) && caretPosData.node != actualTarget)
+				if(actualTarget.parentNode && (caretPosData && this.isOrIsAncestorOf(this.$.editor, caretPosData.node)) && !this.isOrIsAncestorOf(actualTarget, caretPosData.node))
 				{
 					this.clearActionData();
 					this.__actionData.caretPosData = null;
