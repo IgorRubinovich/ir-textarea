@@ -103,8 +103,8 @@
 																		contentFrame : "<p><br></p>[content]<p><br></p>",
 																		timeout : false,
 																		onRestoreState : function(el) {
-																			this.fire('scroll-into-view', el);
 																			this.ensureCursorLocationIsValid();
+																			//this.fire('scroll-into-view', el);
 																		}.bind(this)
 																	}))
 		},
@@ -996,7 +996,7 @@
 			this._selectionRange = null;
 		},
 
-		ensureCursorLocationIsValid : function(reverseDirection) { // if reverseDirection is true cursor is moving in reverse to typing direction
+		ensureCursorLocationIsValid : function(reverseDirection, recursive) { // if reverseDirection is true cursor is moving in reverse to typing direction
 			var r, slc, elc, forbiddenElements, i;
 
 			// ensure caret is not:
@@ -1028,7 +1028,7 @@
 				ec = r.endContainer;
 			}
 
-			// in a proxy node
+			// in a proxy node (iframes)
 			sni = sc.proxyTarget;
 			eni = ec.proxyTarget;
 			if(sni || eni)
@@ -1059,7 +1059,14 @@
 			if(sni || eni)
 			{
 				reverseDirection ? moveCaretBeforeOrWrap(sc) : moveCaretAfterOrWrap(sc);
-				this.ensureCursorLocationIsValid(reverseDirection);
+				this.ensureCursorLocationIsValid(reverseDirection, true);
+			}
+			
+			if(!recursive)
+			{
+				r = getSelectionRange();
+				sc = r.startContainer;
+				this.fire('scroll-into-view', sc);
 			}
 		},
 
@@ -1724,6 +1731,13 @@
 
 	}
 
+	function newZeroWidthDummyNode() {
+		var zwd;
+		zwd = document.createElement('span');
+		zwd.innerHTML = "&#8203;";
+		return zwd;
+	}
+	
 	// params: slc - range start node, elc - range end node
 	// if slc != elc will select from before slc to after elc
 	// otherwise will set caret after slc
@@ -1738,6 +1752,20 @@
 		
 		if(slc == elc)
 		{
+			if(slc.is)
+			{
+				if(!(slc.nextSibling && slc.nextSibling.tagName == 'span' && slc.nextSibling.innerHTML == "&#8203;"))
+				{					
+					zeroWidthDummy = newZeroWidthDummyNode();
+					if(slc.nextSibling)
+						slc.parentNode.insertBefore(zeroWidthDummy, slc.nextSibling);
+					else
+						slc.parentNode.appendChild(zeroWidthDummy);
+					slc = elc = zeroWidthDummy;
+				}
+				else
+					slc = elc = slc.previousSibling;
+			}
 			range.setStartAfter(slc);
 			range.setEndAfter(elc);
 			range.collapse(true);
@@ -1769,8 +1797,7 @@
 			{
 				if(!(slc.previousSibling && slc.previousSibling.tagName == 'span' && slc.previousSibling.innerHTML == "&#8203;"))
 				{					
-					zeroWidthDummy = document.createElement('span');
-					zeroWidthDummy.innerHTML = "&#8203;";
+					zeroWidthDummy = newZeroWidthDummyNode();
 					slc.parentNode.insertBefore(zeroWidthDummy, slc);
 					slc = elc = zeroWidthDummy;
 				}
