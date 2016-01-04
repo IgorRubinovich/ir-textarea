@@ -479,7 +479,7 @@
 					html = recursiveOuterHTML(actualTarget, this.skipNodes);
 
 					this.ensureCursorLocationIsValid();
-					
+
 					// for now, forbid explicitly to drop into custom elements. (for custom targets only - built-in text drop is still possible! - e.g., it's ok to move text into a caption inside a gallery)
 					if(tpce)
 						moveCaretAfterOrWrap(tpce);
@@ -488,6 +488,8 @@
 					actualTarget.parentNode.removeChild(actualTarget);
 
 					moveOccured = true;
+					
+					this.ensureCursorLocationIsValid();
 				}
 				else
 					this.__actionData.lastAction = null;
@@ -524,7 +526,7 @@
 				if(!ad.caretPosData || ad.caretPosData.node != caretPosData.node || ad.caretPosData.offset != caretPosData.offset)
 				{
 					setCaretAt(caretPosData.node, caretPosData.offset);
-					this.ensureCursorLocationIsValid();
+					// this.ensureCursorLocationIsValid();
 					ad.caretPosData = caretPosData;
 					ad.caretPosData.changed = true;
 					this.__actionData.lastAction = 'drag';
