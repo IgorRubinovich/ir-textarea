@@ -52,7 +52,6 @@
 				.forEach(function(evType)
 				{
 					that.$.editor.addEventListener(evType, handler);
-					that.selectionSave();
 				});
 
 			this.domProxyManager = ir.DomProxyManager.getProxyManager( // last argument maps selector->transformation for cases when target is not the dimensions source
@@ -954,7 +953,7 @@
 			this._selectionRange = getSelectionRange();
 		},
 
-		selectionRestore : function () {
+		selectionRestore : function (noForceSelection) {
 			var range = this._selectionRange, sel, sc, ec;
 			
 			if(range) {
@@ -972,6 +971,7 @@
 				}
 			}
 			else
+			if(!noForceSelection)
 			{
 				// if no selection, go to offset 0 of first child, creating one if needed
 				if(!this.$.editor.childNodes.length)
@@ -992,6 +992,8 @@
 			}
 
 			this._selectionRange = range;
+			
+			return range;
 		},
 
 		selectionForget : function() {
@@ -1007,16 +1009,15 @@
 			var r, sc, ec, sni, eni;
 			
 			r = getSelectionRange();
-			if(!r) {
-				this.selectionRestore();
-				r = getSelectionRange();
-			}
+			if(!r)
+				if(!(r = this.selectionRestore(true)))
+					return;
 			
 			sc = r.startContainer;
 			ec = r.endContainer;
 
 			if(!this.isOrIsAncestorOf(this.$.editor, sc) || !this.isOrIsAncestorOf(this.$.editor, ec)) {
-				this.selectionRestore();
+				this.selectionRestore(true);
 				r = getSelectionRange();
 				sc = r.startContainer;
 				ec = r.endContainer;
