@@ -43,7 +43,8 @@
 					ev.preventDefault();
 				}
 
-				that.ensureCursorLocationIsValid(keyCode == 37 || keyCode == 38 || keyCode == 33); // left, up, pgup
+				if(ev.type != 'mousedown')
+					that.ensureCursorLocationIsValid(keyCode == 37 || keyCode == 38 || keyCode == 33); // left, up, pgup
 
 				that._updateValue();
 			};
@@ -1001,7 +1002,7 @@
 		},
 
 		ensureCursorLocationIsValid : function(reverseDirection, recursive) { // if reverseDirection is true cursor is moving in reverse to typing direction
-			var r, slc, elc, forbiddenElements, i;
+			var r, slc, elc, forbiddenElements, i, sp;
 
 			// ensure caret is not:
 
@@ -1069,6 +1070,13 @@
 			{
 				r = getSelectionRange();
 				sc = r.startContainer;
+				if(sc.nodeType == 3 && sc.parentNode == this.$.editor)
+				{
+					this.$.editor.insertBefore(sp = document.createElement('span'), sc);
+					this.$.editor.removeChild(sc);
+					sp.appendChild(sc);
+					sc = sp;
+				}
 				this.fire('scroll-into-view', sc);
 			}
 		},
