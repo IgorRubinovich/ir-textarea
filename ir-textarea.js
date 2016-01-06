@@ -1072,10 +1072,24 @@
 				sc = r.startContainer;
 				if(sc.nodeType == 3 && sc.parentNode == this.$.editor)
 				{
+					var so = r.startOffset;
+					scParent = r.startContainer.parentNode;
+					var scArray = Array.prototype.slice.call(scParent.childNodes);
+					var scIndex = scArray.indexOf(sc);
+
 					this.$.editor.insertBefore(sp = document.createElement('span'), sc);
 					this.$.editor.removeChild(sc);
 					sp.appendChild(sc);
-					sc = sp;
+
+					var el = this.$.editor;
+					var range = document.createRange();
+					var sel = window.getSelection();
+					range.setStart(el.childNodes[scIndex].childNodes[0], so);
+					range.collapse(true);
+					sel.removeAllRanges();
+					sel.addRange(range);
+					el.focus();
+
 				}
 				this.fire('scroll-into-view', sc);
 			}
