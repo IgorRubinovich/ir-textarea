@@ -1070,12 +1070,18 @@
 			{
 				r = getSelectionRange();
 				sc = r.startContainer;
+				ec = r.endContainer;
+
 				if(sc.nodeType == 3 && sc.parentNode == this.$.editor)
 				{
 					var so = r.startOffset;
+					var eo = r.endOffset;
 					scParent = r.startContainer.parentNode;
+					ecParent = r.endContainer.parentNode;
 					var scArray = Array.prototype.slice.call(scParent.childNodes);
+					var ecArray = Array.prototype.slice.call(ecParent.childNodes);
 					var scIndex = scArray.indexOf(sc);
+					var ecIndex = ecArray.indexOf(ec);
 
 					this.$.editor.insertBefore(sp = document.createElement('span'), sc);
 					this.$.editor.removeChild(sc);
@@ -1085,7 +1091,7 @@
 					var range = document.createRange();
 					var sel = window.getSelection();
 					range.setStart(el.childNodes[scIndex].childNodes[0], so);
-					range.collapse(true);
+					range.setEnd(el.childNodes[ecIndex].childNodes[0], eo);
 					sel.removeAllRanges();
 					sel.addRange(range);
 					el.focus();
