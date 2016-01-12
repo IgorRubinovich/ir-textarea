@@ -44,7 +44,7 @@
 				}
 
 				if(ev.type != 'mousedown')
-					that.ensureCursorLocationIsValid(keyCode == 37 || keyCode == 38 || keyCode == 33); // left, up, pgup
+					that.ensureCursorLocationIsValid({reverseDirection : keyCode == 37 || keyCode == 38 || keyCode == 33}); // left, up, pgup
 
 				that._updateValue();
 			};
@@ -71,8 +71,10 @@
 				else
 					v = e.originalEvent ? e.originalEvent.clipboardData.getData('text/html') : e.clipboardData.getData('text/html');
 
+				if(!v)
+					return;
+				
 				that.pasteHtmlAtCaret(v, true);
-
 				e.preventDefault();
 			};
 
@@ -805,7 +807,7 @@
 		// to use instead of execCommand('insertHTML') - modified from code by Tim Down
 		insertHTMLCmd : function (html) {
 			//this.selectionRestore();
-			this.ensureCursorLocationIsValid();
+			this.ensureCursorLocationIsValid({ extraForbiddenElements : ["p"] });
 			this.pasteHtmlAtCaret(html);
 		},
 
@@ -1001,9 +1003,14 @@
 			this._selectionRange = null;
 		},
 
-		ensureCursorLocationIsValid : function(reverseDirection, recursive) { // if reverseDirection is true cursor is moving in reverse to typing direction
-			var r, slc, elc, forbiddenElements, i, sp;
-
+		ensureCursorLocationIsValid : function(opts) { // if reverseDirection is true cursor is moving in reverse to typing direction
+			opts = opts || {};
+			
+			var r, slc, elc, forbiddenElements, i, sp,
+				extraForbiddenElements = opts.extraForbiddenElements || [], 
+				reverseDirection = opts.reverseDirection, 
+				recursive = opts.recursive;
+			
 			// ensure caret is not:
 
 			// outside editor
@@ -1048,13 +1055,13 @@
 			if(!ec.matchesSelector) ec = getClosestLightDomTarget(ec.parentNode, this.$.editor);
 
 			// in a specific forbidden element
-			forbiddenElements = ".caption-wrapper,.embed-aspect-ratio,iframe".split(',')
+			forbiddenElements = ".caption-wrapper,.embed-aspect-ratio,iframe".split(',').concat(extraForbiddenElements);
 
 			// ... including directly in a custom element
 			sni = sc.is;
 			eni = ec.is;
 
-			for(i = 0; i < forbiddenElements.length - 1 && !sni && !eni; i++)
+			for(i = 0; i < forbiddenElements.length && !sni && !eni; i++)
 			{
 				sni = sc.matchesSelector(forbiddenElements[i]);
 				eni = ec.matchesSelector(forbiddenElements[i]);
@@ -1063,7 +1070,7 @@
 			if(sni || eni)
 			{
 				reverseDirection ? moveCaretBeforeOrWrap(sc) : moveCaretAfterOrWrap(sc);
-				this.ensureCursorLocationIsValid(reverseDirection, true);
+				this.ensureCursorLocationIsValid({ reverseDirection : reverseDirection, recursive : true, extraForbiddenElements : extraForbiddenElements});
 			}
 
 			if(!recursive)
