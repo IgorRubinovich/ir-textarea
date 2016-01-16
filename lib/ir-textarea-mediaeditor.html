@@ -185,7 +185,7 @@
 		captionRemove : function(el) {
 			var c = this.captionWrapperGet(el), p = Polymer.dom(c).parentNode;
 
-			if(!c)
+			if(!c || !p)
 				return;
 			
 			if(p.is)

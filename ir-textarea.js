@@ -44,7 +44,7 @@
 				}
 
 				if(ev.type != 'mousedown')
-					that.ensureCursorLocationIsValid({reverseDirection : keyCode == 37 || keyCode == 38 || keyCode == 33}); // left, up, pgup
+					that.ensureCursorLocationIsValid({reverseDirection : keyCode == 37 || keyCode == 38 || keyCode == 33, originalEvent : ev}); // left, up, pgup
 
 				that._updateValue();
 			};
@@ -309,7 +309,7 @@
 
 			target = getTopCustomElementAncestor(target, this.$.editor);
 
-			moveCaretAfterOrWrap(target);
+			moveCaretAfterOrWrap(target, null, this.$.editor);
 
 			this.addActionBorder();
 		},
@@ -480,11 +480,11 @@
 
 					html = recursiveOuterHTML(actualTarget, this.skipNodes);
 
-					this.ensureCursorLocationIsValid();
-
 					// for now, forbid explicitly to drop into custom elements. (for custom targets only - built-in text drop is still possible! - e.g., it's ok to move text into a caption inside a gallery)
 					if(tpce)
-						moveCaretAfterOrWrap(tpce);
+						moveCaretAfterOrWrap(tpce, null, this.$.editor);
+
+					this.ensureCursorLocationIsValid();
 
 					this.pasteHtmlAtCaret(html);
 					actualTarget.parentNode.removeChild(actualTarget);
@@ -791,6 +791,8 @@
 			}
 
 			this._updateValue();
+			
+			return range;
 		},
 
 		rangeSelectElement : function(node)
@@ -1006,15 +1008,18 @@
 		ensureCursorLocationIsValid : function(opts) { // if reverseDirection is true cursor is moving in reverse to typing direction
 			opts = opts || {};
 			
-			var r, slc, elc, forbiddenElements, i, sp,
+			if(opts.recursive > 30)
+				throw Error("Couldn't find a valid location for the cursor in a reasonable number of attempts");
+			
+			var r, slc, elc, forbiddenElements, i, sp, so, eo, sc, ec, sni, eni, r,
 				extraForbiddenElements = opts.extraForbiddenElements || [], 
 				reverseDirection = opts.reverseDirection, 
-				recursive = opts.recursive;
+				recursive = opts.recursive,
+				wasIn = {};
 			
 			// ensure caret is not:
 
 			// outside editor
-			var r, sc, ec, sni, eni;
 
 			r = getSelectionRange();
 			if(!r)
@@ -1025,32 +1030,41 @@
 			ec = r.endContainer;
 
 			if(!this.isOrIsAncestorOf(this.$.editor, sc) || !this.isOrIsAncestorOf(this.$.editor, ec)) {
+				wasIn.outsideEditor = sc;
+
 				this.selectionRestore(true);
 				r = getSelectionRange();
 				sc = r.startContainer;
 				ec = r.endContainer;
 			}
 
-			// in shadow dom
+			// in shadow dom			
 			if(ensureCaretIsInLightDom(this.$.editor, reverseDirection))
 			{
 				r = getSelectionRange();
 				sc = r.startContainer;
-				ec = r.endContainer;
+				ec = r.endContainer;				
 			}
+			else 
+				delete wasIn.customElement
 
+			// now we can be sure the cursor is in editor and in light dom relative to the editor
+			
 			// in a proxy node (iframes)
 			sni = sc.proxyTarget;
 			eni = ec.proxyTarget;
-			if(sni || eni)
-				moveCaretBeforeOrWrap(sc.proxyTarget);
+			if(sni || eni) {
+				moveCaretBeforeOrWrap(sc, sc, this.$.editor); // no need for moveCaretAfterOrWrap(sc) as proxy nodes should be sitting at the very end
 
-			if(sni || eni) { // if there was a change for proxies, get range again
+				wasIn.proxy = sc;
+
+				// get range again
 				r = getSelectionRange();
 				sc = r.startContainer;
-				ec = r.endContainer;
+				ec = r.endContainer;				
 			}
 
+			// if either is something like a text node, look for a good ancestor container
 			if(!sc.matchesSelector) sc = getClosestLightDomTarget(sc.parentNode, this.$.editor);
 			if(!ec.matchesSelector) ec = getClosestLightDomTarget(ec.parentNode, this.$.editor);
 
@@ -1061,6 +1075,8 @@
 			sni = sc.is;
 			eni = ec.is;
 
+			wasIn.customElement = sni && sc;
+			
 			for(i = 0; i < forbiddenElements.length && !sni && !eni; i++)
 			{
 				sni = sc.matchesSelector(forbiddenElements[i]);
@@ -1069,43 +1085,63 @@
 
 			if(sni || eni)
 			{
-				reverseDirection ? moveCaretBeforeOrWrap(sc) : moveCaretAfterOrWrap(sc);
-				this.ensureCursorLocationIsValid({ reverseDirection : reverseDirection, recursive : true, extraForbiddenElements : extraForbiddenElements});
+				reverseDirection ? moveCaretBeforeOrWrap(sc, null, this.$.editor) : moveCaretAfterOrWrap(sc, null, this.$.editor);
+				//console.log('cursor jumps because was in: ', wasIn, "depth", opts.recursive);
+				//console.log('going deeper. cursor is in');
+				//console.log(sni);
+				this.ensureCursorLocationIsValid({ reverseDirection : reverseDirection, recursive : opts.recursive ?  opts.recursive+1 : 1, extraForbiddenElements : extraForbiddenElements});
 			}
 
+			r = getSelectionRange();
+			sc = r.startContainer;
+			ec = r.endContainer;			
+			var so = r.startOffset;
+			var eo = r.endOffset;
+			var sp;
+
+			// postprocessing after the last jump
 			if(!recursive)
 			{
-				r = getSelectionRange();
-				sc = r.startContainer;
-				ec = r.endContainer;
-
-				if(sc.nodeType == 3 && sc.parentNode == this.$.editor)
+				if(sc == this.$.editor || (sc.nodeType == 3 && sc.parentNode == this.$.editor) || sc.is)
 				{
-					var so = r.startOffset;
-					var eo = r.endOffset;
-					scParent = r.startContainer.parentNode;
-					ecParent = r.endContainer.parentNode;
-					var scArray = Array.prototype.slice.call(scParent.childNodes);
-					var ecArray = Array.prototype.slice.call(ecParent.childNodes);
-					var scIndex = scArray.indexOf(sc);
-					var ecIndex = ecArray.indexOf(ec);
+					console.log('ADDING A SPAN...');
+					this.$.editor.insertBefore(sp = document.createElement('span'), this.$.editor.childNodes[so]);
+					if(sc.nodeType == 3)
+					{
+						console.log('because its a text node...');
+						this.$.editor.removeChild(sc);
+						sp.appendChild(sc);
+					}
+					else
+					if(sc.is)
+					{
+						console.log('because its a custom element...');
+						setCaretAt(sp, 0);
+					}
+					else
+						console.log('because were directly under editor...');
 
-					this.$.editor.insertBefore(sp = document.createElement('span'), sc);
-					this.$.editor.removeChild(sc);
-					sp.appendChild(sc);
-
-					var el = this.$.editor;
+					
 					var range = document.createRange();
 					var sel = window.getSelection();
-					range.setStart(el.childNodes[scIndex].childNodes[0], so);
-					range.setEnd(el.childNodes[ecIndex].childNodes[0], eo);
+					range.setStart(sp, 0);
+					range.setEnd(sp, 0);
 					sel.removeAllRanges();
 					sel.addRange(range);
-					el.focus();
-
+					
+					sc = sp;
+					//el.focus();
+					console.log('done jumping');
+					console.log();
 				}
-				this.fire('scroll-into-view', sc);
+				if(!opts.originalEvent || !(opts.originalEvent.type == 'mouseup' && (wasIn.shadowDom || wasIn.customElement || opts.originalEvent.target.tagName == 'IMG')))
+				{
+					this.fire('scroll-into-view', sc.nodeType == 3 ? sc.parentNode : sc);
+				}
+				
+				//console.log('ended up in:', sc);
 			}
+
 		},
 
 		selectionSelectElement : function(el) {
@@ -1122,11 +1158,13 @@
 		frameContent : function() {
 			var ed = this.$.editor, nn, i, d,
 
+				// is a <p><br></p>
 				isFramingEl = function(d) { return 	d.tagName &&
-													d.tagName.toLowerCase() == 'p' &&
+													d.tagName == 'P' &&
 													d.childNodes.length == 1 &&
 													d.childNodes[0].tagName &&
-													d.childNodes[0].tagName.toLowerCase() == 'br'; },
+													d.childNodes[0].tagName == 'BR'; },
+				// a new <p><br></p>
 				newFramingEl = function() { var el; el = document.createElement('p'); el.appendChild(document.createElement('br')); return el };
 
 			if(!ed.childNodes.length)
@@ -1199,7 +1237,8 @@
 					.replace(/\<pre\>/gmi,"<span>").replace(/\<\/?pre\>/gmi,"</span>")
 					.replace(/^\s*(\<p\>\<br\>\<\/p\>\s*)+/, '')
 					.replace(/\s*(\<p\>\<br\>\<\/p\>\s*)+$/, '')
-					.replace(/\<span\>(&#8203;)?\​<\/span\>/gmi, '') // empty spans are useless anyway
+					.replace(/&#8203;/gmi, '') // empty spans are useless anyway
+					.replace(/\<span\>​<\/span\>/gmi, '') // empty spans are useless anyway. or are they?
 					.trim();
 
 			this.addActionBorder();
@@ -1394,17 +1433,17 @@
 			so = sn ? stateRange.startOffset : 0;
 			eo = sn && en ? stateRange.endOffset : 0;
 
-			if(sn.nodeType != 3)
+			if(sn.nodeType != 3 && sn.firstChild)
 			{
-				sn = sn.childNodes[0];
-				so = so < sn.length ? so : sn.length;
+				sn = sn.firstChild;
+				so = 0;
 			}
 			so = so < sn.length ? so : sn.length;
 
-			if(en.nodeType != 3)
+			if(en.nodeType != 3 && en.firstChild)
 			{
-				en = en.childNodes[0];
-				eo = eo < en.length ? eo : en.length;
+				en = en.firstChild;
+				eo = 0;
 			}
 			eo = eo < en.length ? eo : en.length;
 
@@ -1726,14 +1765,16 @@
 		range.collapse(true);
 		sel.removeAllRanges();
 		sel.addRange(range);
+		
+		return range;
 	};
 
-	function nextNode(node) {
-		if (node.hasChildNodes()) {
+	function nextNode(node, excludeChildren) {
+		if (!excludeChildren && node && node.hasChildNodes && node.hasChildNodes()) {
 			return node.firstChild;
 		} else {
 			while (node && !node.nextSibling) {
-				node = node.parentNode;
+				node = node.parentNode || Polymer.dom(node).parentNode;
 			}
 			if (!node) {
 				return null;
@@ -1759,17 +1800,20 @@
 		slc = getClosestLightDomTarget(r.startContainer, top),
 		elc = getClosestLightDomTarget(r.endContainer, top);
 
-		if(r.startContainer == slc && r.endContainer == elc)
+		if((r.startContainer == slc || slc == top) && (r.endContainer == elc || elc == top))
 			// this should in most cases be true except for when the user managed to move the caret into local dom.
 			return;
 
 		// otherwise move the caret outside the shadow dom
-		return reverseDirection ? moveCaretBeforeOrWrap(slc, elc) : moveCaretAfterOrWrap(slc, elc);
+		return reverseDirection ? moveCaretBeforeOrWrap(slc, elc, top) : moveCaretAfterOrWrap(slc, elc, top);
 				// moveCaretAfterOrWrap(slc, elc);
 
 
 	}
 
+	function isZeroWidthDummyNode(ns) {
+		return ns && ns.tagName == 'SPAN' && (ns.innerHTML.length == 1) && (ns.innerHTML.charCodeAt(0) == 8203)
+	}
 	function newZeroWidthDummyNode() {
 		var zwd;
 		zwd = document.createElement('span');
@@ -1780,39 +1824,55 @@
 	// params: slc - range start node, elc - range end node
 	// if slc != elc will select from before slc to after elc
 	// otherwise will set caret after slc
-	function moveCaretAfterOrWrap(slc, elc) {
-		var sel = window.getSelection(),
-			range = document.createRange();
+	function moveCaretAfterOrWrap(slc, elc, top) {
+		var ns, targetNode, so, sp, created,
+			sel = window.getSelection(),
+			range = document.createRange(),
+			t;
+			//sel = window.getSelection(),
+			//range = document.createRange(),
 
 		range = range.cloneRange();
+		//range = range.cloneRange();
 
+		if(!top)
+			throw new Error('no top provided');
+		
 		if(!slc) return
 		if(!elc) elc = slc;
 
 		if(slc == elc)
 		{
-			if(slc.is)
+			// note the order of things here is a bit different from the matching moveCaretBeforeOrWrap
+			ns = nextNode(slc, true);
+			while(ns && ns != slc && (ns.parentNode == slc || !canHaveChildren(ns) || !isInLightDom(ns, top)))
+					ns = nextNode(ns);
+
+			if(!ns)
+				slc.parentNode.appendChild(ns = created = newZeroWidthDummyNode(), ns);
+			
+			if(ns.is)
 			{
-				if(!(slc.nextSibling && slc.nextSibling.tagName == 'span' && slc.nextSibling.innerHTML == "&#8203;"))
-				{
-					zeroWidthDummy = newZeroWidthDummyNode();
-					if(slc.nextSibling)
-						slc.parentNode.insertBefore(zeroWidthDummy, slc.nextSibling);
-					else
-						slc.parentNode.appendChild(zeroWidthDummy);
-					slc = elc = zeroWidthDummy;
-				}
-				else
-					slc = elc = slc.previousSibling;
+				ns.parentNode.insertBefore(t = newZeroWidthDummyNode(), ns);
+				ns = created = t;
 			}
-			range.setStartAfter(slc);
-			range.setEndAfter(elc);
+			
+			if(ns.firstChild && ns.firstChild.is)
+			{
+				ns.insertBefore(t = newZeroWidthDummyNode(), ns.firstChild);
+				ns = created = t;
+			}				
+
+			offset = 0; 
+
+			range.setStart(ns, offset);
+			range.setEnd(ns, offset);
 			range.collapse(true);
 		}
 		else
 		{
 			range.setStartBefore(slc);
-			range.setEndAfter(elc);
+			range.setEndBefore(slc);
 		}
 
 		sel.removeAllRanges();
@@ -1821,10 +1881,14 @@
 		return range;
 	}
 
-	function moveCaretBeforeOrWrap(slc, elc) {
-		var sel = window.getSelection(),
-			range = document.createRange(), zeroWidthDummy;
+	function moveCaretBeforeOrWrap(slc, elc, top) {
+		var sel = window.getSelection(), created, t,
+			range = document.createRange(), zeroWidthDummy,
+			ns;
 
+		if(!top)
+			throw new Error('no top provided');
+			
 		range = range.cloneRange();
 
 		if(!slc) return
@@ -1832,19 +1896,34 @@
 
 		if(slc == elc)
 		{
-			if(slc.is)
+			ns = prevNode(slc);
+			while(ns && (ns == slc || ns.parentNode == slc || !canHaveChildren(ns) || !isInLightDom(ns, top) || (slc.is && ns.children[0] == slc)))
+				ns = prevNode(ns);
+
+			if(!ns)
+				slc.parentNode.insertBefore(ns = created = newZeroWidthDummyNode(), slc);
+			if(ns.is)
 			{
-				if(!(slc.previousSibling && slc.previousSibling.tagName == 'span' && slc.previousSibling.innerHTML == "&#8203;"))
+				ns.parentNode.insertBefore(t = created = newZeroWidthDummyNode(), ns);
+				ns = t;
+			}
+
+			offset = ns.nodeType == 3 ? ns.textContent.length : ns.childNodes.length;
+
+			/*if(slc.is)
+			{
+				while(ns && !canHaveChildren(ns))
+					ns = prevNode(slc);
+				if(!ns || (ns.is && !isZeroWidthDummyNode(ns)))
 				{
 					zeroWidthDummy = newZeroWidthDummyNode();
 					slc.parentNode.insertBefore(zeroWidthDummy, slc);
-					slc = elc = zeroWidthDummy;
+					ns = zeroWidthDummy;
 				}
-				else
-					slc = elc = slc.previousSibling;
-			}
-			range.setStartBefore(slc);
-			range.setEndBefore(elc);
+			}*/
+
+			range.setStart(ns, offset);
+			range.setEnd(ns, offset);
 			range.collapse(true);
 		}
 		else
@@ -1890,4 +1969,20 @@
 
 		return { x : xPos, y : yPos };
 	}
+	
+	var canHaveChildren = (function() {
+		var cache = {};
+		return function(node) {
+			if(!node || node.nodeType != 1)
+				return false;
+
+			if(node.is)
+				return true;
+			
+			if (node && node.canHaveChildren)
+				return cache[node.tagName] = node.canHaveChildren();
+
+			return cache[node.tagName] = node.nodeType === 1 && node.ownerDocument.createElement(node.tagName).outerHTML.indexOf("></") > 0;
+		}
+	})();
 })();

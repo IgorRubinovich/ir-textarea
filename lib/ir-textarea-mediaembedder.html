@@ -39,7 +39,7 @@
 		<paper-dialog id="dialog" on-keydown="acceptOnEnter" auto-fit-on-attach>
 			<h2>Paste your embed code below</h2>
 			<div class="layout vertical">
-				<textarea rows="7" cols="40" value="{{ embedCode::keyup }}"></textarea>
+				<textarea rows="7" cols="40" id="input" value="{{ embedCode::keyup }}"></textarea>
 				<paper-checkbox checked="{{ noWrapper }}">no wrapper</paper-checkbox>
 			</div>
 			<div class="buttons">
@@ -60,6 +60,9 @@
 		
 		open : function() {
 			this.$.dialog.open();
+			this.async(function() {
+				this.$.input.focus();
+			});
 		},
 		
 		acceptOnEnter : function(e) {
