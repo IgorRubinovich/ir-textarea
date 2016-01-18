@@ -809,8 +809,11 @@
 		// to use instead of execCommand('insertHTML') - modified from code by Tim Down
 		insertHTMLCmd : function (html) {
 			//this.selectionRestore();
-			this.ensureCursorLocationIsValid({ extraForbiddenElements : ["p"] });
+			var ef = html.match(/\<p[^\>]*\>/) ? ["p"] : [];
+			
+			this.ensureCursorLocationIsValid({ extraForbiddenElements : ef });
 			this.pasteHtmlAtCaret(html);
+			this.ensureCursorLocationIsValid();
 		},
 
 
@@ -1023,7 +1026,7 @@
 
 			r = getSelectionRange();
 			if(!r)
-				if(!(r = this.selectionRestore(true)))
+				if(!(r = this.selectionRestore()))
 					return;
 
 			sc = r.startContainer;
@@ -1032,7 +1035,7 @@
 			if(!this.isOrIsAncestorOf(this.$.editor, sc) || !this.isOrIsAncestorOf(this.$.editor, ec)) {
 				wasIn.outsideEditor = sc;
 
-				this.selectionRestore(true);
+				this.selectionRestore();
 				r = getSelectionRange();
 				sc = r.startContainer;
 				ec = r.endContainer;
@@ -1072,7 +1075,7 @@
 			forbiddenElements = ".caption-wrapper,.embed-aspect-ratio,iframe".split(',').concat(extraForbiddenElements);
 
 			// ... including directly in a custom element
-			sni = sc.is;
+			sni = sc.is || (r.startOffset-1 > 0 && sc[r.startOffset-1].is);
 			eni = ec.is;
 
 			wasIn.customElement = sni && sc;
