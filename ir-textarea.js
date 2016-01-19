@@ -1010,7 +1010,7 @@
 
 		ensureCursorLocationIsValid : function(opts) { // if reverseDirection is true cursor is moving in reverse to typing direction
 			opts = opts || {};
-			
+
 			if(opts.recursive > 30)
 				throw Error("Couldn't find a valid location for the cursor in a reasonable number of attempts");
 			
@@ -1018,7 +1018,7 @@
 				extraForbiddenElements = opts.extraForbiddenElements || [], 
 				reverseDirection = opts.reverseDirection, 
 				recursive = opts.recursive,
-				wasIn = {};
+				wasIn = {}, origEvent = opts.originalEvent, k;
 			
 			// ensure caret is not:
 
@@ -1075,7 +1075,7 @@
 			forbiddenElements = ".caption-wrapper,.embed-aspect-ratio,iframe".split(',').concat(extraForbiddenElements);
 
 			// ... including directly in a custom element
-			sni = sc.is || (r.startOffset-1 > 0 && sc[r.startOffset-1].is);
+			sni = sc.is || r.startOffset > 1 && (sc.nodeType != 3) && sc.childNodes[r.startOffset-1] && sc.childNodes[r.startOffset-1].is;
 			eni = ec.is;
 
 			wasIn.customElement = sni && sc;
@@ -1089,9 +1089,6 @@
 			if(sni || eni)
 			{
 				reverseDirection ? moveCaretBeforeOrWrap(sc, null, this.$.editor) : moveCaretAfterOrWrap(sc, null, this.$.editor);
-				//console.log('cursor jumps because was in: ', wasIn, "depth", opts.recursive);
-				//console.log('going deeper. cursor is in');
-				//console.log(sni);
 				this.ensureCursorLocationIsValid({ reverseDirection : reverseDirection, recursive : opts.recursive ?  opts.recursive+1 : 1, extraForbiddenElements : extraForbiddenElements});
 			}
 
@@ -1133,7 +1130,7 @@
 					sel.addRange(range);
 					
 					sc = sp;
-					//el.focus();
+
 					console.log('done jumping');
 					console.log();
 				}
@@ -1244,6 +1241,9 @@
 					.replace(/\<span\>​<\/span\>/gmi, '') // empty spans are useless anyway. or are they?
 					.trim();
 
+			if(!/\<[^\<]+\>/.test(v))
+				v = "<span>" + v + "</span>"
+					
 			this.addActionBorder();
 
 			return v;
