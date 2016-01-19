@@ -1102,17 +1102,17 @@
 			// postprocessing after the last jump
 			if(!recursive)
 			{
-				if(sc == this.$.editor || (sc.nodeType == 3 && sc.parentNode == this.$.editor) || sc.is)
+				if(!(so == eo && sc == ec) && (sc != ec) && (sc == this.$.editor || (sc.nodeType == 3 && sc.parentNode == this.$.editor) || sc.is))
 				{
 					console.log('ADDING A SPAN...');
 					this.$.editor.insertBefore(sp = document.createElement('span'), this.$.editor.childNodes[so]);
-					if(sc.nodeType == 3)
+					/*if(sc.nodeType == 3)
 					{
 						console.log('because its a text node...');
 						this.$.editor.removeChild(sc);
 						sp.appendChild(sc);
 					}
-					else
+					else*/
 					if(sc.is)
 					{
 						console.log('because its a custom element...');
@@ -1134,7 +1134,7 @@
 					console.log('done jumping');
 					console.log();
 				}
-				if(!opts.originalEvent || !(opts.originalEvent.type == 'mouseup' && (wasIn.shadowDom || wasIn.customElement || opts.originalEvent.target.tagName == 'IMG')))
+				if(!opts.originalEvent || !(opts.originalEvent.type == 'mouseup' && !sc.is && (wasIn.shadowDom || wasIn.customElement || opts.originalEvent.target.tagName == 'IMG')))
 				{
 					this.fire('scroll-into-view', sc.nodeType == 3 ? sc.parentNode : sc);
 				}
