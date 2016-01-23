@@ -811,9 +811,11 @@
 			//this.selectionRestore();
 			var ef = html.match(/\<p[^\>]*\>/) ? ["p"] : [];
 			
-			this.ensureCursorLocationIsValid({ extraForbiddenElements : ef });
-			this.pasteHtmlAtCaret(html);
-			this.ensureCursorLocationIsValid();
+			this.async(function() {
+				this.ensureCursorLocationIsValid({ extraForbiddenElements : ef });
+				this.pasteHtmlAtCaret(html);
+				this.ensureCursorLocationIsValid();
+			});
 		},
 
 
@@ -1134,7 +1136,9 @@
 					console.log('done jumping');
 					console.log();
 				}
-				if(!opts.originalEvent || !(opts.originalEvent.type == 'mouseup' && !sc.is && (wasIn.shadowDom || wasIn.customElement || opts.originalEvent.target.tagName == 'IMG')))
+				if(!opts.originalEvent || 
+					//!(opts.originalEvent.type != 'mouseup' && opts.originalEvent.type != 'mousedown' && !sc.is && (wasIn.shadowDom || wasIn.customElement || opts.originalEvent.target.tagName == 'IMG')))
+					[38,40, 37, 39, 8].indexOf(opts.originalEvent.keyCode || opts.originalEvent.which) > -1)
 				{
 					this.fire('scroll-into-view', sc.nodeType == 3 ? sc.parentNode : sc);
 				}
@@ -1256,15 +1260,6 @@
 		_blurredEditor : function() {
 			this.selectionSave();
 		},
-
-		/*viewModeChanged : function(to, from)
-		{
-			if(from == 1 && to == 0)
-			{
-				this.cleanHTML();
-				this.$.
-			}
-		},*/
 
 		getCaretCharacterOffset : function getCaretCharacterOffset() {
 			// modified from code by Tim Down http://stackoverflow.com/users/96100/tim-down
