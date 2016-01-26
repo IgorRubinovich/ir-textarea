@@ -47,6 +47,7 @@
 					that.ensureCursorLocationIsValid({reverseDirection : keyCode == 37 || keyCode == 38 || keyCode == 33, originalEvent : ev}); // left, up, pgup
 
 				that._updateValue();
+				that.selectionSave();
 			};
 
 			"mousedown,mouseup,keydown,keyup".split(',')
@@ -818,7 +819,10 @@
 		// to use instead of execCommand('insertHTML') - modified from code by Tim Down
 		insertHTMLCmd : function (html) {
 			//this.selectionRestore();
-			var ef = html.match(/\<([^\>]+)\>.*\<\/\1\>/) ? ["p"] : [];
+			//var ef = html.match(/\<([^\>]+)\>.*\<\/\1\>/) ? ["p"] : [];
+			
+			var ef = html.match(/\<p[^\>]+\>/) ? ["p"] : [];
+			var ef = html.match(/\<div[^\>]+\>/) ? ["div"] : [];
 			
 			this.async(function() {
 				this.ensureCursorLocationIsValid({ extraForbiddenElements : ef });
@@ -903,10 +907,15 @@
 
 			promptProcessor = promptProcessor || (this.promptProcessors[actualCmd] && document.getElementById(this.promptProcessors[actualCmd]));
 
+			this.selectionRestore();
+			
 			if(!presetVal && promptProcessor)
 			{
 				promptProcessor.prompt(function(val) {
 					var ext, isHtml = /</.test(val);
+					
+					that.selectionRestore();
+					
 					if(!isHtml)
 						ext = val.match("([^\.]+)$")[1];
 
@@ -921,7 +930,6 @@
 					else{
 						if(val)
 						{
-							that.selectionRestore();
 							that._execCommand(actualCmd, false, val);
 							that.$.editor.focus();
 
@@ -980,6 +988,8 @@
 				ec = range.endContainer;
 			}
 
+			this.$.editor.focus();
+			
 			if (range && sc && ec && this.isOrIsAncestorOf(this.$.editor, sc) && this.isOrIsAncestorOf(this.$.editor, ec)) {
 				if (window.getSelection) {
 					sel = window.getSelection();
@@ -1245,7 +1255,7 @@
 
 		_blurredEditor : function() {
 			this.selectionSave();
-		},
+		}, 
 
 		getCaretCharacterOffset : function getCaretCharacterOffset() {
 			// modified from code by Tim Down http://stackoverflow.com/users/96100/tim-down
@@ -1859,7 +1869,7 @@
 	function moveCaretBeforeOrWrap(slc, elc, top) {
 		var sel = window.getSelection(), created, t,
 			range = document.createRange(), zeroWidthDummy,
-			ns;
+			ns, fromNode;
 
 		if(!top)
 			throw new Error('no top provided');
@@ -1871,9 +1881,9 @@
 
 		if(slc == elc)
 		{
-			ns = prevNode(slc);
-			while(ns && (ns == slc || ns.parentNode == slc || !canHaveChildren(ns) || !isInLightDom(ns, top) || (slc.is && ns.children[0] == slc)))
-				ns = prevNode(ns);
+			ns = prevNode(fromNode = slc);
+			while(ns && (ns == slc || ns.parentNode == slc || !canHaveChildren(ns) || !isInLightDom(ns, top))) // || (slc.is && ns.children[0] == slc)))
+				ns = prevNode(fromNode = ns);
 
 			if(!ns)
 				slc.parentNode.insertBefore(ns = created = newZeroWidthDummyNode(), slc);
@@ -1883,7 +1893,12 @@
 				ns = t;
 			}
 
-			offset = ns.nodeType == 3 ? ns.textContent.length : ns.childNodes.length;
+			if(offset = ns.nodeType == 3)
+				offset = ns.textContent.length;
+			else
+			{
+				offset = fromNode.parentNode == ns ? getChildPositionInParent(fromNode) : ns.childNodes.length;
+			}
 
 			/*if(slc.is)
 			{
