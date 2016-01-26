@@ -73,6 +73,15 @@
 
 				if(!v)
 					return;
+
+				if(v.match(/<meta name="ProgId" content="Word.Document">/i))
+				{
+					v = v	.replace(/<!--\[if[^\[]*\[endif\]--\>/gi).replace(/\<style.+<\/style>/ig, '')
+							.replace(/<(meta|link)[^>]>/, '')
+							.match(/.*<!--StartFragment-->\s*\<\/[^<]+>(.+?)(?=<!--EndFragment-->)/)[1]
+					if(v)
+						v = v.replace(/\<\/?o\:[^>]*\>/g, '');
+				}
 				
 				that.pasteHtmlAtCaret(v, true);
 				e.preventDefault();
@@ -1218,8 +1227,8 @@
 					.replace(/\<pre\>/gmi,"<span>").replace(/\<\/?pre\>/gmi,"</span>")
 					.replace(/^\s*(\<p\>\<br\>\<\/p\>\s*)+/, '')
 					.replace(/\s*(\<p\>\<br\>\<\/p\>\s*)+$/, '')
-					.replace(/&#8203;/gmi, '') // empty spans are useless anyway
-					.replace(/\<span\>​<\/span\>/gmi, '') // empty spans are useless anyway. or are they?
+					.replace(/&#8203;/gmi, '') 				// special chars
+					.replace(/\<span\>​<\/span\>/gmi, '') 	// empty spans are useless anyway. or are they?
 					.trim();
 
 			if(!/\<[^\<]+\>/.test(v))
