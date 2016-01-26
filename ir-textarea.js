@@ -134,7 +134,7 @@
 					else if(tbar.headerState == 3){
 
 
-						that.set("toolbarstyle",'top:'+ (tbar.headerHeight- tbar.transformOffset) +'px');
+						that.set("toolbarstyle",'top:'+ (tbar.headerHeight) +'px');
 					}
 				}
 				else{
@@ -151,9 +151,9 @@
 				tbar.transformOffset = arg.transformOffset;;
 				tbar.setPosition();
 
-				that.domProxyManager.createProxies()
 			});
 
+			that.domProxyManager.createProxies()
 			this.$.editor.innerHTML = this.getCleanValue();
 
 			this._updateValue();
@@ -809,7 +809,7 @@
 		// to use instead of execCommand('insertHTML') - modified from code by Tim Down
 		insertHTMLCmd : function (html) {
 			//this.selectionRestore();
-			var ef = html.match(/\<p[^\>]*\>/) ? ["p"] : [];
+			var ef = html.match(/\<([^\>]+)\>.*\<\/\1\>/) ? ["p"] : [];
 			
 			this.async(function() {
 				this.ensureCursorLocationIsValid({ extraForbiddenElements : ef });
@@ -1010,119 +1010,102 @@
 			this._selectionRange = null;
 		},
 
+		ensureCursorIs : [ // each filter enforces a single rule and returns true if applied
+			function inEditor(opts, range) {
+				var sc = range.startContainer, ec = range.endContainer;
+				
+				if(!this.isOrIsAncestorOf(this.$.editor, sc) || !this.isOrIsAncestorOf(this.$.editor, ec)) {
+					this.selectionRestore();
+					return true;
+				}
+			},
+			function inLightDom(opts, range) {
+				return ensureCaretIsInLightDom(this.$.editor, opts.reverseDirection)
+			},
+			function notInProxy(opts, range) {
+				var sni = range.startContainer.proxyTarget,
+					eni = range.endContainer.proxyTarget;
+					
+				if(sni || eni) {
+					moveCaretBeforeOrWrap(range.startContainer, range.startContainer, this.$.editor); // no need for moveCaretAfterOrWrap(sc) as proxy nodes should be sitting at the very end
+					return true;
+				}
+			},
+			
+			function isTextNode(opts, range) {
+				var sc = range.startContainer, ec = range.endContainer;
+				
+				if(!sc.matchesSelector || !ec.matchesSelector)
+					console.log('in text node - what will you do?');
+				
+				//if(!sc.matchesSelector) sc = getClosestLightDomTarget(sc.parentNode, this.$.editor);
+				//if(!ec.matchesSelector) ec = getClosestLightDomTarget(ec.parentNode, this.$.editor);
+			},
+			
+			function isInForbiddenElement(opts, range) {
+				var sni, eni, sc = range.startContainer, ec = range.endContainer, forbiddenElements;
+
+				forbiddenElements = ".caption-wrapper,.embed-aspect-ratio,iframe".split(',').concat(opts.extraForbiddenElements);
+
+				while(!sc.matchesSelector) // go up until there's an element
+					sc = sc.parentNode;
+				while(!ec.matchesSelector)
+					ec = sc.parentNode;
+						
+				for(i = 0; i < forbiddenElements.length && !sni && !eni; i++)
+				{
+					sni = sc.matchesSelector(forbiddenElements[i]);
+					eni = !range.collapsed && ec.matchesSelector(forbiddenElements[i]);
+				}
+
+				if(sni || eni)
+					opts.reverseDirection ? moveCaretBeforeOrWrap(sc, null, this.$.editor) : moveCaretAfterOrWrap(sc, null, this.$.editor);
+				
+				return sni || eni;
+			},
+			
+			function isInCustomElement(opts, range) {
+				var sni, eni, sc = range.startContainer, ec = range.endContainer, so = range.startOffset, eo = range.endOffset;
+				
+				sni = sc.is || so > 1 && (sc.nodeType != 3) && sc.childNodes[so-1] && sc.childNodes[so-1].is;
+				eni = ec.is;
+				
+				return sni || eni;
+			}
+
+		],
+		
 		ensureCursorLocationIsValid : function(opts) { // if reverseDirection is true cursor is moving in reverse to typing direction
+			var r, i, sp, sc, ec, so, eo, totalChecks = 0;
+			
 			opts = opts || {};
 
-			if(opts.recursive > 30)
-				throw Error("Couldn't find a valid location for the cursor in a reasonable number of attempts");
-			
-			var r, slc, elc, forbiddenElements, i, sp, so, eo, sc, ec, sni, eni, r,
-				extraForbiddenElements = opts.extraForbiddenElements || [], 
-				reverseDirection = opts.reverseDirection, 
-				recursive = opts.recursive,
-				wasIn = {}, origEvent = opts.originalEvent, k;
-			
-			// ensure caret is not:
+			opts.extraForbiddenElements = opts.extraForbiddenElements || [];
 
-			// outside editor
-
-			r = getSelectionRange();
-			if(!r)
-				if(!(r = this.selectionRestore()))
-					return;
-
-			sc = r.startContainer;
-			ec = r.endContainer;
-
-			if(!this.isOrIsAncestorOf(this.$.editor, sc) || !this.isOrIsAncestorOf(this.$.editor, ec)) {
-				wasIn.outsideEditor = sc;
-
-				this.selectionRestore();
-				r = getSelectionRange();
-				sc = r.startContainer;
-				ec = r.endContainer;
-			}
-
-			// in shadow dom			
-			if(ensureCaretIsInLightDom(this.$.editor, reverseDirection))
-			{
-				r = getSelectionRange();
-				sc = r.startContainer;
-				ec = r.endContainer;				
-			}
-			else 
-				delete wasIn.customElement
+			for(i = 0; i < this.ensureCursorIs.length && totalChecks++ < 50; i++)
+				if(this.ensureCursorIs[i].call(this, opts, getSelectionRange()))
+				{
+					console.log('was ' + this.ensureCursorIs[i].name);
+					i = 0;
+				}
+				
+			if(totalChecks >= 50)
+				console.log('too many cursor movements');
 
 			// now we can be sure the cursor is in editor and in light dom relative to the editor
-			
-			// in a proxy node (iframes)
-			sni = sc.proxyTarget;
-			eni = ec.proxyTarget;
-			if(sni || eni) {
-				moveCaretBeforeOrWrap(sc, sc, this.$.editor); // no need for moveCaretAfterOrWrap(sc) as proxy nodes should be sitting at the very end
-
-				wasIn.proxy = sc;
-
-				// get range again
-				r = getSelectionRange();
-				sc = r.startContainer;
-				ec = r.endContainer;				
-			}
-
-			// if either is something like a text node, look for a good ancestor container
-			if(!sc.matchesSelector) sc = getClosestLightDomTarget(sc.parentNode, this.$.editor);
-			if(!ec.matchesSelector) ec = getClosestLightDomTarget(ec.parentNode, this.$.editor);
-
-			// in a specific forbidden element
-			forbiddenElements = ".caption-wrapper,.embed-aspect-ratio,iframe".split(',').concat(extraForbiddenElements);
-
-			// ... including directly in a custom element
-			sni = sc.is || r.startOffset > 1 && (sc.nodeType != 3) && sc.childNodes[r.startOffset-1] && sc.childNodes[r.startOffset-1].is;
-			eni = ec.is;
-
-			wasIn.customElement = sni && sc;
-			
-			for(i = 0; i < forbiddenElements.length && !sni && !eni; i++)
-			{
-				sni = sc.matchesSelector(forbiddenElements[i]);
-				eni = ec.matchesSelector(forbiddenElements[i]);
-			}
-
-			if(sni || eni)
-			{
-				reverseDirection ? moveCaretBeforeOrWrap(sc, null, this.$.editor) : moveCaretAfterOrWrap(sc, null, this.$.editor);
-				this.ensureCursorLocationIsValid({ reverseDirection : reverseDirection, recursive : opts.recursive ?  opts.recursive+1 : 1, extraForbiddenElements : extraForbiddenElements});
-			}
-
 			r = getSelectionRange();
 			sc = r.startContainer;
 			ec = r.endContainer;			
-			var so = r.startOffset;
-			var eo = r.endOffset;
-			var sp;
+			so = r.startOffset;
+			eo = r.endOffset;
 
 			// postprocessing after the last jump
-			if(!recursive)
+			if(!opts.recursive)
 			{
 				if(!(so == eo && sc == ec) && (sc != ec) && (sc == this.$.editor || (sc.nodeType == 3 && sc.parentNode == this.$.editor) || sc.is))
 				{
 					console.log('ADDING A SPAN...');
 					this.$.editor.insertBefore(sp = document.createElement('span'), this.$.editor.childNodes[so]);
-					/*if(sc.nodeType == 3)
-					{
-						console.log('because its a text node...');
-						this.$.editor.removeChild(sc);
-						sp.appendChild(sc);
-					}
-					else*/
-					if(sc.is)
-					{
-						console.log('because its a custom element...');
-						setCaretAt(sp, 0);
-					}
-					else
-						console.log('because were directly under editor...');
-
 					
 					var range = document.createRange();
 					var sel = window.getSelection();
@@ -1132,18 +1115,12 @@
 					sel.addRange(range);
 					
 					sc = sp;
-
-					console.log('done jumping');
-					console.log();
 				}
-				if(!opts.originalEvent || 
-					//!(opts.originalEvent.type != 'mouseup' && opts.originalEvent.type != 'mousedown' && !sc.is && (wasIn.shadowDom || wasIn.customElement || opts.originalEvent.target.tagName == 'IMG')))
-					[38,40, 37, 39, 8].indexOf(opts.originalEvent.keyCode || opts.originalEvent.which) > -1)
+				if(!opts.originalEvent || [38, 40, 37, 39, 8].indexOf(opts.originalEvent.keyCode || opts.originalEvent.which) > -1)
 				{
-					this.fire('scroll-into-view', sc.nodeType == 3 ? sc.parentNode : sc);
+					//this.fire('scroll-into-view', sc.nodeType == 3 ? sc.parentNode : sc);
+					this.fire('scroll-into-view', getSelectionCoords()) //this.$.editor.offsetParent
 				}
-				
-				//console.log('ended up in:', sc);
 			}
 
 		},
@@ -1383,15 +1360,6 @@
 				redoRecord.push(undoRecord.pop());
 
 			lastUndo = undoRecord[undoRecord.length - 1];
-
-			//if(undoRecord.length > 1)
-			//	undoRecord.pop();
-
-			//pushUndo(true);
-			//redoRecord.push(currState = undoRecord.pop());
-
-			//if(lastUndo.content == currState.content && undoRecord.length > 0)
-			//	lastUndo = undoRecord.pop();
 
 			if(!lastUndo || lastUndo.content == currState.content)
 				return;
@@ -1950,24 +1918,6 @@
 		return range;
 	}
 
-	function getElementCoordinates (elem)
-	{
-		var elem, xPos, yPos;
-
-		yPos = elem.offsetTop;
-		xPos = elem.offsetLeft;
-		tempEl = elem.offsetParent;
-
-		while ( tempEl != null )
-		{
-			xPos += tempEl.offsetLeft;
-			yPos += tempEl.offsetTop;
-			tempEl = tempEl.offsetParent;
-		}
-
-		return { x : xPos, y : yPos };
-	}
-	
 	var canHaveChildren = (function() {
 		var cache = {};
 		return function(node) {
@@ -1983,4 +1933,62 @@
 			return cache[node.tagName] = node.nodeType === 1 && node.ownerDocument.createElement(node.tagName).outerHTML.indexOf("></") > 0;
 		}
 	})();
+
+	// modified code by Tim Down http://stackoverflow.com/questions/6846230/coordinates-of-selected-text-in-browser-page
+	var getSelectionCoords = (function () {
+		span = document.createElement("span");
+		span.appendChild( document.createTextNode("\u200b") );
+		
+		return function _getSelectionCoords(win)
+		{
+			win = win || window;
+			var doc = win.document;
+			var sel = doc.selection, range, rects, rect;
+			var x = 0, y = 0;
+			if (sel) {
+				if (sel.type != "Control") {
+					range = sel.createRange();
+					range.collapse(true);
+					x = range.boundingLeft;
+					y = range.boundingTop;
+				}
+			} else if (win.getSelection) {
+				sel = win.getSelection();
+				if (sel.rangeCount) {
+					range = sel.getRangeAt(0).cloneRange();
+					/*if (range.getClientRects) {
+						range.collapse(true);
+						rects = range.getClientRects();
+						if (rects.length > 0) {
+							rect = rects[0];
+						}
+						if(rect)
+						{
+							x = rect.left;
+							y = rect.top;
+						}
+					}*/
+					// Fall back to inserting a temporary element
+					if (x == 0 && y == 0) {
+						//var span = doc.createElement("span");
+						if (span.getClientRects) {
+							range.insertNode(span);
+							//rect = span.getClientRects()[0];
+							//x = rect.left;
+							//y = rect.top;
+							y = span.offsetTop;
+							x = span.offsetLeft;
+							var spanParent = span.parentNode;
+							spanParent.removeChild(span);
+
+							// Glue any broken text nodes back together
+							spanParent.normalize();
+						}
+					}
+				}
+			}
+			console.log({ x: x, y: y });
+			return { x: x, y: y };
+		}
+	})()
 })();
