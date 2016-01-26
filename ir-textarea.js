@@ -822,7 +822,7 @@
 			//var ef = html.match(/\<([^\>]+)\>.*\<\/\1\>/) ? ["p"] : [];
 			
 			var ef = html.match(/\<p[^\>]+\>/) ? ["p"] : [];
-			var ef = html.match(/\<div[^\>]+\>/) ? ["div"] : [];
+			var ef = html.match(/\<div[^\>]+\>/) ? ["p", "div"] : [];
 			
 			this.async(function() {
 				this.ensureCursorLocationIsValid({ extraForbiddenElements : ef });
@@ -1029,7 +1029,7 @@
 			this._selectionRange = null;
 		},
 
-		ensureCursorIs : [ // each filter enforces a single rule and returns true if applied
+		cursorRules : [ // each function enforces a single rule. if applicable the rule will usually modify the selection range and return true.
 			function inEditor(opts, range) {
 				var sc = range.startContainer, ec = range.endContainer;
 				
@@ -1051,7 +1051,7 @@
 				}
 			},
 			
-			function isTextNode(opts, range) {
+			/*function isTextNode(opts, range) {
 				var sc = range.startContainer, ec = range.endContainer;
 				
 				if(!sc.matchesSelector || !ec.matchesSelector)
@@ -1059,7 +1059,7 @@
 				
 				//if(!sc.matchesSelector) sc = getClosestLightDomTarget(sc.parentNode, this.$.editor);
 				//if(!ec.matchesSelector) ec = getClosestLightDomTarget(ec.parentNode, this.$.editor);
-			},
+			},*/
 			
 			function isInForbiddenElement(opts, range) {
 				var sni, eni, sc = range.startContainer, ec = range.endContainer, forbiddenElements;
@@ -1101,11 +1101,11 @@
 
 			opts.extraForbiddenElements = opts.extraForbiddenElements || [];
 
-			for(i = 0; i < this.ensureCursorIs.length && totalChecks++ < 50; i++)
-				if(this.ensureCursorIs[i].call(this, opts, getSelectionRange()))
+			for(i = 0; i < this.cursorRules.length && totalChecks++ < 50; i++)
+				if(this.cursorRules[i].call(this, opts, getSelectionRange()))
 				{
-					console.log('was ' + this.ensureCursorIs[i].name);
-					i = 0;
+					console.log('was ' + this.cursorRules[i].name);
+					i = -1;
 				}
 				
 			if(totalChecks >= 50)
@@ -1873,7 +1873,7 @@
 
 		if(!top)
 			throw new Error('no top provided');
-			
+
 		range = range.cloneRange();
 
 		if(!slc) return
@@ -1882,7 +1882,7 @@
 		if(slc == elc)
 		{
 			ns = prevNode(fromNode = slc);
-			while(ns && (ns == slc || ns.parentNode == slc || !canHaveChildren(ns) || !isInLightDom(ns, top))) // || (slc.is && ns.children[0] == slc)))
+			while(ns && (ns == slc || ns.parentNode == slc || !canHaveChildren(ns) || !isInLightDom(ns, top)) || (slc.is && fromNode == slc)) // || (slc.is && ns.children[0] == slc)))
 				ns = prevNode(fromNode = ns);
 
 			if(!ns)
