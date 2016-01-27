@@ -141,10 +141,11 @@
 		},		
 		
 		captionSet : function(el, text) {
-			var caption, p, newEl, captionEl;
+			var caption, p, newEl, captionEl,
+				defaultText = "&#8203;&#8203;";
 			
 			if(!text) 
-				text = "new caption";
+				text = defaultText;
 			
 			caption = this.captionGet(el);
 			
@@ -170,6 +171,23 @@
 			}
 			else
 				caption.innerHTML = text;
+
+			if(text != defaultText)
+				return;
+				
+			// focus into the newly created caption
+			
+			this.async(function() {
+				var sel = window.getSelection(),
+					range = document.createRange();
+
+				range = range.cloneRange();
+				range.setStart(captionEl.childNodes[0], 1);
+				range.setEnd(captionEl.childNodes[0], 1);
+				range.collapse(true);
+				sel.removeAllRanges();
+				sel.addRange(range);
+			});
 		},
 		
 		captionGet : function(el) {

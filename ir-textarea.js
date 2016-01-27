@@ -12,6 +12,13 @@
 			handler = function(ev) {
 				var el, toDelete, keyCode = ev.keyCode || ev.which;
 
+				if (ev.keyCode === 13) {
+				  // in chrome this is irrelevant -> 	insert 2 br tags (if only one br tag is inserted the cursor won't go to the next line)
+				  document.execCommand('insertHTML', false); //, '<br>');
+				  // prevent the default behaviour of return key pressed
+				  return false;
+				}
+				
 				if(ev.type == 'keydown' && (ev.keyCode == 8 || ev.keyCode == 46))
 				{
 					if(that.__actionData.target)
@@ -75,11 +82,11 @@
 				if(!v)
 					return;
 
-				if(v.match(/<meta name="ProgId" content="Word.Document">/i))
+				if(v.match(/<!--StartFragment-->/i))
 				{
-					v = v	.replace(/<!--\[if[^\[]*\[endif\]--\>/gi).replace(/\<style.+<\/style>/ig, '')
+					v = v	.replace(/<!--\[if[^\[]*\[endif\]--\>/gi).replace(/\<style[\s][\S]+<\/style>/ig, '')
 							.replace(/<(meta|link)[^>]>/, '')
-							.match(/.*<!--StartFragment-->\s*\<\/[^<]+>(.+?)(?=<!--EndFragment-->)/)[1]
+							.match(/<!--StartFragment-->([\s\S]*?)(?=<!--EndFragment-->)/i)[1]
 					if(v)
 						v = v.replace(/\<\/?o\:[^>]*\>/g, '');
 				}
@@ -105,14 +112,14 @@
 					return;
 
 				that.$.editor.innerHTML = that.value = that.$.htmlTextArea.value;
-				that.cleanHTML();
+				//that.cleanHTML();
 			});
 
 			this.$.mediaEditor.editor = this.$.editor;
 
 			this.set('customUndo', CustomUndoEngine(this.$.editor, {
 																		getValue : this.getCleanValue.bind(this),
-																		contentFrame : "<p><br></p>[content]<p><br></p>",
+																		contentFrame : "<span><br></span>[content]<span><br></span>",
 																		timeout : false,
 																		onRestoreState : function(el) {
 																			this.ensureCursorLocationIsValid();
@@ -819,10 +826,9 @@
 		// to use instead of execCommand('insertHTML') - modified from code by Tim Down
 		insertHTMLCmd : function (html) {
 			//this.selectionRestore();
-			//var ef = html.match(/\<([^\>]+)\>.*\<\/\1\>/) ? ["p"] : [];
 			
 			var ef = html.match(/\<p[^\>]+\>/) ? ["p"] : [];
-			var ef = html.match(/\<div[^\>]+\>/) ? ["p", "div"] : [];
+			//var ef = html.match(/\<div[^\>]+\>/) ? ["p", "div"] : [];
 			
 			this.async(function() {
 				this.ensureCursorLocationIsValid({ extraForbiddenElements : ef });
@@ -1031,9 +1037,15 @@
 
 		cursorRules : [ // each function enforces a single rule. if applicable the rule will usually modify the selection range and return true.
 			function inEditor(opts, range) {
-				var sc = range.startContainer, ec = range.endContainer;
+				var sc, ec;
 				
-				if(!this.isOrIsAncestorOf(this.$.editor, sc) || !this.isOrIsAncestorOf(this.$.editor, ec)) {
+				if(range)
+				{
+					sc = range.startContainer, 
+					ec = range.endContainer;
+				}
+					
+				if(!range || !this.isOrIsAncestorOf(this.$.editor, sc) || !this.isOrIsAncestorOf(this.$.editor, ec)) {
 					this.selectionRestore();
 					return true;
 				}
@@ -1077,7 +1089,7 @@
 					eni = !range.collapsed && ec.matchesSelector(forbiddenElements[i]);
 				}
 
-				if(sni || eni)
+				if((sc == ec && (sni || eni)) || (sc != ec && (sni && eni)))
 					opts.reverseDirection ? moveCaretBeforeOrWrap(sc, null, this.$.editor) : moveCaretAfterOrWrap(sc, null, this.$.editor);
 				
 				return sni || eni;
@@ -1107,7 +1119,7 @@
 					console.log('was ' + this.cursorRules[i].name);
 					i = -1;
 				}
-				
+
 			if(totalChecks >= 50)
 				console.log('too many cursor movements');
 
@@ -1158,14 +1170,14 @@
 		frameContent : function() {
 			var ed = this.$.editor, nn, i, d,
 
-				// is a <p><br></p>
+				// is a <span><br></span>
 				isFramingEl = function(d) { return 	d.tagName &&
-													d.tagName == 'P' &&
+													d.tagName == 'SPAN' &&
 													d.childNodes.length == 1 &&
 													d.childNodes[0].tagName &&
 													d.childNodes[0].tagName == 'BR'; },
 				// a new <p><br></p>
-				newFramingEl = function() { var el; el = document.createElement('p'); el.appendChild(document.createElement('br')); return el };
+				newFramingEl = function() { var el; el = document.createElement('span'); el.appendChild(document.createElement('br')); return el };
 
 			if(!ed.childNodes.length)
 				return ed.appendChild(newFramingEl());
@@ -1235,8 +1247,8 @@
 			v = recursiveInnerHTML(this.$.editor, this.skipNodes)
 					.replace(/(\r\n|\n|\r)/gm," ")
 					.replace(/\<pre\>/gmi,"<span>").replace(/\<\/?pre\>/gmi,"</span>")
-					.replace(/^\s*(\<p\>\<br\>\<\/p\>\s*)+/, '')
-					.replace(/\s*(\<p\>\<br\>\<\/p\>\s*)+$/, '')
+					.replace(/^\s*(\<span\>\<br\>\<\/span\>\s*)+/, '')
+					.replace(/\s*(\<span\>\<br\>\<\/span\>\s*)+$/, '')
 					.replace(/&#8203;/gmi, '') 				// special chars
 					.replace(/\<span\>​<\/span\>/gmi, '') 	// empty spans are useless anyway. or are they?
 					.trim();
@@ -1821,7 +1833,7 @@
 		//range = range.cloneRange();
 
 		if(!top)
-			throw new Error('no top provided');
+			throw new Error('No top was provided');
 		
 		if(!slc) return
 		if(!elc) elc = slc;
@@ -1872,7 +1884,7 @@
 			ns, fromNode;
 
 		if(!top)
-			throw new Error('no top provided');
+			throw new Error('No top was provided');
 
 		range = range.cloneRange();
 
@@ -2011,7 +2023,7 @@
 					}
 				}
 			}
-			console.log({ x: x, y: y });
+			//console.log({ x: x, y: y });
 			return { x: x, y: y };
 		}
 	})()
