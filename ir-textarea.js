@@ -10,7 +10,7 @@
 			this.__actionData = {};
 
 			handler = function(ev) {
-				var el, toDelete, keyCode = ev.keyCode || ev.which;
+				var el, toDelete, keyCode = ev.keyCode || ev.which, t;
 
 				if (ev.keyCode === 13) {
 				  // in chrome this is irrelevant -> 	insert 2 br tags (if only one br tag is inserted the cursor won't go to the next line)
@@ -30,8 +30,12 @@
 							toDelete = el;
 					}
 					else
-					if(ev.keyCode == 8 && (el = that.getElementBeforeCaret()) && el.is)
-						toDelete = el;
+					if(ev.keyCode == 8 && (el = that.getElementBeforeCaret()))
+					{
+						t = el.childNodes[el.childNodes.length - 1];
+						if(el.is || t.matchesSelector && t.matchesSelector('.embed-aspect-ratio'))
+							toDelete = el;
+					}
 
 					if(toDelete)
 					{
@@ -51,7 +55,7 @@
 				}
 
 				if(ev.type != 'mousedown')
-					that.ensureCursorLocationIsValid({reverseDirection : keyCode == 37 || keyCode == 38 || keyCode == 33, originalEvent : ev}); // left, up, pgup
+					that.ensureCursorLocationIsValid({reverseDirection : [8,33,37,38].indexOf(keyCode) > -1, originalEvent : ev}); // left, up, pgup
 
 				that._updateValue();
 				that.selectionSave();
@@ -168,6 +172,8 @@
 				tbar.transformOffset = arg.transformOffset;;
 				tbar.setPosition();
 
+				
+				that.skipNodes = that.domProxyManager.createProxies();
 			});
 
 			that.domProxyManager.createProxies()
@@ -365,6 +371,10 @@
 				deleteTarget = target;
 
 			p = deleteTarget.parentNode; // delete target is a top parent custom element, meaning its parent is surely no in another custom element's dom
+			
+			if(!p)
+				return;
+			
 			if(p.is)
 				p = Polymer.dom(p);
 
@@ -751,7 +761,7 @@
 				return null;
 
 			if(!r.startOffset)
-				return prevNode(r.startContainer);
+				return prevNodeDeep(r.startContainer, this.$.editor);
 
 			return null;
 		},
@@ -1074,7 +1084,7 @@
 			},*/
 			
 			function isInForbiddenElement(opts, range) {
-				var sni, eni, sc = range.startContainer, ec = range.endContainer, forbiddenElements;
+				var sni, eni, sc = range.startContainer, ec = range.endContainer, forbiddenElements, fe, scat, ecat;
 
 				forbiddenElements = ".caption-wrapper,.embed-aspect-ratio,iframe".split(',').concat(opts.extraForbiddenElements);
 
@@ -1085,8 +1095,13 @@
 						
 				for(i = 0; i < forbiddenElements.length && !sni && !eni; i++)
 				{
-					sni = sc.matchesSelector(forbiddenElements[i]);
-					eni = !range.collapsed && ec.matchesSelector(forbiddenElements[i]);
+					fe = forbiddenElements[i];
+					
+					scat = sc.childNodes[range.startOffset] ;
+					ecat = sc.childNodes[range.endOffset];
+
+					sni = sc.matchesSelector(fe) || (scat && scat.matchesSelector && scat.matchesSelector(fe));
+					eni = !range.collapsed && (ec.matchesSelector(fe) || (ecat && ecat.matchesSelector && ecat.matchesSelector(fe)));
 				}
 
 				if((sc == ec && (sni || eni)) || (sc != ec && (sni && eni)))
@@ -1114,9 +1129,9 @@
 			opts.extraForbiddenElements = opts.extraForbiddenElements || [];
 
 			for(i = 0; i < this.cursorRules.length && totalChecks++ < 50; i++)
-				if(this.cursorRules[i].call(this, opts, getSelectionRange()))
+				if(this.cursorRules[i].call(this, opts, r = getSelectionRange()))
 				{
-					console.log('was ' + this.cursorRules[i].name);
+					console.log('was ' + this.cursorRules[i].name, " now in ", r.startContainer);
 					i = -1;
 				}
 
@@ -1788,6 +1803,26 @@
 			return node.parentNode;
 	}
 
+	function prevNodeDeep(node, top) {
+		// previous sibling in deep sense - will look up the tree until there's a prevousSibling, then will look at the last node in its subtree
+		
+		var ni;
+		if(node.previousSibling)
+			return node.previousSibling;
+	
+		ni = node.parentNode;
+		while(ni && ni != top && !ni.previousSibling)
+			ni = ni.parentNode;
+		
+		if(!ni || ni == top)
+			return top;
+		
+		while(ni.childNodes)
+			ni = ni.childNodes[ni.childNodes.length - 1];
+		
+		return ni;
+	}
+	
 	var ensureCaretIsInLightDom = function(top, reverseDirection) {
 		var r = getSelectionRange(), slc, elc;
 
