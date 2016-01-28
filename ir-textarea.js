@@ -21,6 +21,11 @@
 				
 				if(ev.type == 'keydown' && (ev.keyCode == 8 || ev.keyCode == 46))
 				{
+					that.ensureCursorLocationIsValid({originalEvent : ev});
+					
+					if(ev.defaultPrevented)
+						;
+					else
 					if(that.__actionData.target)
 						toDelete = that.__actionData.target;
 					else
@@ -33,7 +38,7 @@
 					if(ev.keyCode == 8 && (el = that.getElementBeforeCaret()))
 					{
 						t = el.childNodes[el.childNodes.length - 1];
-						if(el.is || t.matchesSelector && t.matchesSelector('.embed-aspect-ratio'))
+						if(el.is || (t && t.matchesSelector && t.matchesSelector('.embed-aspect-ratio')))
 							toDelete = el;
 					}
 
@@ -44,7 +49,6 @@
 					}
 				}
 
-				altTarget = getTopCustomElementAncestor(ev.target, that.$.editor) || ev.target.proxyTarget;
 				if(ev.type == 'mousedown' && altTarget && that.__actionData.type != 'drag' &&
 					(altTarget == getClosestLightDomTarget(altTarget, that.$.editor) &&
 					!(ev.target.childNodes.length == 1 && ev.target.childNodes[0].nodeType == 3)))
@@ -767,7 +771,7 @@
 		},
 
 		pasteHtmlAtCaret : function(html, removeFormat) {
-			var sel, range;
+			var sel, range, endNode, newRange, node, lastNode, el, frag;
 
 			if (window.getSelection) {
 				// IE9 and non-IE
@@ -779,12 +783,12 @@
 					// Range.createContextualFragment() would be useful here but is
 					// only relatively recently standardized and is not supported in
 					// some browsers (IE9, for one)
-					var el = document.createElement("div");
+					el = document.createElement("div");
 					el.innerHTML = html;
-					var frag = document.createDocumentFragment(), node, lastNode;
+					frag = document.createDocumentFragment();
 
 					while ( (node = el.firstChild) ) {
-						lastNode = frag.appendChild(node);
+						frag.appendChild(lastNode = node);
 					}
 					var firstNode = frag.firstChild;
 
@@ -794,12 +798,20 @@
 					range.insertNode(frag);
 
 					// Preserve the selection
-					if (lastNode) {
-						range = range.cloneRange();
-						range.setStartAfter(lastNode);
-						range.collapse(true);
+					if (range.endContainer) {
+						newRange = range.cloneRange();
+						endNode = range.endContainer.childNodes[range.endOffset] || range.endContainer.childNodes[range.endOffset-1];
+
+						if(endNode.nodeType == 3)
+							return setCaretAt(endNode, endNode.length);						
+						
+						newRange.setStartAfter(endNode);
+						newRange.setEndAfter(endNode);
+						newRange.collapse(true);
 						sel.removeAllRanges();
-						sel.addRange(range);
+						sel.addRange(newRange);
+						
+						return newRange;
 					}
 				}
 			} else if ( (sel = document.selection) && sel.type != "Control") {
@@ -841,9 +853,16 @@
 			//var ef = html.match(/\<div[^\>]+\>/) ? ["p", "div"] : [];
 			
 			this.async(function() {
+				var r;
+				
 				this.ensureCursorLocationIsValid({ extraForbiddenElements : ef });
-				this.pasteHtmlAtCaret(html);
+				r = this.pasteHtmlAtCaret(html);
+				
+				//setCaretAt(r.endContainer, r.endOffset);
+				moveCaretAfterOrWrap(r.endContainer, r.endContainer, this.$.editor);
+				
 				this.ensureCursorLocationIsValid();
+				this._updateValue()
 			});
 		},
 
@@ -1117,6 +1136,39 @@
 				eni = ec.is;
 				
 				return sni || eni;
+			},
+			
+			function dangerousDelete(opts, range) { // cursor is on edge of a light element inside custom component and user clicked delete/backspace which will probably destroy the component
+				var ev = opts.originalEvent, tcea, sc, so, scparent, top;
+				
+				if(!opts.originalEvent || opts.originalEvent.type != 'keydown')
+					return;
+				
+				if(range.startContainer != range.endContainer || range.startOffset != range.endOffset) 
+					return;
+				
+				sc = range.startContainer;
+				scparent = sc.parentNode
+				so = range.startOffset;
+				top = this.$.editor;
+				
+				tcea = getTopCustomElementAncestor(sc, top);
+				if(tcea == sc) // || isInLightDom(scparent, top)) // not in custom element or is child of another parent within light dom
+					return;
+					
+				if  (
+						((ev.keyCode || ev.which) == 8 && so == 0) // bakspace @ start of a dangerous container
+					||
+						(
+							(ev.keyCode || ev.which) == 46 && 
+							(
+								(sc.nodeType == 3 && so >= sc.length - 1) ||
+								(sc.nodeType != 3 && so >= sc.childNodes.length - 1) // delete @ end of a dangerous container
+							)
+						)
+					)
+					opts.originalEvent.preventDefault();
+					
 			}
 
 		],
@@ -1145,30 +1197,24 @@
 			so = r.startOffset;
 			eo = r.endOffset;
 
-			// postprocessing after the last jump
-			if(!opts.recursive)
+			if(!(so == eo && sc == ec) && (sc != ec) && (sc == this.$.editor || (sc.nodeType == 3 && sc.parentNode == this.$.editor) || sc.is))
 			{
-				if(!(so == eo && sc == ec) && (sc != ec) && (sc == this.$.editor || (sc.nodeType == 3 && sc.parentNode == this.$.editor) || sc.is))
-				{
-					console.log('ADDING A SPAN...');
-					this.$.editor.insertBefore(sp = document.createElement('span'), this.$.editor.childNodes[so]);
-					
-					var range = document.createRange();
-					var sel = window.getSelection();
-					range.setStart(sp, 0);
-					range.setEnd(sp, 0);
-					sel.removeAllRanges();
-					sel.addRange(range);
-					
-					sc = sp;
-				}
-				if(!opts.originalEvent || [38, 40, 37, 39, 8].indexOf(opts.originalEvent.keyCode || opts.originalEvent.which) > -1)
-				{
-					//this.fire('scroll-into-view', sc.nodeType == 3 ? sc.parentNode : sc);
-					this.fire('scroll-into-view', getSelectionCoords()) //this.$.editor.offsetParent
-				}
+				console.log('ADDING A SPAN...');
+				this.$.editor.insertBefore(sp = document.createElement('span'), this.$.editor.childNodes[so]);
+				
+				var range = document.createRange();
+				var sel = window.getSelection();
+				range.setStart(sp, 0);
+				range.setEnd(sp, 0);
+				sel.removeAllRanges();
+				sel.addRange(range);
+				
+				sc = sp;
 			}
-
+			
+			// if it was navigation, scroll view to display the cursor
+			if(!opts.originalEvent || [38, 40, 37, 39, 8].indexOf(opts.originalEvent.keyCode || opts.originalEvent.which) > -1)
+				this.fire('scroll-into-view', getSelectionCoords());
 		},
 
 		selectionSelectElement : function(el) {
@@ -1473,10 +1519,10 @@
 
 		var pushUndo = function(force) {
 			var r, sel, startMemo, endMemo, sc, ec,
-				innerHTML = getValue();
+				innerHTML = getValue(), onlyUpdateRangeMemo;
 
 			if(!force && undoRecord.length && (undoRecord[undoRecord.length-1].content == innerHTML))
-				return;
+				onlyUpdateRangeMemo = true;
 
 			lastRestoredStateContent == null;
 
@@ -1491,7 +1537,14 @@
 				ec = r.endContainer  == editor ? editor : (getTopCustomElementAncestor(r.endContainer, editor) || r.endContainer);
 				startMemo = getDomPathMemo(sc, editor);
 				endMemo = getDomPathMemo(ec, editor);
-				undoRecord.push({ content : innerHTML, range : { startMemo : startMemo, endMemo : endMemo, startOffset : r.startOffset, endOffset : r.endOffset }});
+
+				if(onlyUpdateRangeMemo)
+				{
+					undoRecord[undoRecord.length - 1].startMemo = startMemo;
+					undoRecord[undoRecord.length - 1].endMemo = endMemo;
+				}
+				else
+					undoRecord.push({ content : innerHTML, range : { startMemo : startMemo, endMemo : endMemo, startOffset : r.startOffset, endOffset : r.endOffset }});
 			}
 			else
 			{
@@ -1499,7 +1552,7 @@
 				undoRecord.push({ content : innerHTML, range : { startOffset : 0, endOffset : 0 }});;
 			}
 
-			if(!force && redoRecord.length > 0 && lastRestoredStateContent  != innerHTML)
+			if(!force && redoRecord.length > 0 && lastRestoredStateContent != innerHTML)
 				redoRecord = [];
 
 			//console.log(undoRecord);
