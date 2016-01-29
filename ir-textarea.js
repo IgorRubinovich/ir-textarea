@@ -23,9 +23,9 @@
 				{
 					that.ensureCursorLocationIsValid({originalEvent : ev});
 					
-					if(ev.defaultPrevented)
-						;
-					else
+					//if(ev.defaultPrevented)
+					//	;
+					//else
 					if(that.__actionData.target)
 						toDelete = that.__actionData.target;
 					else
@@ -1153,7 +1153,7 @@
 				top = this.$.editor;
 				
 				tcea = getTopCustomElementAncestor(sc, top);
-				if(tcea == sc) // || isInLightDom(scparent, top)) // not in custom element or is child of another parent within light dom
+				if(!tcea) // || isInLightDom(scparent, top)) // not in custom element or is child of another parent within light dom
 					return;
 					
 				if  (
@@ -1369,10 +1369,12 @@
 		undo : function() {
 			this.selectionRestore();
 			this.customUndo.undo();
+			this.selectionSave();
 		},
 		redo : function() {
 			this.selectionRestore();
 			this.customUndo.redo();
+			this.selectionSave();
 		},
 
 		properties : {
@@ -1521,7 +1523,7 @@
 			var r, sel, startMemo, endMemo, sc, ec,
 				innerHTML = getValue(), onlyUpdateRangeMemo;
 
-			if(!force && undoRecord.length && (undoRecord[undoRecord.length-1].content == innerHTML))
+			if(undoRecord.length && (undoRecord[undoRecord.length-1].content == innerHTML))
 				onlyUpdateRangeMemo = true;
 
 			lastRestoredStateContent == null;
@@ -1552,11 +1554,12 @@
 				undoRecord.push({ content : innerHTML, range : { startOffset : 0, endOffset : 0 }});;
 			}
 
-			if(!force && redoRecord.length > 0 && lastRestoredStateContent != innerHTML)
+			if(!force && !onlyUpdateRangeMemo && redoRecord.length > 0 && lastRestoredStateContent != innerHTML)
 				redoRecord = [];
 
-			//console.log(undoRecord);
-			//console.log(redoRecord);
+			console.log("Undo: ", undoRecord.length, undoRecord);
+			console.log("Redo: ", redoRecord.length, redoRecord);
+			console.log("Total: ", undoRecord.length + redoRecord.length);
 		};
 
 
@@ -1870,7 +1873,7 @@
 		if(!ni || ni == top)
 			return top;
 		
-		while(ni.childNodes)
+		while(ni && ni.childNodes)
 			ni = ni.childNodes[ni.childNodes.length - 1];
 		
 		return ni;
