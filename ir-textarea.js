@@ -12,7 +12,7 @@
 			handler = function(ev) {
 				var el, toDelete, keyCode = ev.keyCode || ev.which, t;
 
-				if (ev.keyCode === 13) {
+				if (ev.keyCode === 13 && ev.type == 'keydown') {
 				  // in chrome this is irrelevant -> 	insert 2 br tags (if only one br tag is inserted the cursor won't go to the next line)
 				  //document.execCommand('insertHTML', false, '<br>');
 				  that.pasteHtmlAtCaret('<br>', false);
@@ -803,18 +803,22 @@
 					// Preserve the selection
 					if (range.endContainer) {
 						newRange = range.cloneRange();
-						endNode = range.endContainer.childNodes[range.endOffset] || range.endContainer.childNodes[range.endOffset-1];
+						
+						endNode = lastNode; //range.endContainer.childNodes[range.endOffset] || range.endContainer.childNodes[range.endOffset-1];
 
 						if(endNode.nodeType == 3)
-							return setCaretAt(endNode, endNode.length);						
+							return setCaretAt(endNode, endNode.length);
 						
-						newRange.setStartAfter(endNode);
+						endNode = nextNode(endNode);
+						return setCaretAt(endNode, 0);
+
+						/*newRange.setStartAfter(endNode);
 						newRange.setEndAfter(endNode);
 						newRange.collapse(true);
 						sel.removeAllRanges();
 						sel.addRange(newRange);
 						
-						return newRange;
+						return newRange;*/
 					}
 				}
 			} else if ( (sel = document.selection) && sel.type != "Control") {
