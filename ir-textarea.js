@@ -14,7 +14,9 @@
 
 				if (ev.keyCode === 13) {
 				  // in chrome this is irrelevant -> 	insert 2 br tags (if only one br tag is inserted the cursor won't go to the next line)
-				  document.execCommand('insertHTML', false); //, '<br>');
+				  //document.execCommand('insertHTML', false, '<br>');
+				  that.pasteHtmlAtCaret('<br>', false);
+				  ev.preventDefault();
 				  // prevent the default behaviour of return key pressed
 				  return false;
 				}
@@ -48,10 +50,10 @@
 						ev.preventDefault();
 					}
 				}
-
+				
+				altTarget = getTopCustomElementAncestor(ev.target, that.$.editor);
 				if(ev.type == 'mousedown' && altTarget && that.__actionData.type != 'drag' &&
-					(altTarget == getClosestLightDomTarget(altTarget, that.$.editor) &&
-					!(ev.target.childNodes.length == 1 && ev.target.childNodes[0].nodeType == 3)))
+					!(ev.target.childNodes.length == 1 && ev.target.childNodes[0].nodeType == 3))
 				{
 					//console.log(ev.target);
 					that.moveTarget.call(that, altTarget);
@@ -96,7 +98,8 @@
 							.replace(/<(meta|link)[^>]>/, '')
 							.match(/<!--StartFragment-->([\s\S]*?)(?=<!--EndFragment-->)/i)[1]
 					if(v)
-						v = v.replace(/\<\/?o\:[^>]*\>/g, '');
+						v = v.replace(/\<\/?o\:[^>]*\>/g, '')
+							 .replace(/<p([\s\S]*?(?=<\/p>))<\/p>/gi, "<span $1</span><br>")
 				}
 				
 				that.pasteHtmlAtCaret(v, true);
@@ -368,11 +371,11 @@
 				this.clearActionData();
 			};
 
-			var caption = this.$.mediaEditor.captionRemove(target);
-				this.$.mediaEditor.captionRemove(target);
 
 			if(!(deleteTarget = getTopCustomElementAncestor(target, this.$.editor)))
 				deleteTarget = target;
+			else
+				this.$.mediaEditor.captionRemove(target);
 
 			p = deleteTarget.parentNode; // delete target is a top parent custom element, meaning its parent is surely no in another custom element's dom
 			
@@ -1212,7 +1215,7 @@
 				sc = sp;
 			}
 			
-			// if it was navigation, scroll view to display the cursor
+			// if navigation occured, scroll view to bing the cursor into view
 			if(!opts.originalEvent || [38, 40, 37, 39, 8].indexOf(opts.originalEvent.keyCode || opts.originalEvent.which) > -1)
 				this.fire('scroll-into-view', getSelectionCoords());
 		},
@@ -2069,7 +2072,7 @@
 		return function _getSelectionCoords(win)
 		{
 			win = win || window;
-			var doc = win.document;
+			var doc = win.document, offsetParent;
 			var sel = doc.selection, range, rects, rect;
 			var x = 0, y = 0;
 			if (sel) {
@@ -2105,6 +2108,14 @@
 							//y = rect.top;
 							y = span.offsetTop;
 							x = span.offsetLeft;
+
+							offsetParent = span; 
+							while(offsetParent = offsetParent.offsetParent)
+							{
+								y += offsetParent.offsetTop
+								x += offsetParent.offsetLeft
+							}
+								
 							var spanParent = span.parentNode;
 							spanParent.removeChild(span);
 
