@@ -10,6 +10,8 @@
 			this.__actionData = {};
 
 			handler = function(ev) {
+				that.selectionSave();
+
 				var el, toDelete, keyCode = ev.keyCode || ev.which, t;
 
 				if (ev.keyCode === 13 && ev.type == 'keydown') {
@@ -104,6 +106,7 @@
 				
 				that.pasteHtmlAtCaret(v, true);
 				e.preventDefault();
+				return false;
 			};
 
 			that.$.editor.addEventListener('paste', pasteHandler);
@@ -774,7 +777,7 @@
 		},
 
 		pasteHtmlAtCaret : function(html, removeFormat) {
-			var sel, range, endNode, newRange, node, lastNode, el, frag;
+			var sel, range, endNode, newRange, node, lastNode, preLastNode, el, frag;
 
 			if (window.getSelection) {
 				// IE9 and non-IE
@@ -791,34 +794,24 @@
 					frag = document.createDocumentFragment();
 
 					while ( (node = el.firstChild) ) {
-						frag.appendChild(lastNode = node);
+						preLastNode = lastNode;
+						lastNode = frag.appendChild(node);
+						if(removeFormat)
+							this.removeFormat(lastNode);
 					}
 					var firstNode = frag.firstChild;
 
-					if(removeFormat)
-						this.removeFormat(frag);
+
 
 					range.insertNode(frag);
 
 					// Preserve the selection
-					if (range.endContainer) {
-						newRange = range.cloneRange();
-						
-						endNode = lastNode; //range.endContainer.childNodes[range.endOffset] || range.endContainer.childNodes[range.endOffset-1];
-
-						if(endNode.nodeType == 3)
-							return setCaretAt(endNode, endNode.length);
-						
-						endNode = nextNode(endNode);
-						return setCaretAt(endNode, 0);
-
-						/*newRange.setStartAfter(endNode);
-						newRange.setEndAfter(endNode);
-						newRange.collapse(true);
+					if (lastNode) {
+						range = range.cloneRange();
+						range.setStartAfter(lastNode);
+						range.collapse(true);
 						sel.removeAllRanges();
-						sel.addRange(newRange);
-						
-						return newRange;*/
+						sel.addRange(range);
 					}
 				}
 			} else if ( (sel = document.selection) && sel.type != "Control") {
@@ -1181,7 +1174,7 @@
 		],
 		
 		ensureCursorLocationIsValid : function(opts) { // if reverseDirection is true cursor is moving in reverse to typing direction
-			var r, i, sp, sc, ec, so, eo, totalChecks = 0;
+			var r, i, sp, sc, ec, so, eo, totalChecks = 0, jumpsOccured;
 			
 			opts = opts || {};
 
@@ -1190,10 +1183,14 @@
 			for(i = 0; i < this.cursorRules.length && totalChecks++ < 50; i++)
 				if(this.cursorRules[i].call(this, opts, r = getSelectionRange()))
 				{
-					console.log('was ' + this.cursorRules[i].name, " now in ", r.startContainer);
+					//console.log('was ' + this.cursorRules[i].name, " now in ", r.startContainer);
 					i = -1;
+					jumpsOccured++;
 				}
 
+			if(jumpsOccured)
+				console.log("jumped " + jumps + " times");
+				
 			if(totalChecks >= 50)
 				console.log('too many cursor movements');
 
@@ -1500,17 +1497,17 @@
 			so = sn ? stateRange.startOffset : 0;
 			eo = sn && en ? stateRange.endOffset : 0;
 
-			if(sn.nodeType != 3 && sn.firstChild)
+			if(sn.nodeType != 3 && sn.childNodes[so])
 			{
-				sn = sn.firstChild;
-				so = 0;
+				sn = sn.childNodes[so];
+				so = sn.length;
 			}
 			so = so < sn.length ? so : sn.length;
 
-			if(en.nodeType != 3 && en.firstChild)
+			if(en.nodeType != 3 && en.childNodes[eo])
 			{
-				en = en.firstChild;
-				eo = 0;
+				en = en.childNodes[eo];
+				eo = en.length;
 			}
 			eo = eo < en.length ? eo : en.length;
 
@@ -1796,7 +1793,8 @@
 
 		while(i < pathArr.length)
 		{
-			if(pathArr[++i] || pathArr[i] === 0)
+			i++;
+			if(pathArr[i] || pathArr[i] === 0)
 				next = (res.is ? Polymer.dom(res) : res).childNodes[pathArr[i]];
 
 			if(!next)
