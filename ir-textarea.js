@@ -27,15 +27,15 @@
 				{
 					that.ensureCursorLocationIsValid({originalEvent : ev});
 					
-					//if(ev.defaultPrevented)
-					//	;
-					//else
+					if(ev.defaultPrevented && (tcea = getTopCustomElementAncestor(el, that.$.editor)) && tcea != el)
+						;
+					else
 					if(that.__actionData.target)
 						toDelete = that.__actionData.target;
 					else
 					if(ev.keyCode == 46 && (el = that.getElementAfterCaret()))
 					{
-						if(el = getTopCustomElementAncestor(el, that.$.editor))
+						if(el == getTopCustomElementAncestor(el, that.$.editor))
 							toDelete = el;
 					}
 					else
@@ -332,7 +332,7 @@
 		selectForAction : function(target, type) {
 			var ad = this.__actionData;
 
-			if(this.__actionData.target == target)
+			if(this.__actionData.target == target || target.nodeType != 1)
 				return;
 
 			this.clearActionData();
@@ -520,6 +520,9 @@
 					// for now, forbid explicitly to drop into custom elements. (for custom targets only - built-in text drop is still possible! - e.g., it's ok to move text into a caption inside a gallery)
 					if(tpce)
 						moveCaretAfterOrWrap(tpce, null, this.$.editor);
+					else
+					if(caretPosData.node.proxyTarget)
+						moveCaretAfterOrWrap(caretPosData.node.proxyTarget, null, this.$.editor);
 
 					this.ensureCursorLocationIsValid();
 
@@ -770,6 +773,9 @@
 			if(!r || (!r.startOffset && r.startOffset != 0)  || r.startOffset != r.endOffset)
 				return null;
 
+			if(r.startContainer.nodeType == 1)
+				return prevNodeDeep(r.startContainer.childNodes[r.startOffset], this.$.editor);
+			else
 			if(!r.startOffset)
 				return prevNodeDeep(r.startContainer, this.$.editor);
 
@@ -1086,7 +1092,7 @@
 				var sni = range.startContainer.proxyTarget,
 					eni = range.endContainer.proxyTarget;
 					
-				if(sni || eni) {
+				if(sni || eni ) {
 					moveCaretBeforeOrWrap(range.startContainer, range.startContainer, this.$.editor); // no need for moveCaretAfterOrWrap(sc) as proxy nodes should be sitting at the very end
 					return true;
 				}
@@ -1174,7 +1180,7 @@
 		],
 		
 		ensureCursorLocationIsValid : function(opts) { // if reverseDirection is true cursor is moving in reverse to typing direction
-			var r, i, sp, sc, ec, so, eo, totalChecks = 0, jumpsOccured;
+			var r, i, sp, sc, ec, so, eo, totalChecks = 0, jumpsOccured = 0;
 			
 			opts = opts || {};
 
@@ -1183,13 +1189,13 @@
 			for(i = 0; i < this.cursorRules.length && totalChecks++ < 50; i++)
 				if(this.cursorRules[i].call(this, opts, r = getSelectionRange()))
 				{
-					//console.log('was ' + this.cursorRules[i].name, " now in ", r.startContainer);
+					console.log('was ' + this.cursorRules[i].name, " now in ", r.startContainer);
 					i = -1;
 					jumpsOccured++;
 				}
 
 			if(jumpsOccured)
-				console.log("jumped " + jumps + " times");
+				console.log("jumped " + jumpsOccured + " times");
 				
 			if(totalChecks >= 50)
 				console.log('too many cursor movements');
@@ -1561,9 +1567,9 @@
 			if(!force && !onlyUpdateRangeMemo && redoRecord.length > 0 && lastRestoredStateContent != innerHTML)
 				redoRecord = [];
 
-			console.log("Undo: ", undoRecord.length, undoRecord);
-			console.log("Redo: ", redoRecord.length, redoRecord);
-			console.log("Total: ", undoRecord.length + redoRecord.length);
+			//console.log("Undo: ", undoRecord.length, undoRecord);
+			//console.log("Redo: ", redoRecord.length, redoRecord);
+			//console.log("Total: ", undoRecord.length + redoRecord.length);
 		};
 
 
@@ -1864,14 +1870,15 @@
 			return node.parentNode;
 	}
 
+	// previous sibling in deep sense - will look up the tree until there's a prevousSibling, then will look at the last (rightmost) node in its subtree
 	function prevNodeDeep(node, top) {
-		// previous sibling in deep sense - will look up the tree until there's a prevousSibling, then will look at the last node in its subtree
-		
 		var ni;
+		
 		if(node.previousSibling)
-			return node.previousSibling;
-	
+			return node.previousSibling;	
+		
 		ni = node.parentNode;
+		
 		while(ni && ni != top && !ni.previousSibling)
 			ni = ni.parentNode;
 		
@@ -1938,7 +1945,7 @@
 		{
 			// note the order of things here is a bit different from the matching moveCaretBeforeOrWrap
 			ns = nextNode(slc, true);
-			while(ns && ns != slc && (ns.parentNode == slc || !canHaveChildren(ns) || !isInLightDom(ns, top)))
+			while(ns && ns != slc && (ns.parentNode == slc || !isInLightDom(ns, top))) // || !canHaveChildren(ns) 
 					ns = nextNode(ns);
 
 			if(!ns)
@@ -1990,7 +1997,7 @@
 		if(slc == elc)
 		{
 			ns = prevNode(fromNode = slc);
-			while(ns && (ns == slc || ns.parentNode == slc || !canHaveChildren(ns) || !isInLightDom(ns, top)) || (slc.is && fromNode == slc)) // || (slc.is && ns.children[0] == slc)))
+			while(ns && (ns == slc || ns.parentNode == slc || !isInLightDom(ns, top)) || (slc.is && fromNode == slc)) // || (slc.is && ns.children[0] == slc))) // !canHaveChildren(ns) || 
 				ns = prevNode(fromNode = ns);
 
 			if(!ns)
