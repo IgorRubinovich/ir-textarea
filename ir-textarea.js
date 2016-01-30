@@ -51,7 +51,7 @@
 					}
 				}
 				
-				altTarget = getTopCustomElementAncestor(ev.target, that.$.editor);
+				altTarget = getTopCustomElementAncestor(ev.target, that.$.editor) || (ev.target.proxyTarget && ev.target);
 				if(ev.type == 'mousedown' && altTarget && that.__actionData.type != 'drag' &&
 					!(ev.target.childNodes.length == 1 && ev.target.childNodes[0].nodeType == 3))
 				{

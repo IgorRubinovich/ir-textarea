@@ -25,10 +25,6 @@
 
 <dom-module id="ir-textarea-mediaembedder">
 	<style>
-		#dialog {
-			transition : 0.3s;
-		}
-		
 		textarea {
 			width : 100%;
 			min-height: 100px;
@@ -38,9 +34,9 @@
 		
 	</style>
 	<template>
-		<paper-dialog id="dialog" with-backdrop>
+		<paper-dialog entry-animation="ripple-animation" on-iron-overlay-opened="focusInput" id="dialog" auto-fit-on-attach>
+			<h2>Paste your embed code below</h2>
 			<div>
-				<h2>Paste your embed code below</h2>
 				<div class="layout vertical">
 					<textarea rows="7" cols="40" id="input" value="{{ embedCode::keyup }}"></textarea>
 					<paper-checkbox checked="{{ noWrapper }}">no wrapper</paper-checkbox>
@@ -63,13 +59,16 @@
 		},
 		
 		open : function() {	
-			this.$.dialog.stopResizeNotificationsFor(this)
+			this.$.dialog.sizingTarget = this.$.input;
 			this.$.dialog.stopResizeNotificationsFor(this.$.dialog)
 		
 			this.$.dialog.open();
-			this.async(function() {
-				this.$.input.focus();
-			});
+			Polymer.dom.flush();
+		},
+		
+		focusInput : function()  
+		{
+			this.$.input.focus();
 		},
 		
 		acceptOnEnter : function(e) {
