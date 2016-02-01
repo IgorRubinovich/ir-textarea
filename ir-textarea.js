@@ -12,7 +12,7 @@
 			handler = function(ev) {
 				that.selectionSave();
 
-				var el, toDelete, keyCode = ev.keyCode || ev.which, t;
+				var el, toDelete, keyCode = ev.keyCode || ev.which, t, forcedelete;
 
 				if (ev.keyCode === 13 && ev.type == 'keydown') {
 				  // in chrome this is irrelevant -> 	insert 2 br tags (if only one br tag is inserted the cursor won't go to the next line)
@@ -29,12 +29,18 @@
 						;
 					else
 					if(that.__actionData.target)
+					{
 						toDelete = that.__actionData.target;
+						forcedelete = true; //ev.preventDefault();
+					}
 					else
 					if(ev.keyCode == 46 && (el = that.getElementAfterCaret({skip : 'br'}))) // del key
 					{
 						if(el && ((el.matchesSelector && el.matchesSelector('.embed-aspect-ratio')) || el.is))
+						{
+							forcedelete = true;  //ev.preventDefault();
 							toDelete = el;
+						}
 
 						while(!toDelete && el && el.nodeType == 1 && el.firstChild && el.firstChild.nodeType == 1)
 						{
@@ -43,22 +49,22 @@
 								(getTopCustomElementAncestor(el, that.$.editor) && !isInLightDom(el, this.$editor)))
 							{
 								toDelete = el;
-								ev.preventDefault()
+								forcedelete = true;  //ev.preventDefault()
 							}
 						}
 					}
 					else
-					if(ev.keyCode == 8 && (el = that.getElementBeforeCaret())) // backspace key
+					if(ev.keyCode == 8 && (el = that.getElementBeforeCaret({ atomicCustomElements : true}))) // backspace key
 					{
 						//t = el.childNodes[el.childNodes.length - 1];
 						if(el && (el.is || (el.matchesSelector && el.matchesSelector('.embed-aspect-ratio'))))
 						{
 							toDelete = el;								
-							ev.preventDefault()
+							forcedelete = true;  //ev.preventDefault()
 						}
 					}
 
-					if(toDelete && toDelete.nodeType == 1  && ev.defaultPrevented) // should be prevented by ensureCursorLocationIsValid
+					if(toDelete && toDelete.nodeType == 1  && (forcedelete || !ev.defaultPrevented)) //(ev.defaultPrevented) // should be prevented by ensureCursorLocationIsValid
 					{
 						that.deleteTarget(toDelete);
 						ev.preventDefault();
@@ -776,6 +782,11 @@
 			//if(n.nodeType == 1)
 			//	n = n.childNodes[o];
 
+			if(n.nodeType == 1 && n.childNodes.length)
+			{
+				n = n.childNodes[o];
+			}
+			
 			if(n.nodeType == 3 && o < n.length)
 				return n;
 
@@ -808,17 +819,20 @@
 			return null;
 		},
 
-		getElementBeforeCaret : function() {
+		getElementBeforeCaret : function(opts) {
 			var r = getSelectionRange();
 
+			opts = opts || {};
+			opts.atomic = ['.embed-aspect-ratio'];
+			
 			if(!r || (!r.startOffset && r.startOffset != 0)  || r.startOffset != r.endOffset)
 				return null;
 
 			if(r.startContainer.nodeType == 1)
-				return prevNodeDeep(r.startContainer.childNodes[r.startOffset], this.$.editor);
+				return prevNodeDeep(r.startContainer.childNodes[r.startOffset], this.$.editor, opts);
 			else
 			if(!r.startOffset)
-				return prevNodeDeep(r.startContainer, this.$.editor);
+				return prevNodeDeep(r.startContainer, this.$.editor, opts);
 
 			return null;
 		},
@@ -1140,7 +1154,10 @@
 					eni = range.endContainer.proxyTarget;
 					
 				if(sni || eni ) {
-					moveCaretBeforeOrWrap(range.startContainer, range.startContainer, this.$.editor); // no need for moveCaretAfterOrWrap(sc) as proxy nodes should be sitting at the very end
+					opts.reverseDirection ? 
+						moveCaretBeforeOrWrap(range.startContainer, range.startContainer, this.$.editor) : // no need for moveCaretAfterOrWrap(sc) as proxy nodes should be sitting at the very end
+						moveCaretAfterOrWrap(range.endContainer, range.endContainer, this.$.editor); // no need for moveCaretAfterOrWrap(sc) as proxy nodes should be sitting at the very end
+						
 					return true;
 				}
 			},
@@ -1203,15 +1220,13 @@
 			
 			function dangerousDelete(opts, range) { // cursor is on edge of a light element inside custom component and user clicked delete/backspace which will probably destroy the component
 				var ev = opts.originalEvent, tcea, sc, so, scparent, top, np, 
-					key;
+					key = ev && (ev.keyCode || ev.which);
 				
-				if(!opts.originalEvent || opts.originalEvent.type != 'keydown')
+				if(!opts.originalEvent || opts.originalEvent.type != 'keydown' || !(key == 8 || key == 46))
 					return;
 				
 				if(range.startContainer != range.endContainer || range.startOffset != range.endOffset) 
 					return;
-				
-				 key = ev && (ev.keyCode || ev.which)
 				
 				sc = range.startContainer;
 				scparent = sc.parentNode
@@ -1240,7 +1255,7 @@
 				if(key == 46 && np && np.nodeType == 1 && (np.is || np.matchesSelector('.embed-aspect-ratio')))
 					return opts.originalEvent.preventDefault();
 				
-				np = this.getElementBeforeCaret();
+				np = this.getElementBeforeCaret({ atomicCustomElements : true });
 				if(key == 8 && np && np.nodeType == 1 && (np.is || np.matchesSelector('.embed-aspect-ratio')))
 					return opts.originalEvent.preventDefault();				
 			},
@@ -1299,7 +1314,7 @@
 			so = r.startOffset;
 			eo = r.endOffset;
 
-			if(!(so == eo && sc == ec) && (sc != ec) && (sc == this.$.editor || (sc.nodeType == 3 && sc.parentNode == this.$.editor) || sc.is))
+			/*if(!(so == eo && sc == ec) && (sc != ec) && (sc == this.$.editor || (sc.nodeType == 3 && sc.parentNode == this.$.editor) || sc.is))
 			{
 				console.log('ADDING A SPAN...');
 				this.$.editor.insertBefore(sp = document.createElement('span'), this.$.editor.childNodes[so]);
@@ -1312,7 +1327,7 @@
 				sel.addRange(range);
 				
 				sc = sp;
-			}
+			}*/
 			
 			// if navigation occured, scroll view to bing the cursor into view
 			if(!opts.originalEvent || [38, 40, 37, 39, 8].indexOf(opts.originalEvent.keyCode || opts.originalEvent.which) > -1)
@@ -1367,6 +1382,8 @@
 
 			this._updateValueSkipped = 0;
 
+			this.selectionSave();
+
 			// this is too much work to execute on every event
 			// so we schedule it once per 500ms as long as there are actions happening
 			this._updateValueTimeout = setTimeout(function() {
@@ -1386,11 +1403,10 @@
 				sameContent = val == this.value;
 				
 				this.customUndo.pushUndo(false, sameContent);
+				this.selectionSave();
 				
 				if(!force && sameContent)
 					return;
-
-				this.selectionSave();
 
 				this.value = val;
 				
@@ -1805,7 +1821,7 @@
 
 		return false;
 	}
-
+	
 	// returns topmost custom element or null below or equal to `top`
 	var getTopCustomElementAncestor = function(node, top) {
 		var res = null;
@@ -1945,26 +1961,34 @@
 	}
 
 	// previous sibling in deep sense - will look up the tree until there's a prevousSibling, then will look at the last (rightmost) node in its subtree
-	function prevNodeDeep(node, top) {
+	function prevNodeDeep(node, top, opts) {
 		var ni;
+		
 		
 		if(!node)
 			return;
 		
-		if(node.previousSibling)
-			return node.previousSibling;	
+		opts = opts || {};
+		opts.atomic = opts.atomic || [];
 		
-		ni = node.parentNode;
-		
-		while(ni && ni != top && !ni.previousSibling)
-			ni = ni.parentNode;
+		ni = node;
+		if(!ni.previousSibling)
+		{
+			ni = node.parentNode;		
+			while(ni && ni != top && !ni.previousSibling)
+				ni = ni.parentNode;
+		}
 		
 		if(!ni || ni == top)
 			return top;
 		
 		ni = ni.previousSibling;
 		
-		while(ni && ni.childNodes && ni.childNodes.length)
+		if(ni.is && opts.atomicCustomElements)
+			return ni;
+		
+		while(ni && ni.childNodes && ni.childNodes.length && !(ni.is && opts.atomicCustomElements) &&
+				!(ni.matchesSelector && opts.atomic.filter(function(s) { return ni.matchesSelector(s) }).length ))
 			ni = ni.childNodes[ni.childNodes.length - 1];
 		
 		return ni;
@@ -2042,9 +2066,14 @@
 			{
 				ns.insertBefore(t = newZeroWidthDummyNode(), ns.firstChild);
 				ns = created = t;
-			}				
-
+			}
+			
 			offset = 0;
+			if(ns.nodeType == 3)
+			{
+				offset = getChildPositionInParent(ns);
+				ns = ns.parentNode
+			}
 
 			range.setStart(ns, offset);
 			range.setEnd(ns, offset);
@@ -2078,7 +2107,7 @@
 		if(slc == elc)
 		{
 			ns = prevNodeDeep(fromNode = slc);
-			while(ns && (ns == slc || ns.parentNode == slc || !isInLightDom(ns, top)) || (slc.is && fromNode == slc)) // || (slc.is && ns.children[0] == slc))) // !canHaveChildren(ns) || 
+			while(ns && (ns == slc || ns.parentNode == slc || !isInLightDom(ns, top) /*|| !(!canHaveChildren(ns) && getTopCustomElementAncestor(ns, top))*/ || (slc.is && fromNode == slc))) // || (slc.is && ns.children[0] == slc))) // !canHaveChildren(ns) || 
 				ns = prevNodeDeep(fromNode = ns, this.$.editor);
 
 			if(!ns)
@@ -2092,7 +2121,13 @@
 			if((offset = ns.nodeType) == 3)
 				offset = ns.textContent.length;
 			else
-				offset = fromNode.parentNode == ns ? getChildPositionInParent(fromNode) - 1 : ns.childNodes.length;
+			if(!canHaveChildren(ns))
+			{
+				offset = getChildPositionInParent(ns);
+				ns = ns.parentNode
+			}
+			else
+				offset = fromNode.parentNode == ns ? getChildPositionInParent(fromNode) : ns.childNodes.length - 1;
 
 			range.setStart(ns, offset);
 			range.setEnd(ns, offset);
