@@ -785,6 +785,7 @@
 			if(n.nodeType == 1 && n.childNodes.length)
 			{
 				n = n.childNodes[o];
+				o = 0;
 			}
 			
 			if(n.nodeType == 3 && o < n.length)
@@ -805,7 +806,7 @@
 
 			return n; //nextNode(n);
 			
-			// -----
+			/* -----
 			
 			if(!r || (!r.startOffset && r.startOffset != 0) || r.startOffset != r.endOffset)
 				return null;
@@ -814,7 +815,7 @@
 			if(r.endOffset == (r.endContainer.nodeType == 3 ? r.length : r.endContainer.childNodes.length) - 1)
 				while(nn = nextNode(nn))
 					if(nn instanceof Text)
-						return nn;
+						return nn;*/
 
 			return null;
 		},
@@ -834,7 +835,7 @@
 			if(!r.startOffset)
 				return prevNodeDeep(r.startContainer, this.$.editor, opts);
 
-			return null;
+			return r.startOffset;
 		},
 
 		pasteHtmlAtCaret : function(html, removeFormat) {
@@ -1212,9 +1213,12 @@
 			function isInCustomElement(opts, range) {
 				var sni, eni, sc = range.startContainer, ec = range.endContainer, so = range.startOffset, eo = range.endOffset;
 				
-				sni = sc.is || so > 1 && (sc.nodeType != 3) && sc.childNodes[so-1] && sc.childNodes[so-1].is;
-				eni = ec.is;
-				
+				sni = sc.is || (sc.nodeType == 1 && sc.childNodes[so] && sc.childNodes[so].is); // || so > 1 && (sc.nodeType != 3) && sc.childNodes[so-1] && sc.childNodes[so-1].is;
+				eni = ec.is || (ec.nodeType == 1 && ec.childNodes[eo] && ec.childNodes[eo].is);
+							
+				if(sni || eni)
+					opts.reverseDirection ? moveCaretBeforeOrWrap(sc, null, this.$.editor) : moveCaretAfterOrWrap(sc, null, this.$.editor);
+								
 				return sni || eni;
 			},
 			
