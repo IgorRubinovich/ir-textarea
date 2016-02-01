@@ -1370,7 +1370,7 @@
 			// this is too much work to execute on every event
 			// so we schedule it once per 500ms as long as there are actions happening
 			this._updateValueTimeout = setTimeout(function() {
-				var val;
+				var val, sameContent;
 				var bottomPadding, topPadding, that = this, editor = this.$.editor;
 
 				if(this.__actionData.target)
@@ -1383,10 +1383,12 @@
 
 				this._updateValueTimeout = null;
 
-				if(!force && val == this.value)
+				sameContent = val == this.value;
+				
+				this.customUndo.pushUndo(false, sameContent);
+				
+				if(!force && sameContent)
 					return;
-
-				this.customUndo.pushUndo(false);
 
 				this.selectionSave();
 
@@ -1622,11 +1624,14 @@
 				options.onRestoreState(sn);
 		}
 
-		var pushUndo = function(force) {
+		var pushUndo = function(force, onlyUpdateRangeMemo) {
 			var r, sel, startMemo, endMemo, sc, ec,
-				innerHTML = getValue(), onlyUpdateRangeMemo;
+				innerHTML, onlyUpdateRangeMemo;
 
-			if(undoRecord.length && (undoRecord[undoRecord.length-1].content == innerHTML))
+			if(!onlyUpdateRangeMemo)
+				innerHTML = getValue();
+				
+			if(!onlyUpdateRangeMemo &&undoRecord.length && (undoRecord[undoRecord.length-1].content == innerHTML))
 				onlyUpdateRangeMemo = true;
 
 			lastRestoredStateContent == null;
