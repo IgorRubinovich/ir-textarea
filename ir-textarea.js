@@ -39,7 +39,8 @@
 						while(!toDelete && el && el.nodeType == 1 && el.firstChild && el.firstChild.nodeType == 1)
 						{
 							el = el.childNodes[0];
-							if(el && (el.is || (el.matchesSelector && el.matchesSelector('.embed-aspect-ratio')))) // || (el = getTopCustomElementAncestor(el, that.$.editor))))
+							if(el && (el.is || (el.matchesSelector && el.matchesSelector('.embed-aspect-ratio'))) || 
+								(getTopCustomElementAncestor(el, that.$.editor) && !isInLightDom(el, this.$editor)))
 							{
 								toDelete = el;
 								ev.preventDefault()
@@ -51,9 +52,10 @@
 					{
 						//t = el.childNodes[el.childNodes.length - 1];
 						if(el && (el.is || (el.matchesSelector && el.matchesSelector('.embed-aspect-ratio'))))
-							toDelete = el;
-						
-						
+						{
+							toDelete = el;								
+							ev.preventDefault()
+						}
 					}
 
 					if(toDelete && toDelete.nodeType == 1  && ev.defaultPrevented) // should be prevented by ensureCursorLocationIsValid
