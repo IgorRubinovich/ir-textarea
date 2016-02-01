@@ -16,14 +16,12 @@
 
 				if (ev.keyCode === 13 && ev.type == 'keydown') {
 				  // in chrome this is irrelevant -> 	insert 2 br tags (if only one br tag is inserted the cursor won't go to the next line)
-				  //document.execCommand('insertHTML', false, '<br>');
 				  that.pasteHtmlAtCaret('<br>', false);
 				  ev.preventDefault();
-				  // prevent the default behaviour of return key pressed
 				  return false;
 				}
 				
-				if(ev.type == 'keydown' && (ev.keyCode == 8 || ev.keyCode == 46))
+				if(ev.type == 'keydown' && (ev.keyCode == 8 || ev.keyCode == 46)) // deletes
 				{
 					that.ensureCursorLocationIsValid({originalEvent : ev});
 					
@@ -33,20 +31,32 @@
 					if(that.__actionData.target)
 						toDelete = that.__actionData.target;
 					else
-					if(ev.keyCode == 46 && (el = that.getElementAfterCaret()))
+					if(ev.keyCode == 46 && (el = that.getElementAfterCaret({skip : 'br'}))) // del key
 					{
-						if(el == getTopCustomElementAncestor(el, that.$.editor))
+						if(el && ((el.matchesSelector && el.matchesSelector('.embed-aspect-ratio')) || el.is))
 							toDelete = el;
+
+						while(!toDelete && el && el.nodeType == 1 && el.firstChild && el.firstChild.nodeType == 1)
+						{
+							el = el.childNodes[0];
+							if(el && (el.is || (el.matchesSelector && el.matchesSelector('.embed-aspect-ratio')))) // || (el = getTopCustomElementAncestor(el, that.$.editor))))
+							{
+								toDelete = el;
+								ev.preventDefault()
+							}
+						}
 					}
 					else
-					if(ev.keyCode == 8 && (el = that.getElementBeforeCaret()))
+					if(ev.keyCode == 8 && (el = that.getElementBeforeCaret())) // backspace key
 					{
-						t = el.childNodes[el.childNodes.length - 1];
-						if(el.is || (t && t.matchesSelector && t.matchesSelector('.embed-aspect-ratio')))
+						//t = el.childNodes[el.childNodes.length - 1];
+						if(el && (el.is || (el.matchesSelector && el.matchesSelector('.embed-aspect-ratio'))))
 							toDelete = el;
+						
+						
 					}
 
-					if(toDelete)
+					if(toDelete && toDelete.nodeType == 1  && ev.defaultPrevented) // should be prevented by ensureCursorLocationIsValid
 					{
 						that.deleteTarget(toDelete);
 						ev.preventDefault();
@@ -55,7 +65,7 @@
 				
 				altTarget = getTopCustomElementAncestor(ev.target, that.$.editor) || (ev.target.proxyTarget && ev.target);
 				if(ev.type == 'mousedown' && altTarget && that.__actionData.type != 'drag' &&
-					!(ev.target.childNodes.length == 1 && ev.target.childNodes[0].nodeType == 3))
+					!(ev.target.childNodes.length == 1 && ev.target.childNodes[0].nodeType == 3) && !(isInLightDom(ev.target) && ev.target.nodeType == 3))
 				{
 					//console.log(ev.target);
 					that.moveTarget.call(that, altTarget);
@@ -752,14 +762,43 @@
 			removeSelectedElements({ root : element.children ? element : null, removeTags : "hr,b,i,span,font", mapTags : { "h1,h2,h3,h4,h5,h6,div" : "p" },  attributeNames : "style,class"}, this.$.editor);
 		},
 
-		getElementAfterCaret : function() {
-			var r = getSelectionRange(), nn;
+		getElementAfterCaret : function(opts) {
+			var i, done,
+				r = getSelectionRange(),
+				n = r.endContainer, o = r.endOffset;
 
+			opts.skip = opts.skip || [];
+			if(!(opts.skip instanceof Array))
+				opts.skip = [opts.skip];
+			
+			//if(n.nodeType == 1)
+			//	n = n.childNodes[o];
+
+			if(n.nodeType == 3 && o < n.length)
+				return n;
+
+			n = nextNode(n);
+			while(!done)
+				for(i = 0; !done && i < opts.skip.length; i++)
+				{
+					if(!n.matchesSelector || !n.matchesSelector(opts.skip[i]))
+						done = true;						
+					else
+					{
+						n = nextNode(n);
+						i = -1;
+					}
+				}
+
+			return n; //nextNode(n);
+			
+			// -----
+			
 			if(!r || (!r.startOffset && r.startOffset != 0) || r.startOffset != r.endOffset)
 				return null;
 
 			nn = r.endContainer
-			if(r.endOffset == (r.endContainer.length || 0))
+			if(r.endOffset == (r.endContainer.nodeType == 3 ? r.length : r.endContainer.childNodes.length) - 1)
 				while(nn = nextNode(nn))
 					if(nn instanceof Text)
 						return nn;
@@ -858,18 +897,24 @@
 			var ef = html.match(/\<p[^\>]+\>/) ? ["p"] : [];
 			//var ef = html.match(/\<div[^\>]+\>/) ? ["p", "div"] : [];
 			
-			this.async(function() {
-				var r;
+			//this.async(function() {
+				var r, after;
 				
 				this.ensureCursorLocationIsValid({ extraForbiddenElements : ef });
 				r = this.pasteHtmlAtCaret(html);
 				
 				//setCaretAt(r.endContainer, r.endOffset);
-				moveCaretAfterOrWrap(r.endContainer, r.endContainer, this.$.editor);
+
+				if(r.endContainer.nodeType == 1)
+					after = r.endContainer[r.endOffset]
+				else
+					after = r.endContainer;
+				
+				moveCaretAfterOrWrap(after, after, this.$.editor);
 				
 				this.ensureCursorLocationIsValid();
 				this._updateValue()
-			});
+			//});
 		},
 
 
@@ -1109,28 +1154,38 @@
 			},*/
 			
 			function isInForbiddenElement(opts, range) {
-				var sni, eni, sc = range.startContainer, ec = range.endContainer, forbiddenElements, fe, scat, ecat;
+				var sni, eni, 
+					sc = range.startContainer,
+					ec = range.endContainer,
+					so = range.startOffset,
+					eo = range.endOffset,
+					forbiddenElements, fe, scat, ecat;
 
 				forbiddenElements = ".caption-wrapper,.embed-aspect-ratio,iframe".split(',').concat(opts.extraForbiddenElements);
 
-				while(!sc.matchesSelector) // go up until there's an element
-					sc = sc.parentNode;
-				while(!ec.matchesSelector)
-					ec = sc.parentNode;
-						
+				scat = sc;
+				if(sc.nodeType == 3)
+					scat = sc.parentNode;
+				else
+				if(sc.childNodes[so] && sc.childNodes[so].nodeType == 1)
+					scat = sc.childNodes[so];
+				
+				ecat = ec;
+				if(ec.nodeType == 3)
+					ecat = ec.parentNode;
+				else
+				if(ec.childNodes[eo] && ec.childNodes[eo].nodeType == 1)
+					ecat = ec.childNodes[eo];
+				
 				for(i = 0; i < forbiddenElements.length && !sni && !eni; i++)
 				{
 					fe = forbiddenElements[i];
-					
-					scat = sc.childNodes[range.startOffset] ;
-					ecat = sc.childNodes[range.endOffset];
-
-					sni = sc.matchesSelector(fe) || (scat && scat.matchesSelector && scat.matchesSelector(fe));
-					eni = !range.collapsed && (ec.matchesSelector(fe) || (ecat && ecat.matchesSelector && ecat.matchesSelector(fe)));
+					sni = scat.matchesSelector(fe) || (sc.matchesSelector && sc.matchesSelector(fe));
+					eni = ecat.matchesSelector(fe) || (ec.matchesSelector && ec.matchesSelector(fe));
 				}
 
-				if((sc == ec && (sni || eni)) || (sc != ec && (sni && eni)))
-					opts.reverseDirection ? moveCaretBeforeOrWrap(sc, null, this.$.editor) : moveCaretAfterOrWrap(sc, null, this.$.editor);
+				if(sni || eni)
+					opts.reverseDirection ? moveCaretBeforeOrWrap(scat, null, this.$.editor) : moveCaretAfterOrWrap(scat, null, this.$.editor);
 				
 				return sni || eni;
 			},
@@ -1145,7 +1200,8 @@
 			},
 			
 			function dangerousDelete(opts, range) { // cursor is on edge of a light element inside custom component and user clicked delete/backspace which will probably destroy the component
-				var ev = opts.originalEvent, tcea, sc, so, scparent, top;
+				var ev = opts.originalEvent, tcea, sc, so, scparent, top, np, 
+					key;
 				
 				if(!opts.originalEvent || opts.originalEvent.type != 'keydown')
 					return;
@@ -1153,28 +1209,62 @@
 				if(range.startContainer != range.endContainer || range.startOffset != range.endOffset) 
 					return;
 				
+				 key = ev && (ev.keyCode || ev.which)
+				
 				sc = range.startContainer;
 				scparent = sc.parentNode
 				so = range.startOffset;
 				top = this.$.editor;
 				
 				tcea = getTopCustomElementAncestor(sc, top);
-				if(!tcea) // || isInLightDom(scparent, top)) // not in custom element or is child of another parent within light dom
-					return;
+				
+				//if(!tcea) // || isInLightDom(scparent, top)) // not in custom element or is child of another parent within light dom
+				//	return;
 					
-				if  (
-						((ev.keyCode || ev.which) == 8 && so == 0) // bakspace @ start of a dangerous container
+				if  (tcea && (
+						(key == 8 && so == 0) // bakspace @ start of a dangerous container
 					||
 						(
-							(ev.keyCode || ev.which) == 46 && 
+							key == 46 && 
 							(
-								(sc.nodeType == 3 && so >= sc.length - 1) ||
+								(sc.nodeType == 3 && so >= sc.length) ||
 								(sc.nodeType != 3 && so >= sc.childNodes.length - 1) // delete @ end of a dangerous container
 							)
 						)
-					)
-					opts.originalEvent.preventDefault();
+					))
+					return opts.originalEvent.preventDefault(); // preventDefault returns undefined
 					
+				np = this.getElementAfterCaret({skip : 'br'});
+				if(key == 46 && np && np.nodeType == 1 && (np.is || np.matchesSelector('.embed-aspect-ratio')))
+					return opts.originalEvent.preventDefault();
+				
+				np = this.getElementBeforeCaret();
+				if(key == 8 && np && np.nodeType == 1 && (np.is || np.matchesSelector('.embed-aspect-ratio')))
+					return opts.originalEvent.preventDefault();				
+			},
+			
+			function leftAtStartOfTextNode(opts, range) {
+				var key, tc, to, doset;
+				
+				if(!opts.originalEvent || opts.originalEvent.type != 'keydown' || range.startContainer.nodeType != 3)
+					return;
+				
+				key = opts.originalEvent.keyCode || opts.originalEvent.which;
+				
+				if(key == 37 && range.startOffset == 1) // left
+				{
+					tc = range.startContainer.parentNode;
+					to = getChildPositionInParent(range.startContainer);
+					doset = true;
+				}
+				
+				if(!doset)
+					return;
+				
+				setCaretAt(tc, to);
+				opts.originalEvent.preventDefault();
+			
+				return true;
 			}
 
 		],
@@ -1294,11 +1384,14 @@
 				if(!force && val == this.value)
 					return;
 
+				this.customUndo.pushUndo(false);
+
 				this.selectionSave();
 
 				this.value = val;
+				
+				this.$.editor.style.minHeight = this.$.editor.scrollHeight;
 
-				this.customUndo.pushUndo(false);
 				/*if(that.customUndo.lastTimeout)
 					clearTimeout(that.customUndo.lastTimeout);
 				that.customUndo.lastTimeout = setTimeout(function() {
@@ -1525,8 +1618,6 @@
 			sel.addRange(r);
 			if(options.onRestoreState)
 				options.onRestoreState(sn);
-			//});
-
 		}
 
 		var pushUndo = function(force) {
@@ -1550,13 +1641,14 @@
 				startMemo = getDomPathMemo(sc, editor);
 				endMemo = getDomPathMemo(ec, editor);
 
-				if(onlyUpdateRangeMemo)
+				if(onlyUpdateRangeMemo && undoRecord.length > 1)
 				{
-					undoRecord[undoRecord.length - 1].startMemo = startMemo;
-					undoRecord[undoRecord.length - 1].endMemo = endMemo;
+					//console.log("only update pos, replacing ", undoRecord[undoRecord.length - 1].range.startMemo.positionArray, undoRecord[undoRecord.length - 1].range.startOffset, " with ", startMemo.positionArray, r.startOffset);
+					undoRecord[undoRecord.length - 1].range = { startMemo : startMemo, endMemo : endMemo, startOffset : r.startOffset, endOffset : r.endOffset };
 				}
 				else
 					undoRecord.push({ content : innerHTML, range : { startMemo : startMemo, endMemo : endMemo, startOffset : r.startOffset, endOffset : r.endOffset }});
+
 			}
 			else
 			{
@@ -1692,31 +1784,6 @@
 		}
 
 		return n;
-
-		/*while(n && n != top)
-		{
-			if(n.is)
-				customParents.push(n);
-			n = n.parentNode;
-		}
-		while(customParents.length)
-		{
-			n = customParents.pop();
-			cn = Polymer.dom(n).childNodes;
-
-			for(i = 0; !goDeeper && i < cn.length; i++)
-			{
-				if(cn[i] == node)
-					return node
-
-				goDeeper = (cn[i] == customParents[customParents.length-1]);
-			}
-			if(!goDeeper && customParents.length)
-				return n;
-		}
-
-		return node;*/
-
 	}
 
 	var isInLightDom = function(node, top) { // is in light dom relative to top, i.e. top is considered the light dom root like a scoped document.body
@@ -1874,6 +1941,9 @@
 	function prevNodeDeep(node, top) {
 		var ni;
 		
+		if(!node)
+			return;
+		
 		if(node.previousSibling)
 			return node.previousSibling;	
 		
@@ -1885,7 +1955,9 @@
 		if(!ni || ni == top)
 			return top;
 		
-		while(ni && ni.childNodes)
+		ni = ni.previousSibling;
+		
+		while(ni && ni.childNodes && ni.childNodes.length)
 			ni = ni.childNodes[ni.childNodes.length - 1];
 		
 		return ni;
@@ -1916,8 +1988,10 @@
 	}
 	function newZeroWidthDummyNode() {
 		var zwd;
+
 		zwd = document.createElement('span');
 		zwd.innerHTML = "&#8203;";
+
 		return zwd;
 	}
 
@@ -1945,11 +2019,11 @@
 		{
 			// note the order of things here is a bit different from the matching moveCaretBeforeOrWrap
 			ns = nextNode(slc, true);
-			while(ns && ns != slc && (ns.parentNode == slc || !isInLightDom(ns, top))) // || !canHaveChildren(ns) 
+			while(ns && (ns == slc || (ns.parentNode == slc || !isInLightDom(ns, top) || !(canHaveChildren(ns) || ns.nodeType == 3)))) // || !canHaveChildren(ns) 
 					ns = nextNode(ns);
 
 			if(!ns)
-				slc.parentNode.appendChild(ns = created = newZeroWidthDummyNode(), ns);
+				slc.parentNode.appendChild(ns = created = document.createElement('span'), ns);
 			
 			if(ns.is)
 			{
@@ -1963,7 +2037,7 @@
 				ns = created = t;
 			}				
 
-			offset = 0; 
+			offset = 0;
 
 			range.setStart(ns, offset);
 			range.setEnd(ns, offset);
@@ -1996,9 +2070,9 @@
 
 		if(slc == elc)
 		{
-			ns = prevNode(fromNode = slc);
+			ns = prevNodeDeep(fromNode = slc);
 			while(ns && (ns == slc || ns.parentNode == slc || !isInLightDom(ns, top)) || (slc.is && fromNode == slc)) // || (slc.is && ns.children[0] == slc))) // !canHaveChildren(ns) || 
-				ns = prevNode(fromNode = ns);
+				ns = prevNodeDeep(fromNode = ns, this.$.editor);
 
 			if(!ns)
 				slc.parentNode.insertBefore(ns = created = newZeroWidthDummyNode(), slc);
@@ -2008,24 +2082,10 @@
 				ns = t;
 			}
 
-			if(offset = ns.nodeType == 3)
+			if((offset = ns.nodeType) == 3)
 				offset = ns.textContent.length;
 			else
-			{
-				offset = fromNode.parentNode == ns ? getChildPositionInParent(fromNode) : ns.childNodes.length;
-			}
-
-			/*if(slc.is)
-			{
-				while(ns && !canHaveChildren(ns))
-					ns = prevNode(slc);
-				if(!ns || (ns.is && !isZeroWidthDummyNode(ns)))
-				{
-					zeroWidthDummy = newZeroWidthDummyNode();
-					slc.parentNode.insertBefore(zeroWidthDummy, slc);
-					ns = zeroWidthDummy;
-				}
-			}*/
+				offset = fromNode.parentNode == ns ? getChildPositionInParent(fromNode) - 1 : ns.childNodes.length;
 
 			range.setStart(ns, offset);
 			range.setEnd(ns, offset);
