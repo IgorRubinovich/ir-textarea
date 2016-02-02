@@ -2111,7 +2111,7 @@
 		if(slc == elc)
 		{
 			ns = prevNodeDeep(fromNode = slc);
-			while(ns && (ns == slc || ns.parentNode == slc || !isInLightDom(ns, top) /*|| !(!canHaveChildren(ns) && getTopCustomElementAncestor(ns, top))*/ || (slc.is && fromNode == slc))) // || (slc.is && ns.children[0] == slc))) // !canHaveChildren(ns) || 
+			while(ns && (ns == slc || ns.parentNode == slc || !isInLightDom(ns, top))) // /*|| !(!canHaveChildren(ns) && getTopCustomElementAncestor(ns, top))*/ || (slc.is && fromNode == slc))) // || (slc.is && ns.children[0] == slc))) // !canHaveChildren(ns) || 
 				ns = prevNodeDeep(fromNode = ns, this.$.editor);
 
 			if(!ns)
