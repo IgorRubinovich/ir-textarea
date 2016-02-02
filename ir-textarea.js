@@ -82,12 +82,17 @@
 
 				if(ev.type != 'mousedown')
 					that.ensureCursorLocationIsValid({reverseDirection : [8,33,37,38].indexOf(keyCode) > -1, originalEvent : ev}); // left, up, pgup
+				
+				console.log(ev.type);
+				if(ev.type == 'drop' && ev.target && getTopCustomElementAncestor(ev.target, that.$.editor)) // prevent default drop (like text) into custom elements - it breaks them
+					ev.preventDefault();
+					
 
 				that._updateValue();
 				that.selectionSave();
 			};
 
-			"mousedown,mouseup,keydown,keyup".split(',')
+			"mousedown,mouseup,keydown,keyup,drop".split(',')
 				.forEach(function(evType)
 				{
 					that.$.editor.addEventListener(evType, handler);
@@ -946,15 +951,17 @@
 			if(cmd == 'insertHTML')
 				this.insertHTMLCmd(val);
 			else
-			if(cmd == 'paste'){
+			if(cmd == 'paste') {
 				that.$.editor.focus();
 				that.selectionRestore();
 				setTimeout(function() {
 					document.execCommand('Paste');
 				}, 300);
 			}
-			else
-				document.execCommand(cmd, sdu, val);
+			else {
+				if(this.isCommandPossible(cmd, sdu, val))
+					document.execCommand(cmd, sdu, val);
+			}
 			/*
 				if(cmd == 'cut' || cmd == 'copy'){
 					this.text = this.getSelectionHtml();
@@ -963,6 +970,28 @@
 
 			else*/
 		},
+		
+		isCommandPossible : function(cmd, sdu, val) {
+			var r = this.selectionRestore(), sc = r.startContainer, ec = r.endContainer, so = r.startOffset, eo = r.endOffset, nn;
+
+			// currently only 
+			
+			// 1. prevents bullet list (insertUnorderedList) on ranges containing a custom element
+			if(cmd=='insertUnorderedList' && sc != ec)
+			{
+				nn = sc;
+				while(nn && nn != this.$.editor && nn != ec) {
+					if(!isInLightDom(nn, this.$.editor)) {
+						alert('Creation of bulleted list on ranges containing custom elements is not supported due to a but in Chrome (see Chromium bug 571420). As a workaround, create the bulleted list and drag the element there instead.');
+						return false;
+					}
+					nn = nextNode(nn);
+				}
+			}
+			
+			return true;
+		},
+		
 
 		getSelectionHtml: function () {
 			var html = "";
@@ -1737,6 +1766,14 @@
 			}).join('');
 	}
 
+	// by Nathan P. Cole from http://stackoverflow.com/questions/3158274/what-would-be-a-regex-for-valid-xml-names
+	function isXMLTagName ( tag ) // returns true if meets cond. 1-5 above
+	{
+		var t = !/^[xX][mM][lL].*/.test(tag); // condition 3 
+		t = t && /^[a-zA-Z_].*/.test(tag);  // condition 2
+		t = t && /^[a-zA-Z0-9_\-\.]+$/.test(tag); // condition 4
+		return t; 
+	}
 	var isCustomElementName = (function(n) {
 		var cache = {};
 		return function(tagName) {
@@ -1744,7 +1781,7 @@
 			if(c)
 				return c;
 			else
-				return cache[tagName] = !!document.createElement(tagName).is;
+				return cache[tagName] = isXMLTagName(tagName) && !!document.createElement(tagName).is;
 		}
 	})();
 
@@ -2111,7 +2148,7 @@
 		if(slc == elc)
 		{
 			ns = prevNodeDeep(fromNode = slc);
-			while(ns && (ns == slc || ns.parentNode == slc || !isInLightDom(ns, top))) // /*|| !(!canHaveChildren(ns) && getTopCustomElementAncestor(ns, top))*/ || (slc.is && fromNode == slc))) // || (slc.is && ns.children[0] == slc))) // !canHaveChildren(ns) || 
+			while(ns && (ns == slc || ns.parentNode == slc || !isInLightDom(ns, top))) // || !(!canHaveChildren(ns) && getTopCustomElementAncestor(ns, top))*/ || (slc.is && fromNode == slc))) // || (slc.is && ns.children[0] == slc))) // !canHaveChildren(ns) || 
 				ns = prevNodeDeep(fromNode = ns, this.$.editor);
 
 			if(!ns)
