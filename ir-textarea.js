@@ -1441,11 +1441,11 @@
 				sameContent = val == this.value;
 				
 				this.selectionSave();
+				this.customUndo.pushUndo(false, sameContent);
 
 				if(!force && sameContent)
 					return;
 
-				this.customUndo.pushUndo(false, sameContent);
 
 				this.value = val;
 				
@@ -1650,7 +1650,6 @@
 
 			Polymer.dom.flush();
 
-			
 			console.log('restoring:');
 			console.log(stateRange.startMemo.positionArray, stateRange.startOffset);
 			
