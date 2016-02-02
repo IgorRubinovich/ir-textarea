@@ -83,8 +83,8 @@
 				if(ev.type != 'mousedown')
 					that.ensureCursorLocationIsValid({reverseDirection : [8,33,37,38].indexOf(keyCode) > -1, originalEvent : ev}); // left, up, pgup
 				
-				console.log(ev.type);
-				if(ev.type == 'drop' && ev.target && getTopCustomElementAncestor(ev.target, that.$.editor)) // prevent default drop (like text) into custom elements - it breaks them
+				// console.log(ev.type);
+				if(ev.type == 'drop' && ev.target && (getTopCustomElementAncestor(ev.target, that.$.editor) || ev.target.proxyTarget)) // prevent default drop (like text) into custom elements - it breaks them
 					ev.preventDefault();
 					
 
@@ -490,6 +490,8 @@
 							if(t.proxyTarget.matchesSelector('.embed-aspect-ratio'))
 							{
 								t.proxyTarget.style.width = t.style.width;
+								t.proxyTarget.style.paddingBottom = 100*(Number(t.style.height.replace(/px/,'')) / Number(t.style.width.replace(/px/, '')))
+								//t.proxyTarget.style.height = t.style.height;
 								st = t.proxyTarget.childNodes[0];
 							}
 							else
@@ -789,8 +791,8 @@
 
 			if(n.nodeType == 1 && n.childNodes.length)
 			{
-				n = n.childNodes[o];
-				o = 0;
+				n = n.childNodes[o] || n;
+				o = getChildPositionInParent(n);
 			}
 			
 			if(n.nodeType == 3 && o < n.length)
@@ -1183,11 +1185,14 @@
 				var sni = range.startContainer.proxyTarget,
 					eni = range.endContainer.proxyTarget;
 					
-				if(sni || eni ) {
-					opts.reverseDirection ? 
-						moveCaretBeforeOrWrap(range.startContainer, range.startContainer, this.$.editor) : // no need for moveCaretAfterOrWrap(sc) as proxy nodes should be sitting at the very end
-						moveCaretAfterOrWrap(range.endContainer, range.endContainer, this.$.editor); // no need for moveCaretAfterOrWrap(sc) as proxy nodes should be sitting at the very end
-						
+				if(sni = sni || eni ) {
+					if(opts.originalEvent.type == 'mouseup' || opts.originalEvent.type == 'drop')
+						opts.reverseDirection ? 
+							moveCaretBeforeOrWrap(sni, sni, this.$.editor) :
+							moveCaretAfterOrWrap(sni, sni, this.$.editor); 
+					else // otherwise we reached there by keyboard and should be thrown back
+						moveCaretBeforeOrWrap(range.startContainer, range.startContainer, this.$.editor); // no need for moveCaretAfterOrWrap(sc) as proxy nodes should be sitting at the very end
+
 					return true;
 				}
 			},
@@ -1282,15 +1287,15 @@
 							)
 						)
 					))
-					return opts.originalEvent.preventDefault(); // preventDefault returns undefined
+					opts.originalEvent.preventDefault(); // preventDefault returns undefined
 					
 				np = this.getElementAfterCaret({skip : 'br'});
 				if(key == 46 && np && np.nodeType == 1 && (np.is || np.matchesSelector('.embed-aspect-ratio')))
-					return opts.originalEvent.preventDefault();
+					opts.originalEvent.preventDefault();
 				
 				np = this.getElementBeforeCaret({ atomicCustomElements : true });
 				if(key == 8 && np && np.nodeType == 1 && (np.is || np.matchesSelector('.embed-aspect-ratio')))
-					return opts.originalEvent.preventDefault();				
+					opts.originalEvent.preventDefault();				
 			},
 			
 			function leftAtStartOfTextNode(opts, range) {
@@ -1329,13 +1334,13 @@
 			for(i = 0; i < this.cursorRules.length && totalChecks++ < 50; i++)
 				if(this.cursorRules[i].call(this, opts, r = getSelectionRange()))
 				{
-					console.log('was ' + this.cursorRules[i].name, " now in ", r.startContainer);
+					// console.log('was ' + this.cursorRules[i].name, " now in ", r.startContainer);
 					i = -1;
 					jumpsOccured++;
 				}
 
-			if(jumpsOccured)
-				console.log("jumped " + jumpsOccured + " times");
+			//if(jumpsOccured)
+			//	console.log("jumped " + jumpsOccured + " times");
 				
 			if(totalChecks >= 50)
 				console.log('too many cursor movements');
@@ -1435,11 +1440,12 @@
 
 				sameContent = val == this.value;
 				
-				this.customUndo.pushUndo(false, sameContent);
 				this.selectionSave();
-				
+
 				if(!force && sameContent)
 					return;
+
+				this.customUndo.pushUndo(false, sameContent);
 
 				this.value = val;
 				
@@ -1632,7 +1638,7 @@
 
 		var restoreState = function(state)
 		{
-			var stateRange = state.range, sn, en, so, eo;
+			var stateRange = state.range, sn, en, so, eo, smax, emax;
 
 			sel = document.getSelection();
 
@@ -1644,25 +1650,43 @@
 
 			Polymer.dom.flush();
 
+			
+			console.log('restoring:');
+			console.log(stateRange.startMemo.positionArray, stateRange.startOffset);
+			
+			
 			sn = (stateRange && stateRange.startMemo && stateRange.startMemo.restore()) || editor;
 			en = (stateRange && stateRange.endMemo && stateRange.endMemo.restore()) || sn;
 			so = sn ? stateRange.startOffset : 0;
 			eo = sn && en ? stateRange.endOffset : 0;
 
-			if(sn.nodeType != 3 && sn.childNodes[so])
+			console.log("in restore state: ", stateRange.startMemo.positionArray, sn, so);
+			/*if(sn.nodeType != 3 && sn.childNodes[so])
 			{
 				sn = sn.childNodes[so];
 				so = sn.length;
-			}
-			so = so < sn.length ? so : sn.length;
+			}*/
 
-			if(en.nodeType != 3 && en.childNodes[eo])
+			/*if(en.nodeType != 3 && en.childNodes[eo])
 			{
 				en = en.childNodes[eo];
 				eo = en.length;
-			}
-			eo = eo < en.length ? eo : en.length;
+			}*/
+			smax = sn.nodeType == 1 ? sn.childNodes.length - 1 : sn.length;
+			smax = smax >= 0 ? smax : 0;
+			
+			emax = en.nodeType == 1 ? en.childNodes.length - 1 : en.length;
+			emax = emax >= 0 ? emax : 0;
 
+			//if(so < smax || se < emax)
+			//	adjustToLast = true;
+			
+			so = so < smax ? so : smax;
+			eo = eo < emax ? eo : emax;
+
+			//if(adjustToLast)
+			//	if(!prevNode)
+			
 			r.setStart(sn, so);
 			r.setEnd(en, eo);
 
@@ -1680,7 +1704,7 @@
 			if(!onlyUpdateRangeMemo)
 				innerHTML = getValue();
 				
-			if(!onlyUpdateRangeMemo &&undoRecord.length && (undoRecord[undoRecord.length-1].content == innerHTML))
+			if(!onlyUpdateRangeMemo && undoRecord.length && (undoRecord[undoRecord.length-1].content == innerHTML))
 				onlyUpdateRangeMemo = true;
 
 			lastRestoredStateContent == null;
@@ -1697,13 +1721,17 @@
 				startMemo = getDomPathMemo(sc, editor);
 				endMemo = getDomPathMemo(ec, editor);
 
-				if(onlyUpdateRangeMemo && undoRecord.length > 1)
+				if(onlyUpdateRangeMemo)
 				{
+					if(undoRecord.length > 1 && !(startMemo.positionArray.length == 1 && startMemo.positionArray[0] < 2))
 					//console.log("only update pos, replacing ", undoRecord[undoRecord.length - 1].range.startMemo.positionArray, undoRecord[undoRecord.length - 1].range.startOffset, " with ", startMemo.positionArray, r.startOffset);
-					undoRecord[undoRecord.length - 1].range = { startMemo : startMemo, endMemo : endMemo, startOffset : r.startOffset, endOffset : r.endOffset };
+						undoRecord[undoRecord.length - 1].range = { startMemo : startMemo, endMemo : endMemo, startOffset : r.startOffset, endOffset : r.endOffset };
 				}
 				else
 					undoRecord.push({ content : innerHTML, range : { startMemo : startMemo, endMemo : endMemo, startOffset : r.startOffset, endOffset : r.endOffset }});
+			
+			console.log('pushing:');
+			console.log(startMemo.positionArray, r.startOffset);
 
 			}
 			else
@@ -1715,9 +1743,9 @@
 			if(!force && !onlyUpdateRangeMemo && redoRecord.length > 0 && lastRestoredStateContent != innerHTML)
 				redoRecord = [];
 
-			//console.log("Undo: ", undoRecord.length, undoRecord);
-			//console.log("Redo: ", redoRecord.length, redoRecord);
-			//console.log("Total: ", undoRecord.length + redoRecord.length);
+			/*console.log("Undo: ", undoRecord.length, undoRecord);
+			console.log("Redo: ", redoRecord.length, redoRecord);
+			console.log("Total: ", undoRecord.length + redoRecord.length);*/
 		};
 
 
@@ -2148,7 +2176,7 @@
 		if(slc == elc)
 		{
 			ns = prevNodeDeep(fromNode = slc);
-			while(ns && (ns == slc || ns.parentNode == slc || !isInLightDom(ns, top))) // || !(!canHaveChildren(ns) && getTopCustomElementAncestor(ns, top))*/ || (slc.is && fromNode == slc))) // || (slc.is && ns.children[0] == slc))) // !canHaveChildren(ns) || 
+			while(ns && (ns == slc || ns.parentNode == slc || !isInLightDom(ns, top) || !(canHaveChildren(ns) || ns.nodeType == 3))) // the last one needed to not get stuck on img inside custom element // || !(!canHaveChildren(ns) && getTopCustomElementAncestor(ns, top))*/ || (slc.is && fromNode == slc))) // || (slc.is && ns.children[0] == slc))) // !canHaveChildren(ns) || 
 				ns = prevNodeDeep(fromNode = ns, this.$.editor);
 
 			if(!ns)
@@ -2168,7 +2196,11 @@
 				ns = ns.parentNode
 			}
 			else
+			{
 				offset = fromNode.parentNode == ns ? getChildPositionInParent(fromNode) : ns.childNodes.length - 1;
+				if(offset < 0) 
+					offset = 0;
+			}
 
 			range.setStart(ns, offset);
 			range.setEnd(ns, offset);
