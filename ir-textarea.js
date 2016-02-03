@@ -47,9 +47,9 @@
 						pos = getChildPositionInParent(last);
 						
 						if(last == r.startContainer)
-							setCaretAt(r.startContainer.parentNode, getChildPositionInParent(r.startContainer));
+							setCaretAt(r.startContainer.parentNode, pos);
 						
-						if(!last.matchesSelector("span.paragraph") || last == r.startContainer)
+						if(!last.matchesSelector("span.paragraph"))
 							r = that.pasteHtmlAtCaret('<span class="paragraph"></span>');
 						
 						setCaretAt(localRoot.childNodes[pos], 0);
