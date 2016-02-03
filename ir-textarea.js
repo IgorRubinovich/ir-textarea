@@ -9,16 +9,58 @@
 			this.skipNodes = [];
 			this.__actionData = {};
 
+			var inlineElements = {};
+				"b,big,i,small,tt,abbr,acronym,cite,code,dfn,em,kbd,strong,samp,time,var,a,bdo,br,img,map,object,q,script,span,sub,sup".split(/,/)
+				.forEach(function(tag) { inlineElements[tag.toUpperCase()] = true });
+				
 			handler = function(ev) {
 				that.selectionSave();
 
-				var el, toDelete, keyCode = ev.keyCode || ev.which, t, forcedelete;
+				var el, toDelete, keyCode = ev.keyCode || ev.which, t, forcedelete, r, done, localRoot, last, pos;
 
-				if (ev.keyCode === 13 && ev.type == 'keydown') {
-				  // in chrome this is irrelevant -> 	insert 2 br tags (if only one br tag is inserted the cursor won't go to the next line)
-				  that.pasteHtmlAtCaret('<br>', false);
-				  ev.preventDefault();
-				  return false;
+				r = that.selectionRestore();
+				
+				if (ev.type == 'keydown' && ev.keyCode == 13) { 	// line break
+					if(ev.shiftKey || getTopCustomElementAncestor(r.startContainer, that.$.editor) || getTopCustomElementAncestor(r.endContainer, that.$.editor))
+					{
+						that.pasteHtmlAtCaret('<br>', false);
+						//if(r.startContainer.nodeType == 3 && r.startContainer.length == r.startOffset)
+						//	that.pasteHtmlAtCaret('<br>', false);
+						r = getSelectionRange();
+						if(nextNode(r.startContainer.childNodes[r.startOffset]).is)
+							setCaretAt(r.startContainer, r.startOffset - 1);
+					}
+					else											// new paragraph
+					{
+						localRoot = r.startContainer;
+						
+						while(localRoot && localRoot != that.$.editor && !done)
+						{
+							last = localRoot;
+							
+							if((localRoot.nodeType == 1 && !inlineElements[localRoot.tagName]) || (localRoot.matchesSelector && localRoot.matchesSelector("span.paragraph")))
+								done = true;
+							localRoot = localRoot.parentNode
+						}
+												
+						splitNode(r.startContainer, r.startOffset, last);
+						pos = getChildPositionInParent(last);
+						
+						if(last == r.startContainer)
+							setCaretAt(r.startContainer.parentNode, getChildPositionInParent(r.startContainer));
+						
+						if(!last.matchesSelector("span.paragraph") || last == r.startContainer)
+							r = that.pasteHtmlAtCaret('<span class="paragraph"></span>');
+						
+						setCaretAt(localRoot.childNodes[pos], 0);
+					}
+
+					that.ensureCursorLocationIsValid({reverseDirection : true});
+
+					that._updateValue();
+					that.selectionSave();
+					ev.preventDefault();
+					return;
 				}
 				
 				if(ev.type == 'keydown' && (ev.keyCode == 8 || ev.keyCode == 46)) // deletes
@@ -87,7 +129,6 @@
 				if(ev.type == 'drop' && ev.target && (getTopCustomElementAncestor(ev.target, that.$.editor) || ev.target.proxyTarget)) // prevent default drop (like text) into custom elements - it breaks them
 					ev.preventDefault();
 					
-
 				that._updateValue();
 				that.selectionSave();
 			};
@@ -106,7 +147,6 @@
 
 			this.$.editor.addEventListener('click', this.contextMenuShow.bind(this), true); // capturing phase
 
-
 			var pasteHandler = function(e) {
 				var v;
 				if(typeof clipboardData != 'undefined')
@@ -124,10 +164,10 @@
 							.match(/<!--StartFragment-->([\s\S]*?)(?=<!--EndFragment-->)/i)[1]
 					if(v)
 						v = v.replace(/\<\/?o\:[^>]*\>/g, '')
-							 .replace(/<p([\s\S]*?(?=<\/p>))<\/p>/gi, "<span $1</span><br>")
+							 .replace(/<p([\s\S]*?(?=<\/p>))<\/p>/gi, '<span class="paragraph" $1</span>')
 				}
 				
-				that.pasteHtmlAtCaret(v, true);
+				that.pasteHtmlAtCaret(v, false); // false to keep format
 				e.preventDefault();
 				return false;
 			};
@@ -156,7 +196,7 @@
 
 			this.set('customUndo', CustomUndoEngine(this.$.editor, {
 																		getValue : this.getCleanValue.bind(this),
-																		contentFrame : "<span><br></span>[content]<span><br></span>",
+																		contentFrame : '<span class="paragraph"><br></span>[content]<span class="paragraph"><br></span>',
 																		timeout : false,
 																		onRestoreState : function(el) {
 																			this.ensureCursorLocationIsValid();
@@ -978,7 +1018,7 @@
 
 			// currently only 
 			
-			// 1. prevents bullet list (insertUnorderedList) on ranges containing a custom element
+			// 1. prevents bullet list (insertUnorderedList) on ranges containing a custom element, Chromium bug 571420
 			if(cmd=='insertUnorderedList' && sc != ec)
 			{
 				nn = sc;
@@ -1077,10 +1117,7 @@
 				return;
 			}
 
-			//this.$.editor.focus();
 			this.async(function() {
-				//this.selectionRestore();
-
 				var val, ext;
 
 				if(presetVal)
@@ -1100,10 +1137,6 @@
 					this._execCommand(actualCmd, false, prompt(cmdDef.val));
 				else
 					this._execCommand(actualCmd, false, presetVal);
-
-				//this.async(function() {
-				//	this.selectionForget();
-				//});
 
 				this.$.editor.focus();
 				this._updateValue();
@@ -1163,7 +1196,10 @@
 			this._selectionRange = null;
 		},
 
-		cursorRules : [ // each function enforces a single rule. if applicable the rule will usually modify the selection range and return true.
+		// a list of functions where each function enforces a single rule. 
+		// if applicable the rule will usually modify the selection range and return true, and all the rules will be re-executed
+		// the rules are executed by ensureCursorLocationIsValid
+		cursorRules : [ 
 			function inEditor(opts, range) {
 				var sc, ec;
 				
@@ -1201,7 +1237,7 @@
 				var sc = range.startContainer, ec = range.endContainer;
 				
 				if(!sc.matchesSelector || !ec.matchesSelector)
-					console.log('in text node - what will you do?');
+					console.log('in a text node - so what?');
 				
 				//if(!sc.matchesSelector) sc = getClosestLightDomTarget(sc.parentNode, this.$.editor);
 				//if(!ec.matchesSelector) ec = getClosestLightDomTarget(ec.parentNode, this.$.editor);
@@ -1275,7 +1311,7 @@
 				
 				//if(!tcea) // || isInLightDom(scparent, top)) // not in custom element or is child of another parent within light dom
 				//	return;
-					
+
 				if  (tcea && (
 						(key == 8 && so == 0) // bakspace @ start of a dangerous container
 					||
@@ -1339,9 +1375,6 @@
 					jumpsOccured++;
 				}
 
-			//if(jumpsOccured)
-			//	console.log("jumped " + jumpsOccured + " times");
-				
 			if(totalChecks >= 50)
 				console.log('too many cursor movements');
 
@@ -1352,21 +1385,6 @@
 			so = r.startOffset;
 			eo = r.endOffset;
 
-			/*if(!(so == eo && sc == ec) && (sc != ec) && (sc == this.$.editor || (sc.nodeType == 3 && sc.parentNode == this.$.editor) || sc.is))
-			{
-				console.log('ADDING A SPAN...');
-				this.$.editor.insertBefore(sp = document.createElement('span'), this.$.editor.childNodes[so]);
-				
-				var range = document.createRange();
-				var sel = window.getSelection();
-				range.setStart(sp, 0);
-				range.setEnd(sp, 0);
-				sel.removeAllRanges();
-				sel.addRange(range);
-				
-				sc = sp;
-			}*/
-			
 			// if navigation occured, scroll view to bing the cursor into view
 			if(!opts.originalEvent || [38, 40, 37, 39, 8].indexOf(opts.originalEvent.keyCode || opts.originalEvent.which) > -1)
 				this.fire('scroll-into-view', getSelectionCoords());
@@ -1393,7 +1411,7 @@
 													d.childNodes[0].tagName &&
 													d.childNodes[0].tagName == 'BR'; },
 				// a new <p><br></p>
-				newFramingEl = function() { var el; el = document.createElement('span'); el.appendChild(document.createElement('br')); return el };
+				newFramingEl = function() { var el; el = document.createElement('span'); el.appendChild(document.createElement('br')); el.classList.add("paragraph"); return el };
 
 			if(!ed.childNodes.length)
 				return ed.appendChild(newFramingEl());
@@ -1423,7 +1441,7 @@
 			this.selectionSave();
 
 			// this is too much work to execute on every event
-			// so we schedule it once per 500ms as long as there are actions happening
+			// so we schedule it once per 400ms as long as there are actions happening
 			this._updateValueTimeout = setTimeout(function() {
 				var val, sameContent;
 				var bottomPadding, topPadding, that = this, editor = this.$.editor;
@@ -1470,14 +1488,14 @@
 			v = recursiveInnerHTML(this.$.editor, this.skipNodes)
 					.replace(/(\r\n|\n|\r)/gm," ")
 					.replace(/\<pre\>/gmi,"<span>").replace(/\<\/?pre\>/gmi,"</span>")
-					.replace(/^\s*(\<span\>\<br\>\<\/span\>\s*)+/, '')
-					.replace(/\s*(\<span\>\<br\>\<\/span\>\s*)+$/, '')
+					.replace(/^\s*(\<span class="paragraph"\>\<br\>\<\/span\>\s*)+/, '')
+					.replace(/\s*(\<span class="paragraph"\>\<br\>\<\/span\>\s*)+$/, '')
 					.replace(/&#8203;/gmi, '') 				// special chars
 					.replace(/\<span\>​<\/span\>/gmi, '') 	// empty spans are useless anyway. or are they?
 					.trim();
 
 			if(!/\<[^\<]+\>/.test(v))
-				v = "<span>" + v + "</span>"
+				v = '<span class="paragraph">' + v + "</span>"
 					
 			this.addActionBorder();
 
@@ -1650,16 +1668,15 @@
 
 			Polymer.dom.flush();
 
-			console.log('restoring:');
-			console.log(stateRange.startMemo.positionArray, stateRange.startOffset);
-			
+			//console.log('restoring:');
+			//console.log(stateRange.startMemo.positionArray, stateRange.startOffset);
 			
 			sn = (stateRange && stateRange.startMemo && stateRange.startMemo.restore()) || editor;
 			en = (stateRange && stateRange.endMemo && stateRange.endMemo.restore()) || sn;
 			so = sn ? stateRange.startOffset : 0;
 			eo = sn && en ? stateRange.endOffset : 0;
 
-			console.log("in restore state: ", stateRange.startMemo.positionArray, sn, so);
+			// console.log("in restore state: ", stateRange.startMemo.positionArray, sn, so);
 			/*if(sn.nodeType != 3 && sn.childNodes[so])
 			{
 				sn = sn.childNodes[so];
@@ -1729,8 +1746,8 @@
 				else
 					undoRecord.push({ content : innerHTML, range : { startMemo : startMemo, endMemo : endMemo, startOffset : r.startOffset, endOffset : r.endOffset }});
 			
-			console.log('pushing:');
-			console.log(startMemo.positionArray, r.startOffset);
+			//console.log('pushing:');
+			//console.log(startMemo.positionArray, r.startOffset);
 
 			}
 			else
@@ -1775,7 +1792,8 @@
 		}
 	}
 
-
+	// dom/range utility functions
+	
 	var recursiveInnerHTML = function(el, skipNodes) {
 		skipNodes = skipNodes || [];
 
@@ -2031,8 +2049,7 @@
 	// previous sibling in deep sense - will look up the tree until there's a prevousSibling, then will look at the last (rightmost) node in its subtree
 	function prevNodeDeep(node, top, opts) {
 		var ni;
-		
-		
+
 		if(!node)
 			return;
 		
@@ -2083,13 +2100,13 @@
 	}
 
 	function isZeroWidthDummyNode(ns) {
-		return ns && ns.tagName == 'SPAN' && (ns.innerHTML.length == 1) && (ns.innerHTML.charCodeAt(0) == 8203)
+		return ns && ns.tagName == 'SPAN' && ns.innerHTML.length == 1 //(ns.innerHTML.length == 1) && (ns.innerHTML.charCodeAt(0) == 8203)
 	}
 	function newZeroWidthDummyNode() {
 		var zwd;
 
 		zwd = document.createElement('span');
-		zwd.innerHTML = "&#8203;";
+		//zwd.innerHTML = "&#8203;";
 
 		return zwd;
 	}
@@ -2122,8 +2139,10 @@
 					ns = nextNode(ns);
 
 			if(!ns)
+				throw new Error("couldn't find a good place to set the cursor")
+			if(ns == top)
 				slc.parentNode.appendChild(ns = created = document.createElement('span'), ns);
-			
+			else
 			if(ns.is)
 			{
 				ns.parentNode.insertBefore(t = newZeroWidthDummyNode(), ns);
@@ -2175,10 +2194,12 @@
 		if(slc == elc)
 		{
 			ns = prevNodeDeep(fromNode = slc);
-			while(ns && (ns == slc || ns.parentNode == slc || !isInLightDom(ns, top) || !(canHaveChildren(ns) || ns.nodeType == 3))) // the last one needed to not get stuck on img inside custom element // || !(!canHaveChildren(ns) && getTopCustomElementAncestor(ns, top))*/ || (slc.is && fromNode == slc))) // || (slc.is && ns.children[0] == slc))) // !canHaveChildren(ns) || 
+			while(ns && ns != top && (ns == slc || ns.parentNode == slc || !isInLightDom(ns, top) || !(canHaveChildren(ns) || ns.nodeType == 3))) // the last one needed to not get stuck on img inside custom element // || !(!canHaveChildren(ns) && getTopCustomElementAncestor(ns, top))*/ || (slc.is && fromNode == slc))) // || (slc.is && ns.children[0] == slc))) // !canHaveChildren(ns) || 
 				ns = prevNodeDeep(fromNode = ns, this.$.editor);
 
 			if(!ns)
+				throw new Error("couldn't find a good place to set the cursor")
+			if(ns == top)
 				slc.parentNode.insertBefore(ns = created = newZeroWidthDummyNode(), slc);
 			if(ns.is)
 			{
@@ -2247,7 +2268,30 @@
 		}
 	})();
 
+	/* 	
+		splits a node at offset
+		
+		params: 	
+	
+		node - the node to split
+		offset - in the splitted node, 
+		limit - the root of the split.
+	*/
+	splitNode = function(node, offset, limit) { 
+	  var parent = limit.parentNode;
+	  var parentOffset = getChildPositionInParent(parent, limit);
+
+	  var doc = node.ownerDocument;  
+	  var leftRange = doc.createRange();
+	  leftRange.setStart(parent, parentOffset);
+	  leftRange.setEnd(node, offset);
+	  var left = leftRange.extractContents();
+	  parent.insertBefore(left, limit);
+	  return limit;
+	}
+	
 	// modified code by Tim Down http://stackoverflow.com/questions/6846230/coordinates-of-selected-text-in-browser-page
+	// returns x, y of the current coordinates
 	var getSelectionCoords = (function () {
 		span = document.createElement("span");
 		span.appendChild( document.createTextNode("\u200b") );
