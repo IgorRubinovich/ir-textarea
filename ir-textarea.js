@@ -914,6 +914,7 @@
 			
 			pos = getChildPositionInParent(last);
 			first = localRoot.childNodes[pos-1];
+			
 			if(first && !first.innerHTML) 
 				first.innerHTML = "<br>";
 			
@@ -922,7 +923,7 @@
 			//else
 			setCaretAt(last.parentNode, getChildPositionInParent(last));
  
-			if(div.textContent || !last.textContent) // || last == r.startContainer || r.startContainer.textContent)
+			if(div.textContent) // || last == r.startContainer || r.startContainer.textContent)
 			{
 				r = this.pasteHtmlAtCaret(html, opts.removeFormat);
 				target = prevNodeDeep(nextNode(r.startContainer.childNodes[r.startOffset]), this.$.editor);
