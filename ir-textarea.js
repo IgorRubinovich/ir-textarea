@@ -2190,7 +2190,7 @@
 			ns = nextNode(slc, true);
 			while(ns && (ns == slc || (ns.parentNode == slc || !isInLightDom(ns, top) || !(canHaveChildren(ns) || ns.nodeType == 3)))) // || !canHaveChildren(ns) 
 					ns = nextNode(ns);
-
+ 
 			if(!ns)
 				throw new Error("couldn't find a good place to set the cursor")
 			if(ns == top)
