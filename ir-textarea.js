@@ -885,7 +885,7 @@
 
 		pasteHTMLWithParagraphs : function (html, opts)
 		{
-			var localRoot, done, first, last, pos, paragraph, div;
+			var localRoot, done, first, last, pos, paragraph, div, target;
 			
 			div = document.createElement('div');
 			div.innerHTML = html;
@@ -922,10 +922,15 @@
 			//else
 			setCaretAt(last.parentNode, getChildPositionInParent(last));
  
-			if(div.textContent) // || last == r.startContainer || r.startContainer.textContent)
+			if(div.textContent || !last.textContent) // || last == r.startContainer || r.startContainer.textContent)
 			{
 				r = this.pasteHtmlAtCaret(html, opts.removeFormat);
-				setCaretAt(r.endContainer, endOffset);
+				target = prevNodeDeep(nextNode(r.startContainer.childNodes[r.startOffset]), this.$.editor);
+				
+				if(target.nodeType == 1)
+					setCaretAt(target, target.childNodes.length);
+				else
+					setCaretAt(target, target.length);
 			}
 			else
 				setCaretAt(localRoot.childNodes[pos], 0);
@@ -1163,9 +1168,12 @@
 							//that.selectionForget();
 						}
 					}
-
-					that.ensureCursorLocationIsValid();
-					that._updateValue();
+					
+					Polymer.dom.flush();
+					this.async(function() {
+						that.ensureCursorLocationIsValid();
+						that._updateValue();
+					})
 				});
 
 				return;
