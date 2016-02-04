@@ -25,7 +25,7 @@
 					if(ev.shiftKey || getTopCustomElementAncestor(r.startContainer, that.$.editor) || getTopCustomElementAncestor(r.endContainer, that.$.editor))
 					{
 						r = getSelectionRange();
-						if(r.startContainer.nodeType == 3 && !r.startContainer[r.startOffset] && nextNode(r.startContainer).tagName != "BR")
+						if(r.startContainer.nodeType == 3 && !r.startContainer.textContent.charAt(r.startOffset) && nextNode(r.startContainer).tagName != "BR")
 							that.pasteHtmlAtCaret('<br>', false);
 							
 						that.pasteHtmlAtCaret('<br>', false);
@@ -51,7 +51,7 @@
 							setCaretAt(r.startContainer, r.startOffset - 1);
 					}
 					else											// new paragraph
-						that.pasteHTMLWithParagraphs('<span class="paragraph"></span>', true);
+						that.pasteHTMLWithParagraphs('<span class="paragraph"><br></span>', true);
 
 					that.ensureCursorLocationIsValid({reverseDirection : true});
 
@@ -907,10 +907,15 @@
 			}
 			
 			//if(r.startContainer.textContent || div.textContent)
+			if(r.startContainer == localRoot && !last)
+				node = first = last = r.startContainer.childNodes[r.startOffset];
+				
 			last = splitNode(r.startContainer, r.startOffset, last);
 			
 			pos = getChildPositionInParent(last);
 			first = localRoot.childNodes[pos-1];
+			if(first && !first.innerHTML) 
+				first.innerHTML = "<br>";
 			
 			//if(!last.textContent)
 			//	setCaretAt(last, 0);
@@ -918,19 +923,22 @@
 			setCaretAt(last.parentNode, getChildPositionInParent(last));
  
 			if(div.textContent) // || last == r.startContainer || r.startContainer.textContent)
-				r = this.pasteHtmlAtCaret(html, opts.removeFormat);
-			
-			if(!last.textContent && !div.textContent && !first.textContent)
 			{
-				last.parentNode.removeChild(last);
-				pos--;
+				r = this.pasteHtmlAtCaret(html, opts.removeFormat);
+				setCaretAt(r.endContainer, endOffset);
 			}
-			
-			setCaretAt(localRoot.childNodes[pos], 0);
+			else
+				setCaretAt(localRoot.childNodes[pos], 0);
+			//if(!div.textContent && first && !first.innerHTML)
+			//{
+			//	last.parentNode.removeChild(last);
+			//	pos--;
+			//}
+			//if(!localRoot.childNodes[pos].innerHTML) localRoot.childNodes[pos].innerHTML = '<br>';
 		},		
 
 		pasteHtmlAtCaret : function(html, removeFormat) {
-			var sel, range, endNode, newRange, node, lastNode, preLastNode, el, frag;
+			var sel, range, endNode, newRange, node, lastNode, preLastNode, el, frag, pos;
 
 			if (window.getSelection) {
 				// IE9 and non-IE
@@ -961,6 +969,7 @@
 					// Preserve the selection
 					if (lastNode) {
 						range = range.cloneRange();
+												
 						range.setStartAfter(lastNode);
 						range.collapse(true);
 						sel.removeAllRanges();
@@ -1155,6 +1164,7 @@
 						}
 					}
 
+					that.ensureCursorLocationIsValid();
 					that._updateValue();
 				});
 
@@ -1764,7 +1774,7 @@
 			if(!onlyUpdateRangeMemo)
 				innerHTML = getValue();
 				
-			if(!onlyUpdateRangeMemo && undoRecord.length && (undoRecord[undoRecord.length-1].content == innerHTML))
+			if(!onlyUpdateRangeMemo && undoRecord.length > 1 && (undoRecord[undoRecord.length-1].content == innerHTML))
 				onlyUpdateRangeMemo = true;
 
 			lastRestoredStateContent == null;
@@ -1792,7 +1802,7 @@
 
 				if(onlyUpdateRangeMemo)
 				{
-					if(undoRecord.length > 1 && !(startMemo.positionArray.length == 1 && startMemo.positionArray[0] < 2))
+					if(undoRecord.length > 2 && !(startMemo.positionArray.length == 1 && startMemo.positionArray[0] < 2))
 					//console.log("only update pos, replacing ", undoRecord[undoRecord.length - 1].range.startMemo.positionArray, undoRecord[undoRecord.length - 1].range.startOffset, " with ", startMemo.positionArray, r.startOffset);
 						undoRecord[undoRecord.length - 1].range = { startMemo : startMemo, endMemo : endMemo, startOffset : r.startOffset, endOffset : r.endOffset };
 				}
@@ -2190,7 +2200,7 @@
 			ns = nextNode(slc, true);
 			while(ns && (ns == slc || (ns.parentNode == slc || !isInLightDom(ns, top) || !(canHaveChildren(ns) || ns.nodeType == 3)))) // || !canHaveChildren(ns) 
 					ns = nextNode(ns);
- 
+  
 			if(!ns)
 				throw new Error("couldn't find a good place to set the cursor")
 			if(ns == top)
