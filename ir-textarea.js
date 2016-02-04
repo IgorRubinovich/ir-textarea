@@ -2194,7 +2194,10 @@
 			if(!ns)
 				throw new Error("couldn't find a good place to set the cursor")
 			if(ns == top)
-				slc.parentNode.appendChild(ns = created = document.createElement('span'), ns);
+			{
+				slc.parentNode.insertBefore(ns = created = document.createElement('span'), ns);
+				ns.classList.add('paragraph');
+			}
 			else
 			if(ns.is)
 			{
@@ -2246,8 +2249,8 @@
 
 		if(slc == elc)
 		{
-			ns = prevNodeDeep(fromNode = slc);
-			while(ns && ns != top && (ns == slc || ns.parentNode == slc || !isInLightDom(ns, top) || !(canHaveChildren(ns) || ns.nodeType == 3))) // the last one needed to not get stuck on img inside custom element // || !(!canHaveChildren(ns) && getTopCustomElementAncestor(ns, top))*/ || (slc.is && fromNode == slc))) // || (slc.is && ns.children[0] == slc))) // !canHaveChildren(ns) || 
+			ns = prevNodeDeep(fromNode = slc, top);
+			while(ns && ns != top && (ns == slc || ns.parentNode == slc || !isInLightDom(ns, top))) // || !(canHaveChildren(ns) || ns.nodeType == 3))) // the last one needed to not get stuck on img inside custom element // || !(!canHaveChildren(ns) && getTopCustomElementAncestor(ns, top))*/ || (slc.is && fromNode == slc))) // || (slc.is && ns.children[0] == slc))) // !canHaveChildren(ns) || 
 				ns = prevNodeDeep(fromNode = ns, this.$.editor);
 
 			if(!ns)
