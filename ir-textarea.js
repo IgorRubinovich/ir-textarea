@@ -1,4 +1,9 @@
 (function () {
+	
+	var INLINE_ELEMENTS = {};
+		"b,big,i,small,tt,abbr,acronym,cite,code,dfn,em,kbd,strong,samp,time,var,a,bdo,br,img,map,object,q,script,span,sub,sup".split(/,/)
+		.forEach(function(tag) { INLINE_ELEMENTS[tag.toUpperCase()] = true });
+
 	Polymer({
 		is : 'ir-textarea',
 		ready : function() {
@@ -8,52 +13,45 @@
 
 			this.skipNodes = [];
 			this.__actionData = {};
-
-			var inlineElements = {};
-				"b,big,i,small,tt,abbr,acronym,cite,code,dfn,em,kbd,strong,samp,time,var,a,bdo,br,img,map,object,q,script,span,sub,sup".split(/,/)
-				.forEach(function(tag) { inlineElements[tag.toUpperCase()] = true });
 				
 			handler = function(ev) {
 				that.selectionSave();
 
-				var el, toDelete, keyCode = ev.keyCode || ev.which, t, forcedelete, r, done, localRoot, last, pos;
+				var el, toDelete, keyCode = ev.keyCode || ev.which, t, forcedelete, r, done, localRoot, last, n, pos;
 
 				r = that.selectionRestore();
 				
 				if (ev.type == 'keydown' && ev.keyCode == 13) { 	// line break
 					if(ev.shiftKey || getTopCustomElementAncestor(r.startContainer, that.$.editor) || getTopCustomElementAncestor(r.endContainer, that.$.editor))
 					{
+						r = getSelectionRange();
+						if(r.startContainer.nodeType == 3 && !r.startContainer[r.startOffset] && nextNode(r.startContainer).tagName != "BR")
+							that.pasteHtmlAtCaret('<br>', false);
+							
 						that.pasteHtmlAtCaret('<br>', false);
+
 						//if(r.startContainer.nodeType == 3 && r.startContainer.length == r.startOffset)
 						//	that.pasteHtmlAtCaret('<br>', false);
 						r = getSelectionRange();
-						if(nextNode(r.startContainer.childNodes[r.startOffset]).is)
+						pos = r.startOffset;
+						
+						
+						if(!r.startContainer.childNodes)
+						{
+							n = r.startContainer.parentNode;
+							pos = getChildPositionInParent(n);
+						}
+						else
+						{
+							while(pos >= r.startContainer.childNodes.length) pos--;
+							n = r.startContainer;
+						}
+							
+						if(nextNode(r.startContainer.childNodes[pos]).is)
 							setCaretAt(r.startContainer, r.startOffset - 1);
 					}
 					else											// new paragraph
-					{
-						localRoot = r.startContainer;
-						
-						while(localRoot && localRoot != that.$.editor && !done)
-						{
-							last = localRoot;
-							
-							if((localRoot.nodeType == 1 && !inlineElements[localRoot.tagName]) || (localRoot.matchesSelector && localRoot.matchesSelector("span.paragraph")))
-								done = true;
-							localRoot = localRoot.parentNode
-						}
-												
-						splitNode(r.startContainer, r.startOffset, last);
-						pos = getChildPositionInParent(last);
-						
-						if(last == r.startContainer)
-							setCaretAt(r.startContainer.parentNode, pos);
-						
-						if(!last.matchesSelector("span.paragraph"))
-							r = that.pasteHtmlAtCaret('<span class="paragraph"></span>');
-						
-						setCaretAt(localRoot.childNodes[pos], 0);
-					}
+						that.pasteHTMLWithParagraphs('<span class="paragraph"></span>', true);
 
 					that.ensureCursorLocationIsValid({reverseDirection : true});
 
@@ -167,7 +165,7 @@
 							 .replace(/<p([\s\S]*?(?=<\/p>))<\/p>/gi, '<span class="paragraph" $1</span>')
 				}
 				
-				that.pasteHtmlAtCaret(v, false); // false to keep format
+				that.pasteHTMLWithParagraphs(v, { removeFormat : false });
 				e.preventDefault();
 				return false;
 			};
@@ -884,6 +882,52 @@
 
 			return r.startOffset;
 		},
+
+		pasteHTMLWithParagraphs : function (html, opts)
+		{
+			var localRoot, done, first, last, pos, paragraph, div;
+			
+			div = document.createElement('div');
+			div.innerHTML = html;
+			paragraph = div.querySelector('span.paragraph');
+			
+			if(!paragraph)
+				return r = this.pasteHtmlAtCaret(html);
+			
+			r = this.selectionRestore();
+			localRoot = r.startContainer;
+			
+			while(localRoot && localRoot != this.$.editor && !done)
+			{
+				if((localRoot.nodeType == 1 && !INLINE_ELEMENTS[localRoot.tagName]) || (localRoot.matchesSelector && localRoot.matchesSelector("span.paragraph")))
+					done = true;
+
+				last = localRoot;				
+				localRoot = localRoot.parentNode
+			}
+			
+			//if(r.startContainer.textContent || div.textContent)
+			last = splitNode(r.startContainer, r.startOffset, last);
+			
+			pos = getChildPositionInParent(last);
+			first = localRoot.childNodes[pos-1];
+			
+			//if(!last.textContent)
+			//	setCaretAt(last, 0);
+			//else
+			setCaretAt(last.parentNode, getChildPositionInParent(last));
+ 
+			if(div.textContent) // || last == r.startContainer || r.startContainer.textContent)
+				r = this.pasteHtmlAtCaret(html, opts.removeFormat);
+			
+			if(!last.textContent && !div.textContent && !first.textContent)
+			{
+				last.parentNode.removeChild(last);
+				pos--;
+			}
+			
+			setCaretAt(localRoot.childNodes[pos], 0);
+		},		
 
 		pasteHtmlAtCaret : function(html, removeFormat) {
 			var sel, range, endNode, newRange, node, lastNode, preLastNode, el, frag;
@@ -1714,7 +1758,7 @@
 		}
 
 		var pushUndo = function(force, onlyUpdateRangeMemo) {
-			var r, sel, startMemo, endMemo, sc, ec,
+			var r, sel, startMemo, endMemo, sc, ec, t,
 				innerHTML, onlyUpdateRangeMemo;
 
 			if(!onlyUpdateRangeMemo)
@@ -1732,6 +1776,15 @@
 			if(sel.rangeCount)
 			{
 				r = sel.getRangeAt(0);
+				
+				t = r.startContainer;
+				while(t != editor)
+				{
+					t = t.parentNode;
+					if(!t) 
+						return;
+				}
+				
 				sc = r.startContainer == editor ? editor : (getTopCustomElementAncestor(r.startContainer, editor) || r.startContainer);
 				ec = r.endContainer  == editor ? editor : (getTopCustomElementAncestor(r.endContainer, editor) || r.endContainer);
 				startMemo = getDomPathMemo(sc, editor);
@@ -2279,7 +2332,7 @@
 	*/
 	splitNode = function(node, offset, limit) { 
 	  var parent = limit.parentNode;
-	  var parentOffset = getChildPositionInParent(parent, limit);
+	  var parentOffset = getChildPositionInParent(limit); //parent, limit);
 
 	  var doc = node.ownerDocument;  
 	  var leftRange = doc.createRange();
