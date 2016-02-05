@@ -885,7 +885,7 @@
 
 		pasteHTMLWithParagraphs : function (html, opts)
 		{
-			var localRoot, done, first, last, pos, paragraph, div, target;
+			var localRoot, done, first, last, pos, paragraph, div, target, lastPos, t;
 			
 			div = document.createElement('div');
 			div.innerHTML = html;
@@ -905,7 +905,7 @@
 				last = localRoot;				
 				localRoot = localRoot.parentNode
 			}
-			
+
 			//if(r.startContainer.textContent || div.textContent)
 			if(r.startContainer == localRoot && !last)
 				node = first = last = r.startContainer.childNodes[r.startOffset];
@@ -921,7 +921,17 @@
 			//if(!last.textContent)
 			//	setCaretAt(last, 0);
 			//else
-			setCaretAt(last.parentNode, getChildPositionInParent(last));
+			lastPos = getLastCaretPosition(last);
+			if(lastPos.container.nodeType == 3 && lastPos.offset == 0)
+			{
+				t = document.createElement('br');
+				lastPos.container.parentNode.insertBefore(t, lastPos.container);
+				lastPos.container.parentNode.removeChild(lastPos.container);
+				lastPos.container = t.parentNode;
+				lastPos.offset = getChildPositionInParent(t);
+			}
+
+			setCaretAt(lastPos.container, lastPos.offset);
  
 			if(div.textContent) // || last == r.startContainer || r.startContainer.textContent)
 			{
@@ -2343,6 +2353,15 @@
 		}
 	})();
 
+	var getLastCaretPosition = function(node) {
+		if(node.nodeType == 1)
+			return node.childNodes.length ?
+					getLastCaretPosition(node.childNodes[node.childNodes.length-1]) : 
+					{ container : node.parentNode, offset : getChildPositionInParent(node) };
+		else
+			return { container : node, offset : node.textContent.length || 0 }
+	}
+	
 	/* 	
 		splits a node at offset
 		
