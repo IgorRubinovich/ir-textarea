@@ -1720,7 +1720,7 @@
 
 			lastUndo = undoRecord[undoRecord.length - 1];
 
-			if(!lastUndo || lastUndo.content == currState.content)
+			if(!lastUndo || (lastUndo.content == currState.content && undoRecord.length > 1))
 				return;
 
 
@@ -1802,8 +1802,11 @@
 			var r, sel, startMemo, endMemo, sc, ec, t,
 				innerHTML, onlyUpdateRangeMemo;
 
-			if(!onlyUpdateRangeMemo)
+			if(!onlyUpdateRangeMemo || !undoRecord.length)
+			{
 				innerHTML = getValue();
+				onlyUpdateRangeMemo = false;
+			}
 				
 			if(!onlyUpdateRangeMemo && undoRecord.length > 1 && (undoRecord[undoRecord.length-1].content == innerHTML))
 				onlyUpdateRangeMemo = true;
