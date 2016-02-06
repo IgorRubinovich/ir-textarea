@@ -321,11 +321,7 @@
 			ev.screenY = ev.clientY = ev.detail.y
 			ev.preventDefault();
 
-			cm.options = [];
-
-			if(target.matchesSelector(menuGroups.resizeable) || (target.proxyTarget && target.proxyTarget.matchesSelector(menuGroups.resizeable)))
-				cm.options.push({label: 'Resize', icon: 'icons:size', info: '', value : target, action : this.resizeTarget.bind(this)});
-
+			
 			var imageAction = function(f) {
 				return function(param)
 				{
@@ -337,18 +333,30 @@
 					if(param.proxyTarget)
 						param = param.proxyTarget;
 
-					f.call(that, param);
+					if(f)
+						f.call(that, param);
 
 					that.clearActionData();
 					that._updateValue();
 				}
 			};
 
+			cm.options = [];
+
+			cm.options.push({label: '',  icon: 'icons:cancel', info: '', value : target, action : imageAction(null)});
+
+			if(target.matchesSelector(menuGroups.resizeable) || (target.proxyTarget && target.proxyTarget.matchesSelector(menuGroups.resizeable)))
+				cm.options.push({label: 'Resize', icon: 'icons:size', info: '', value : target, action : this.resizeTarget.bind(this)});
+
 			cm.options.push({label: 'Remove media',  icon: 'icons:align', info: '', value : target, action : imageAction(this.deleteTarget.bind(this))});
 
 			flowTarget = target;
 
-			if(target.is || target.matchesSelector(menuGroups.floatable) || target.proxyTarget.matchesSelector(menuGroups.floatable))
+			// target.is || target.matchesSelector(menuGroups.floatable) || (target.proxyTarget && target.proxyTarget.matchesSelector(menuGroups.floatable))
+			// can only float:
+			if((target.is == 'ir-gallery' && Polymer.dom(target).querySelectorAll('img').length == 1) ||    // single-image gallery for now 
+				(target.proxyTarget && target.proxyTarget.matchesSelector(menuGroups.floatable)) ||		    // proxied elements (iframes)
+				(target.matchesSelector(menuGroups.floatable)))												// explicitly floatable elements
 			{
 				if(captionWrapper = mediaEditor.captionWrapperGet(target))
 					flowTarget = captionWrapper;
@@ -359,14 +367,18 @@
 					{ label: 'Right', value : { target : flowTarget, value : "float-right" }, action : imageAction(mediaEditor.setFloat.bind(mediaEditor)) }
 				];
 
-				cm.options.push({label: 'Float', icon: 'icons:align', info: '', options: floatOptions});
-				if(captionWrapper)
-					cm.options.push({label: 'Remove caption', icon: 'icons:align', value : target, action : imageAction(mediaEditor.captionRemove.bind(mediaEditor))});
-				else
-					cm.options.push({label: 'Add caption', icon: 'icons:align', info: '', value : target, action : imageAction(mediaEditor.captionSet.bind(mediaEditor))});
-				cm.options.push({label: 'More...',  icon: 'icons:align', info: '', value : target, action : imageAction(mediaEditor.open.bind(mediaEditor))});
+				if(target.matchesSelector('img,.caption-wrapper'))
+				{
+					cm.options.push({label: 'Float', icon: 'icons:align', info: '', options: floatOptions});
+					if(captionWrapper)
+						cm.options.push({label: 'Remove caption', icon: 'icons:align', value : target, action : imageAction(mediaEditor.captionRemove.bind(mediaEditor))});
+					else
+						cm.options.push({label: 'Add caption', icon: 'icons:align', info: '', value : target, action : imageAction(mediaEditor.captionSet.bind(mediaEditor))});
+					
+					cm.options.push({label: 'More...',  icon: 'icons:align', info: '', value : target, action : imageAction(mediaEditor.open.bind(mediaEditor))});
+				}
 			}
-
+			
 			cm._openGroup(ev);
 		},
 
