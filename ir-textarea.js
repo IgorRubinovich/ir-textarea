@@ -249,6 +249,8 @@
 
 			that.domProxyManager.createProxies()
 			this.$.editor.innerHTML = this.getCleanValue();
+			
+			Object.keys(this.promptProcessors).forEach(function(pp) { pp.addEventListener('iron-overlay-closed', this.selectionRestore); }.bind(this));
 
 			this._updateValue();
 		},
@@ -1085,6 +1087,8 @@
 				if(this.isCommandPossible(cmd, sdu, val))
 					document.execCommand(cmd, sdu, val);
 			}
+			
+			// this.selectionRestore();
 			/*
 				if(cmd == 'cut' || cmd == 'copy'){
 					this.text = this.getSelectionHtml();
@@ -1680,7 +1684,8 @@
 			},
 			
 			textValue : {
-				type : String
+				type : String,
+				value : ''
 			},
 			
 			toolbarfix : {

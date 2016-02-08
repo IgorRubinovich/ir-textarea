@@ -22,8 +22,8 @@ Works with arrays of (node fs.Stats)[https://nodejs.org/api/fs.html#fs_class_fs_
         <paper-dialog on-dom-changed="refitDialog" id="dialog"> <!--  on-iron-overlay-closed="closed" -->
             <paper-dialog-scrollable id="scrollableDialog">
                 <div id="tableData">
-                    Cells: <input is="iron-input" on-input="createTable2" id="Cells" value="1" >
-                    Rows: <input is="iron-input"  on-input="createTable2" id="Rows" value="1" >
+                    Rows: <input is="iron-input"  on-input="createTable2" id="Rows" value="" >
+                    Columns: <input is="iron-input" on-input="createTable2" id="Columns" value="" >
                 </div>
             </paper-dialog-scrollable>
             <div class="buttons">
@@ -47,16 +47,16 @@ Works with arrays of (node fs.Stats)[https://nodejs.org/api/fs.html#fs_class_fs_
                     }
                 },
 
-                populateTable : function (table, rows, cells, content) {
+                populateTable : function (table, rows, Columns, content) {
                     var wrapper = document.createElement('div');
                     wrapper.className='table-wraper';
                     if (!table) table = document.createElement('table');
 
                     for (var i = 0; i < rows; ++i) {
                         var row = document.createElement('tr');
-                        for (var j = 0; j < cells; ++j) {
+                        for (var j = 0; j < Columns; ++j) {
                             row.appendChild(document.createElement('td'));
-                            row.cells[j].appendChild(document.createTextNode(content + (j + 1)));
+                            row.Columns[j].appendChild(document.createTextNode(content + (j + 1)));
                         }
                         table.appendChild(row);
                     }
@@ -66,9 +66,9 @@ Works with arrays of (node fs.Stats)[https://nodejs.org/api/fs.html#fs_class_fs_
                 },
 
                 createTable2: function(e){
-                    var cells = this.$.Cells.value;
+                    var Columns = this.$.Columns.value;
                     var rows = this.$.Rows.value;
-                    var table = this.populateTable(null, rows, cells, "Text");
+                    var table = this.populateTable(null, rows, Columns, "Text");
                     table = table.outerHTML;
                     console.log('table created');
                     this.set("_tableState", false);
@@ -85,8 +85,19 @@ Works with arrays of (node fs.Stats)[https://nodejs.org/api/fs.html#fs_class_fs_
                 },
 
                 open : function(ev) {
-
                     this.$.dialog.open();
+					
+					setTimeout(function() { 
+						var r, sel = window.getSelection();
+						
+						r = sel.getRangeAt(0).cloneRange();
+						sel.removeAllRanges();
+						r.startContainer = r.endContainer = this.$.Rows;
+						r.startOffset = this.$.Rows.value.length - 1;
+						sel.removeAllRanges();
+						sel.addRange(r);
+						this.$.Rows.focus();
+					}.bind(this), 250);
                 },
 
                 prompt : function(callback) {
@@ -95,7 +106,9 @@ Works with arrays of (node fs.Stats)[https://nodejs.org/api/fs.html#fs_class_fs_
                 },
 
                 promptSelect : function() {
-                    console.log('prompt selected!')
+					if(!this.$.Columns || !this.$.Rows)
+						return alert('Please enter positive numbers for both number of rows and columns.');
+					
                     this.hideDialog();
                     this.promptCallback(this.value);
                 },

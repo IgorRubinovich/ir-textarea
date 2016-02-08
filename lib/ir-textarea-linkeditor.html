@@ -38,7 +38,7 @@ Example:
 
             <paper-dialog-scrollable id="scrollableDialog">
                 <div id="linkData" class="layout vertical">
-                    Link: <input is="iron-input" on-change="createLink" id="Href" value={{_linkState.url}} >
+                    Link: <input is="iron-input" on-change="createLink" id="Href" placeholder="http://www.example.com" value={{_linkState.url}} >
                     <div hidden$="{{_linkState.img}}">
                         Text: <textarea is="iron-input" on-change="createLink" value={{_linkState.text}} id="TextValue"></textarea>
                     </div>
@@ -173,13 +173,13 @@ Example:
                     }
                     var parent = range.startContainer.parentNode;
 
-                    var href = current.href || parent.href || 'http://example.com';
+                    var href = current.href || parent.href || '';
                     var selectedText;
                     if (current.href || parent.href){
                         selectedText = range.startContainer.textContent.trim();
                     }
                     else{
-                        selectedText = range.toString() || 'Change me';
+                        selectedText = range.toString() || '';
                     }
                     console.log(selectedText);
 
@@ -198,7 +198,18 @@ Example:
                     this.parent1 = parent;
                     this.pic1 = pic;
                     this.isItCaption = isItCaption;
-
+					
+					setTimeout(function() { 
+						var r, sel = window.getSelection();
+						
+						r = sel.getRangeAt(0).cloneRange();
+						sel.removeAllRanges();
+						r.startContainer = r.endContainer = this.$.Href;
+						r.startOffset = this.$.Href.value.length - 1;
+						sel.removeAllRanges();
+						sel.addRange(r);
+						this.$.Href.focus();
+					}.bind(this), 250);
                 },
 
                 prompt : function(callback) {
@@ -216,6 +227,12 @@ Example:
 
 
                 promptSelect : function() {
+					if(!this.$.Href.value)
+						return alert('Please enter a link in the Link box');
+
+					if(!this.$.TextValue.value)
+						return alert('Please enter some text in the Texts box');
+						
                     this.createLink();
                     this.hideDialog();
                     this.removeAll();
