@@ -1528,7 +1528,7 @@
 			// this is too much work to execute on every event
 			// so we schedule it once per 400ms as long as there are actions happening
 			this._updateValueTimeout = setTimeout(function() {
-				var val, sameContent;
+				var val, sameContent, d;
 				var bottomPadding, topPadding, that = this, editor = this.$.editor;
 
 				if(this.__actionData.target)
@@ -1551,6 +1551,9 @@
 
 
 				this.value = val;
+
+				this.innerText = this.$.editor.innerText;
+				
 				
 				this.$.editor.style.minHeight = this.$.editor.scrollHeight;
 
@@ -1676,6 +1679,11 @@
 				type : String,
 				notify : true
 			},
+			
+			innerText : {
+				type : String
+			},
+			
 			toolbarfix : {
 				type: String,
 				value: 'nofix',
