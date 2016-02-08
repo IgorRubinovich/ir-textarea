@@ -1549,11 +1549,10 @@
 				if(!force && sameContent)
 					return;
 
-
 				this.value = val;
 
-				this.innerText = this.$.editor.innerText;
-				
+				this.textValue = this.$.editor.innerText;
+				this.fire('change');
 				
 				this.$.editor.style.minHeight = this.$.editor.scrollHeight;
 
@@ -1680,7 +1679,7 @@
 				notify : true
 			},
 			
-			innerText : {
+			textValue : {
 				type : String
 			},
 			
