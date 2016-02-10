@@ -233,6 +233,8 @@
 		},
 
 		attached: function(){
+			var initval;
+			
 			this.insertPlugins();
 			setTimeout(function() { this._updateValue(); }.bind(this), 300);
 
@@ -286,6 +288,11 @@
 
 				el._hasOverlayClosedListener = true;
 			}.bind(this));
+			
+			initval = Polymer.this.querySelector('span.paragraph');
+			
+			if(!this.$.editor.querySelector('span.paragraph'))
+				this.$.editor.innerHTML = '<span class="paragraph">' + this.$.editor.innerHTML + '</span>';
 
 			this._updateValue();
 		},
