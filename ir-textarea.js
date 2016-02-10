@@ -1353,10 +1353,10 @@
 					sc = range.startContainer, 
 					ec = range.endContainer;
 				}
-					
+
 				if(!range || !this.isOrIsAncestorOf(this.$.editor, sc) || !this.isOrIsAncestorOf(this.$.editor, ec)) {
-					if(opts.originalEvent.type == 'mousedown')
-						caretPositionFromPoint(opts.originalEvent.clientX, opts.originalEvent.clientY);
+					if(opts.originalEvent.type == 'mouseup' || opts.originalEvent.type == 'mousedown')
+						r = caretPositionFromPoint(opts.originalEvent.clientX, opts.originalEvent.clientY);
 					else
 						this.selectionRestore();
 					return true;
