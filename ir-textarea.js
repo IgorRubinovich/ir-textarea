@@ -934,7 +934,7 @@
 
 		pasteHtmlWithParagraphs : function (html, opts)
 		{
-			var localRoot, done, first, last, pos, paragraph, div, target, lastPos, t, ln;
+			var localRoot, done, first, last, pos, paragraph, div, target, lastPos, t, ln, isNewParagraph;
 			
 			div = document.createElement('div');
 			div.innerHTML = html;
@@ -970,15 +970,26 @@
 			pos = getChildPositionInParent(last);
 			first = localRoot.childNodes[pos-1];
 			
+			isNewParagraph = (div.firstChild && div.firstChild.innerHTML && div.firstChild.innerHTML == '<br>');
+			if(isNewParagraph)
+			{
+				div = last.parentNode.insertBefore(div.firstChild, last);
+				if(!last.innerHTML)
+					last.parentNode.removeChild(last);
+				setCaretAt(div, 0);
+				return;
+			}
+			
 			if(first && !first.innerHTML) 
 				first.innerHTML = "<br>";
 			
-			if(last.firstChild.nodeType == 3 && last.firstChild == "<br>")
+			if(last.firstChild && last.firstChild.nodeType == 3 && last.firstChild == "<br>")
 				last.removeChild(last.firstChild);
 			
 			//if(!last.textContent)
 			//	setCaretAt(last, 0);
 			//else
+							
 			lastPos = getLastCaretPosition(last);
 			if(lastPos.container.nodeType == 3 && lastPos.offset == 0)
 			{
@@ -989,10 +1000,10 @@
 				lastPos.offset = getChildPositionInParent(t);
 			}
 
-			if(!div.textContent)
+			if(!div.textContent && !isNewParagraph)
 				setCaretAt(lastPos.container, lastPos.offset);
  
-			if(div.textContent) // || last == r.startContainer || r.startContainer.textContent)
+			if(div.textContent || isNewParagraph) // || last == r.startContainer || r.startContainer.textContent)
 			{
 				r = this.pasteHtmlAtCaret(html, opts.removeFormat);
 				target = prevNodeDeep(nextNode(r.startContainer.childNodes[r.startOffset]), this.$.editor);
