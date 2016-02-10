@@ -18,10 +18,9 @@
 				that.selectionSave();
 
 				var el, toDelete, keyCode = ev.keyCode || ev.which, t, forcedelete, r, done, localRoot, last, n, pos;
-
-				r = that.selectionRestore();
 				
 				if (ev.type == 'keydown' && ev.keyCode == 13) { 	// line break
+					r = that.selectionRestore();
 					if(ev.shiftKey || getTopCustomElementAncestor(r.startContainer, that.$.editor) || getTopCustomElementAncestor(r.endContainer, that.$.editor))
 					{
 						r = getSelectionRange();
@@ -51,7 +50,7 @@
 							setCaretAt(r.startContainer, r.startOffset - 1);
 					}
 					else											// new paragraph
-						that.pasteHTMLWithParagraphs('<span class="paragraph"><br></span>', true);
+						that.pasteHtmlWithParagraphs('<span class="paragraph"><br></span>', true);
 
 					that.ensureCursorLocationIsValid({reverseDirection : true});
 
@@ -146,7 +145,7 @@
 			this.$.editor.addEventListener('click', this.contextMenuShow.bind(this), true); // capturing phase
 
 			var pasteHandler = function(e) {
-				var v;
+				var v, d, withParagraphs;
 				if(typeof clipboardData != 'undefined')
 					v = clipboardData.getData();
 				else
@@ -163,14 +162,44 @@
 					if(v)
 						v = v.replace(/\<\/?o\:[^>]*\>/g, '')
 							 .replace(/<p([\s\S]*?(?=<\/p>))<\/p>/gi, '<span class="paragraph" $1</span>')
+							 
+					d = document.createElement('div');
+					d.innerHTML = v;
+
+					[].forEach.call(d.childNodes, function(n) { 
+																var nn; 
+																if(n.nodeType == 3) 
+																{
+																	nn = document.createElement('span'); 
+																	nn.innerHTML = n.textContent;
+																	d.insertBefore(nn, n);
+																	d.removeChild(n);
+																	n = nn;
+																}
+																else
+																	n.removeAttribute('style');																		
+
+																if(n.tagName == 'SPAN')
+																	n.classList.add('paragraph');
+															});
+					
+					if(d.childNodes.length > 1)
+						withParagraphs = v = d.innerHTML;
+					else
+						v = d.childNodes[0].innerHTML;					
 				}
+
+				if(withParagraphs)
+					that.pasteHtmlWithParagraphs(v, { removeFormat : false });
+				else
+					that.pasteHtmlAtCaret(v);
 				
-				that.pasteHTMLWithParagraphs(v, { removeFormat : false });
 				e.preventDefault();
 				return false;
 			};
-
+			
 			that.$.editor.addEventListener('paste', pasteHandler);
+			that.$.editor.addEventListener('copy', pasteHandler);
 
 			var defs = {};
 			window.ir.textarea.commands
@@ -250,7 +279,13 @@
 			that.domProxyManager.createProxies()
 			this.$.editor.innerHTML = this.getCleanValue();
 			
-			Object.keys(this.promptProcessors).forEach(function(pp) { pp.addEventListener('iron-overlay-closed', this.selectionRestore); }.bind(this));
+			Object.keys(this.promptProcessors).forEach(function(pp) { 
+				var el = document.getElementById(this.promptProcessors[pp]);
+				if(!el._hasOverlayClosedListener)
+					el.addEventListener('iron-overlay-closed', function() { this.selectionRestore }.bind(this)); 
+
+				el._hasOverlayClosedListener = true;
+			}.bind(this));
 
 			this._updateValue();
 		},
@@ -897,12 +932,18 @@
 			return r.startOffset;
 		},
 
-		pasteHTMLWithParagraphs : function (html, opts)
+		pasteHtmlWithParagraphs : function (html, opts)
 		{
-			var localRoot, done, first, last, pos, paragraph, div, target, lastPos, t;
+			var localRoot, done, first, last, pos, paragraph, div, target, lastPos, t, ln;
 			
 			div = document.createElement('div');
 			div.innerHTML = html;
+
+			if(div.lastChild.nodeType == 1 && div.lastChild.tagName == 'BR')
+				div.removeChild(div.lastChild);
+			
+			html = div.innerHTML;
+			
 			paragraph = div.querySelector('span.paragraph');
 			
 			if(!paragraph)
@@ -932,6 +973,9 @@
 			if(first && !first.innerHTML) 
 				first.innerHTML = "<br>";
 			
+			if(last.firstChild.nodeType == 3 && last.firstChild == "<br>")
+				last.removeChild(last.firstChild);
+			
 			//if(!last.textContent)
 			//	setCaretAt(last, 0);
 			//else
@@ -945,7 +989,8 @@
 				lastPos.offset = getChildPositionInParent(t);
 			}
 
-			setCaretAt(lastPos.container, lastPos.offset);
+			if(!div.textContent)
+				setCaretAt(lastPos.container, lastPos.offset);
  
 			if(div.textContent) // || last == r.startContainer || r.startContainer.textContent)
 			{
@@ -1299,7 +1344,10 @@
 				}
 					
 				if(!range || !this.isOrIsAncestorOf(this.$.editor, sc) || !this.isOrIsAncestorOf(this.$.editor, ec)) {
-					this.selectionRestore();
+					if(opts.originalEvent.type == 'mousedown')
+						caretPositionFromPoint(opts.originalEvent.clientX, opts.originalEvent.clientY);
+					else
+						this.selectionRestore();
 					return true;
 				}
 			},
@@ -2215,6 +2263,7 @@
 		var zwd;
 
 		zwd = document.createElement('span');
+		zwd.innerHTML = "<br>";
 		//zwd.innerHTML = "&#8203;";
 
 		return zwd;
@@ -2255,13 +2304,13 @@
 				ns.classList.add('paragraph');
 			}
 			else
-			if(ns.is)
+			if(ns.is || (ns.classList && ns.classList.contains('paragraph')))
 			{
 				ns.parentNode.insertBefore(t = newZeroWidthDummyNode(), ns);
 				ns = created = t;
 			}
 			
-			if(ns.firstChild && ns.firstChild.is)
+			if(ns.firstChild && (ns.firstChild.is || ns.proxyTarget))
 			{
 				ns.insertBefore(t = newZeroWidthDummyNode(), ns.firstChild);
 				ns = created = t;
