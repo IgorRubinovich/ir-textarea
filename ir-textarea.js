@@ -971,7 +971,7 @@
 			first = localRoot.childNodes[pos-1];
 			
 			isNewParagraph = (div.firstChild && div.firstChild.innerHTML && div.firstChild.innerHTML == '<br>');
-			if(isNewParagraph)
+			if(isNewParagraph && !(last.matchesSelector && last.matchesSelector('span.paragraph')))
 			{
 				div = last.parentNode.insertBefore(div.firstChild, last);
 				if(!last.innerHTML)
@@ -1003,7 +1003,7 @@
 			if(!div.textContent && !isNewParagraph)
 				setCaretAt(lastPos.container, lastPos.offset);
  
-			if(div.textContent || isNewParagraph) // || last == r.startContainer || r.startContainer.textContent)
+			if(div.textContent) // || last == r.startContainer || r.startContainer.textContent)
 			{
 				r = this.pasteHtmlAtCaret(html, opts.removeFormat);
 				target = prevNodeDeep(nextNode(r.startContainer.childNodes[r.startOffset]), this.$.editor);
