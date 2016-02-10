@@ -233,8 +233,6 @@
 		},
 
 		attached: function(){
-			var initval;
-			
 			this.insertPlugins();
 			setTimeout(function() { this._updateValue(); }.bind(this), 300);
 
@@ -284,12 +282,10 @@
 			Object.keys(this.promptProcessors).forEach(function(pp) { 
 				var el = document.getElementById(this.promptProcessors[pp]);
 				if(!el._hasOverlayClosedListener)
-					el.addEventListener('iron-overlay-closed', function() { this.selectionRestore }.bind(this)); 
+					el.addEventListener('iron-overlay-closed', function() { this.selectionRestore(); }.bind(this)); 
 
 				el._hasOverlayClosedListener = true;
 			}.bind(this));
-			
-			initval = Polymer.this.querySelector('span.paragraph');
 			
 			if(!this.$.editor.querySelector('span.paragraph'))
 				this.$.editor.innerHTML = '<span class="paragraph">' + this.$.editor.innerHTML + '</span>';
@@ -1055,10 +1051,14 @@
 					}
 					var firstNode = frag.firstChild;
 
-
-
+					if(range.startContainer.nodeType == 1 && 
+						(range.startOffset >= range.startContainer.childNodes.length) && 
+						range.startContainer.childNodes[range.startOffset-1].tagName == 'BR')
+						
+						range = setCaretAt(range.startContainer, range.startOffset-1)
+						
 					range.insertNode(frag);
-
+					
 					// Preserve the selection
 					if (lastNode) {
 						range = range.cloneRange();
@@ -1239,8 +1239,10 @@
 					that.selectionRestore();
 					
 					if(!isHtml)
-						ext = val.match("([^\.]+)$")[1];
-
+					{
+						ext = val.match("([^\.]+)$");
+						ext = ext ? ext[1] : "";
+					}
 					if(actualCmd =='insertImage' && ext && ext.match(/(mp4|ogg|webm|ogv)$/i)){
 						val = "<video controls ><source src='" + val + "' type='video/" + ext + "'></video>"
 						//document.execCommand("insertHTML", false, val);
