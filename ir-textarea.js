@@ -2310,7 +2310,7 @@
 				ns = created = t;
 			}
 			
-			if(ns.firstChild && (ns.firstChild.is || ns.proxyTarget))
+			if(ns.is || (ns.matchesSelector && ns.matchesSelector('.embed-aspect-ratio')) || (ns.firstChild && (ns.firstChild.is || (ns.firstChild.matchesSelector && ns.firstChild.matchesSelector('.embed-aspect-ratio')))))
 			{
 				ns.insertBefore(t = newZeroWidthDummyNode(), ns.firstChild);
 				ns = created = t;
