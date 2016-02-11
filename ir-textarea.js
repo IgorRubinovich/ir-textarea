@@ -1152,7 +1152,7 @@
           this.selectionSave();
           setTimeout(function(){
             that.selectionRestore();
-          }, 100);
+          }, 200);
 
 
 
