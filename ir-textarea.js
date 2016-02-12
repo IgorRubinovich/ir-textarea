@@ -11,44 +11,46 @@
         commands = this.commands.split(/,/),
         newButton, cmdDef, icon, ev, handler, altTarget, moveOccured;
 
-      this.skipNodes = [];
-      this.__actionData = {};
+		this.skipNodes = [];
+		this.__actionData = {};
 
-      handler = function(ev) {
-        that.selectionSave();
+		handler = function(ev) {
+				that.selectionSave();
 
-        var el, toDelete, keyCode = ev.keyCode || ev.which, t, forcedelete, r, done, localRoot, last, n, pos;
+				var el, toDelete, keyCode = ev.keyCode || ev.which, t, forcedelete, r, done, localRoot, last, n, pos, firstRange;
 
-        if (ev.type == 'keydown' && ev.keyCode == 13) { 	// line break
-          r = that.selectionRestore();
-          if(ev.shiftKey || getTopCustomElementAncestor(r.startContainer, that.$.editor) || getTopCustomElementAncestor(r.endContainer, that.$.editor))
-          {
-            r = getSelectionRange();
-            if(r.startContainer.nodeType == 3 && !r.startContainer.textContent.charAt(r.startOffset) && nextNode(r.startContainer).tagName != "BR")
+				if (ev.type == 'keydown' && ev.keyCode == 13) { 	// line break
+					r = that.selectionRestore();
+					if(ev.shiftKey || getTopCustomElementAncestor(r.startContainer, that.$.editor) || getTopCustomElementAncestor(r.endContainer, that.$.editor))
+					{
+							r = getSelectionRange();
+							if(r.startContainer.nodeType == 3 && (r.startContainer.length - 1 <= r.startOffset && r.startContainer.textContent.charAt(r.startOffset).match(/^ ?$/) && nextNode(r.startContainer).tagName != "BR"))
+								firstRange = that.pasteHtmlAtCaret('<br>', false, true);
+
+								
 							that.pasteHtmlAtCaret('<br>', false, true);
 
-							
-						that.pasteHtmlAtCaret('<br>', false, true);
+							//if(r.startContainer.nodeType == 3 && r.startContainer.length == r.startOffset)
+							//	that.pasteHtmlAtCaret('<br>', false);
+							r = getSelectionRange();
+							pos = r.startOffset;
 
-            //if(r.startContainer.nodeType == 3 && r.startContainer.length == r.startOffset)
-            //	that.pasteHtmlAtCaret('<br>', false);
-            r = getSelectionRange();
-            pos = r.startOffset;
+							if(firstRange && isSpecialElement(nextNode(r.startContainer)))
+								setCaretAt(firstRange.startContainer, 0);
+							else
+							if(!r.startContainer.childNodes.length)
+							{
+							  n = r.startContainer.parentNode;
+							  pos = getChildPositionInParent(n);
+							}
+							else
+							{
+							  while(pos >= r.startContainer.childNodes.length) pos--;
+							  n = r.startContainer;
+							}
 
-
-            if(!r.startContainer.childNodes)
-            {
-              n = r.startContainer.parentNode;
-              pos = getChildPositionInParent(n);
-            }
-            else
-            {
-              while(pos >= r.startContainer.childNodes.length) pos--;
-              n = r.startContainer;
-            }
-
-						if(n = nextNode(r.startContainer.childNodes[pos]) && n.is)
-							setCaretAt(r.startContainer, r.startOffset - 1);
+							if(n = nextNode(r.startContainer.childNodes[pos]) && n.is)
+									setCaretAt(r.startContainer, r.startOffset - 1);
 					}
 					else											// new paragraph
 						that.pasteHtmlWithParagraphs('<span class="paragraph"><br></span>', true);
@@ -164,6 +166,7 @@
 					if(v)
 						v = v.replace(/\<\/?o\:[^>]*\>/g, '')
 							 .replace(/<p([\s\S]*?(?=<\/p>))<\/p>/gi, '<span class="paragraph" $1</span>')
+							 .replace(/\n/g, '');
 							 
 					d = document.createElement('div');
 					d.innerHTML = v;
@@ -941,6 +944,8 @@
     {
 			var localRoot, done, first, last, pos, paragraph, div, target, lastPos, t, ln, isNewParagraph, forceNewParagraph, beInNewParagraph;
 			
+			this.frameContent();
+			
 			div = document.createElement('div');
 			div.innerHTML = html;
 
@@ -986,9 +991,10 @@
 				setCaretAt(first, getChildPositionInParent(first.lastChild))
 			}
 			
-			isNewParagraph = (div.firstChild.matchesSelector && div.firstChild.matchesSelector('span.paragraph') && div.childNodes.length == 1 && div.firstChild.childNodes.length == 1 && div.firstChild.firstChild.tagName == 'BR');
-			beInNewParagraph = last && isSpecialElement(last) || (last.firstChild && isSpecialElement(last.firstChild)) || (last.nextSibling && isSpecialElement(last.nextSibling) || (last.nextSibling.firstChild && isSpecialElement(last.nextSibling.firstChild)));
+			isNewParagraph = isEmptyParagraph(div.firstChild) && div.childNodes.length == 1;
+			beInNewParagraph = last && isSpecialElement(last) || (last.firstChild && isSpecialElement(last.firstChild)) || (last.nextSibling && (isSpecialElement(last.nextSibling) || (last.nextSibling.firstChild && isSpecialElement(last.nextSibling.firstChild))));
 			forceNewParagraph = (!first || !first.textContent || beInNewParagraph);
+			
 			if(isNewParagraph && forceNewParagraph)
 			{
 				if(!last.childNodes.length && last.matchesSelector && last.matchesSelector('span.paragraph'))
@@ -1040,13 +1046,14 @@
 			{
 				r = this.pasteHtmlAtCaret(html, opts.removeFormat);
 				target = prevNodeDeep(nextNode(r.startContainer.childNodes[r.startOffset]), this.$.editor);
+				if(!target) target = nextNode(r.startContainer.childNodes[r.startOffset])
 				
 				if(target)
 				{
-					//if(target.nodeType == 1)
-					//	setCaretAt(target, target.childNodes.length);
-					//else
-					//	setCaretAt(target, target.length);
+					if(target.nodeType == 1)
+						setCaretAt(target, 0); //target.childNodes.length);
+					else
+						setCaretAt(target, 0);
 				}
 			}
 			else
@@ -1058,80 +1065,9 @@
 			//}
 			//if(!localRoot.childNodes[pos].innerHTML) localRoot.childNodes[pos].innerHTML = '<br>';
 		},		
-
-		pasteHtmlAtCaret : function(html, removeFormat, keepLastBr) {
-			var sel, range, endNode, newRange, node, lastNode, preLastNode, el, frag, pos;
-
-			if (window.getSelection) {
-				// IE9 and non-IE
-				sel = window.getSelection();
-				if (sel.getRangeAt && sel.rangeCount) {
-					range = sel.getRangeAt(0);
-					range.deleteContents();
-
-					// Range.createContextualFragment() would be useful here but is
-					// only relatively recently standardized and is not supported in
-					// some browsers (IE9, for one)
-					el = document.createElement("div");
-					el.innerHTML = html;
-					frag = document.createDocumentFragment();
-
-					while ( (node = el.firstChild) ) {
-						preLastNode = lastNode;
-						lastNode = frag.appendChild(node);
-						if(removeFormat)
-							this.removeFormat(lastNode);
-					}
-					var firstNode = frag.firstChild;
-
-					if(range.startContainer.nodeType == 1 && 
-						(range.startOffset >= range.startContainer.childNodes.length) && 
-						range.startContainer.childNodes[range.startOffset-1] && 
-						range.startContainer.childNodes[range.startOffset-1].tagName == 'BR')
-						
-						range = setCaretAt(range.startContainer, range.startOffset-1)
-						
-					range.insertNode(frag);
-					
-					// Preserve the selection
-					if (lastNode) {
-						if(lastNode.nextSibling && lastNode.nextSibling.textContent == '' && !keepLastBr)
-							lastNode.parentNode.removeChild(lastNode.nextSibling);
-						if(lastNode.nextSibling && lastNode.nextSibling.tagName == 'BR' && !keepLastBr)
-							lastNode.parentNode.removeChild(lastNode.nextSibling);
-						
-						return setCaretAt(nextNode(lastNode, true), 0);
-						
-						range = range.cloneRange();
-												
-						range.setStartAfter(lastNode);
-						range.collapse(true);
-						sel.removeAllRanges();
-						sel.addRange(range);
-					}
-				}
-			} else if ( (sel = document.selection) && sel.type != "Control") {
-				// IE < 9
-				document.selection.createRange().pasteHTML(html);
-				/*
-				var originalRange = sel.createRange();
-				originalRange.collapse(true);
-				sel.createRange().pasteHTML(html);
-				if (selectPastedContent) {
-					range = sel.createRange();
-					range.setEndPoint("StartToStart", originalRange);
-					range.select();
-				}
-				*/
-			}
-
-			this._updateValue();
-			
-			return range;
-		},
 		
 		pasteHtmlAtCaret : function(html, removeFormat, keepLastBr) {
-			var sel, range, endNode, newRange, node, lastNode, preLastNode, el, frag, pos;
+			var sel, range, endNode, newRange, node, lastNode, preLastNode, el, frag, pos, isLastInEditor, target;
 
 			if (window.getSelection) {
 				// IE9 and non-IE
@@ -1171,7 +1107,16 @@
 						if(lastNode.nextSibling && lastNode.nextSibling.tagName == 'BR' && !keepLastBr)
 							lastNode.parentNode.removeChild(lastNode.nextSibling);
 						
-						return setCaretAt(nextNode(lastNode, true), 0);
+						t = lastNode;
+						while(t.parentNode && t.parentNode != this.$.editor)
+							t = t.parentNode;
+
+						if(t.parentNode == this.$.editor && !t.nextSibling)
+							lastNode.parentNode.appendChild(target = newEmptyParagraph());
+						else
+							target = nextNode(lastNode, true);
+						
+						return setCaretAt(target, 0);
 						
 						range = range.cloneRange();
 												
@@ -1680,30 +1625,30 @@
 
 		// wraps content in <p><br></p>[content]<p><br></p>
 		frameContent : function() {
-			var ed = this.$.editor, nn, i, d,
+			var ed = this.$.editor, nn, i, d;
 
 				// is a <span><br></span>
-				isFramingEl = function(d) { return 	d.tagName &&
+				/*isFramingEl = function(d) { return 	d.tagName &&
 													d.tagName == 'SPAN' &&
 													d.childNodes.length == 1 &&
 													d.childNodes[0].tagName &&
-													d.childNodes[0].tagName == 'BR'; },
+													d.childNodes[0].tagName == 'BR'; },*/
 				// a new <p><br></p>
-				newFramingEl = function() { var el; el = document.createElement('span'); el.appendChild(document.createElement('br')); el.classList.add("paragraph"); return el };
+				
 
 			if(!ed.childNodes.length)
-				return ed.appendChild(newFramingEl());
+				return ed.appendChild(newEmptyParagraph());
 
-			if(!isFramingEl(ed.childNodes[0]))
+			if(!isEmptyParagraph(ed.childNodes[0]))
 			{
 				if(ed.childNodes[0] && ed.childNodes[0].matchesSelector && ed.childNodes[0].matchesSelector('span.paragraph') && !ed.childNodes[0].innerHTML)
 					ed.childNodes[0].innerHTML = '<br>'
 				else
-					ed.insertBefore(newFramingEl(), ed.childNodes[0]);
+					ed.insertBefore(newEmptyParagraph(), ed.childNodes[0]);
 			}
 
-			if(ed.childNodes.length > 1 && !isFramingEl(ed.childNodes[ed.childNodes.length - 1]))
-				ed.appendChild(newFramingEl());
+			if(ed.childNodes.length == 1 || !isEmptyParagraph(ed.childNodes[ed.childNodes.length - 1]))
+				ed.appendChild(newEmptyParagraph());
 		},
 
 		_updateValue : function(force) {
@@ -2422,7 +2367,7 @@
 		var ns, targetNode, so, sp, created,
 			sel = window.getSelection(),
 			range = document.createRange(),
-			t;
+			t, isLast;
 			//sel = window.getSelection(),
 			//range = document.createRange(),
 
@@ -2441,13 +2386,18 @@
 			ns = nextNode(slc, true);
 			while(ns && (ns == slc || (ns.parentNode == slc || !isInLightDom(ns, top) || !(canHaveChildren(ns) || ns.nodeType == 3)))) // || !canHaveChildren(ns) 
 					ns = nextNode(ns);
-  
-			if(!ns)
-				throw new Error("couldn't find a good place to set the cursor")
-			if(ns == top)
+
+			if(ns == top || (isLast = (!ns && slc.parentNode == top)))
 			{
-				slc.parentNode.insertBefore(ns = created = document.createElement('span'), ns);
+				created = document.createElement('span');
+				if(isLast)
+					slc.parentNode.appendChild(created);
+				else
+					slc.parentNode.insertBefore(created, ns);
+				
+				ns = created;
 				ns.classList.add('paragraph');
+				ns.innerHTML = "<br>"
 			}
 			else
 			if(ns.is || (ns.classList && ns.classList.contains('paragraph')))
@@ -2455,7 +2405,8 @@
 				ns.parentNode.insertBefore(t = newZeroWidthDummyNode(), ns);
 				ns = created = t;
 			}
-			
+			if(!ns)
+				throw new Error("couldn't find a good place to set the cursor")		
 			if(ns.is || (ns.matchesSelector && ns.matchesSelector('.embed-aspect-ratio')) || (ns.firstChild && (ns.firstChild.is || (ns.firstChild.matchesSelector && ns.firstChild.matchesSelector('.embed-aspect-ratio')))))
 			{
 				ns.insertBefore(t = newZeroWidthDummyNode(), ns.firstChild);
@@ -2677,6 +2628,10 @@
 	function isSpecialElement(el) {
 		return el && (el.is || (el.matchesSelector && el.matchesSelector('.embed-aspect-ratio')));
 	}
-
 	
+	function isEmptyParagraph(el) {
+		return el.matchesSelector && el.matchesSelector('span.paragraph') && el.firstChild && el.firstChild.tagName == 'BR';
+	}
+
+	function newEmptyParagraph() { var el; el = document.createElement('span'); el.appendChild(document.createElement('br')); el.classList.add("paragraph"); return el };	
 })();
