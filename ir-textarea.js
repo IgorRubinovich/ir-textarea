@@ -149,7 +149,7 @@
 			this.$.editor.addEventListener('click', this.contextMenuShow.bind(this), true); // capturing phase
 
 			var pasteHandler = function(e) {
-				var v, d, withParagraphs;
+				var v, d, withParagraphs, i, n, nn;
 				if(typeof clipboardData != 'undefined')
 					v = clipboardData.getData();
 				else
@@ -166,36 +166,46 @@
 					if(v)
 						v = v.replace(/\<\/?o\:[^>]*\>/g, '')
 							 .replace(/<p([\s\S]*?(?=<\/p>))<\/p>/gi, '<span class="paragraph" $1</span>')
-							 .replace(/\n/g, '');
-							 
+							 .replace(/\n/g, '')
+							 .replace(/<span[^>]*>\s*<\/span>/g, '');
+					
 					d = document.createElement('div');
 					d.innerHTML = v;
 
-					[].forEach.call(d.childNodes, function(n) { 
-																var nn; 
-																if(n.nodeType == 3) 
-																{
-																	nn = document.createElement('span'); 
-																	nn.innerHTML = n.textContent;
-																	d.insertBefore(nn, n);
-																	d.removeChild(n);
-																	n = nn;
-																}
-																else
-																	n.removeAttribute('style');																		
+					i = 0; 
+					while(i < d.childNodes.length)
+					{
+						n = d.childNodes[i];
 
-																if(n.tagName == 'SPAN')
-																	n.classList.add('paragraph');
-															});
+						if(n.nodeType == 3 && /^\s*(&nbsp;)*\s*$/.test(n.textContent))
+							n.parentNode.removeChild(n);
+						else
+						{
+							if(n.nodeType == 3) 
+							{
+								nn = document.createElement('span'); 
+								nn.innerHTML = n.textContent;
+								d.insertBefore(nn, n);
+								d.removeChild(n);
+								n = nn;
+							}
+							else
+								n.removeAttribute('style');																		
+
+							if(n.tagName == 'SPAN')
+								n.classList.add('paragraph');
+							
+							i++;
+						}
+					}
 					
-					if(d.childNodes.length > 1)
+					that.pasteHtmlWithParagraphs(d.innerHTML, { removeFormat : false });
+					
+					/*if(d.childNodes.length > 1)
 						withParagraphs = v = d.innerHTML;
 					else
-						v = d.childNodes[0].innerHTML;					
+						v = d.childNodes[0].innerHTML;*/
 				}
-
-				if(withParagraphs)
-					that.pasteHtmlWithParagraphs(v, { removeFormat : false });
 				else
 					that.pasteHtmlAtCaret(v);
 				
@@ -992,7 +1002,7 @@
 			}
 			
 			isNewParagraph = isEmptyParagraph(div.firstChild) && div.childNodes.length == 1;
-			beInNewParagraph = last && isSpecialElement(last) || (last.firstChild && isSpecialElement(last.firstChild)) || (last.nextSibling && (isSpecialElement(last.nextSibling) || (last.nextSibling.firstChild && isSpecialElement(last.nextSibling.firstChild))));
+			beInNewParagraph = !last.innerHTML || (last && isSpecialElement(last) || (last.firstChild && isSpecialElement(last.firstChild)) || (last.nextSibling && (isSpecialElement(last.nextSibling) || (last.nextSibling.firstChild && isSpecialElement(last.nextSibling.firstChild)))));
 			forceNewParagraph = (!first || !first.textContent || beInNewParagraph);
 			
 			if(isNewParagraph && forceNewParagraph)
@@ -2399,17 +2409,11 @@
 				ns.classList.add('paragraph');
 				ns.innerHTML = "<br>"
 			}
-			else
-			if(ns.is || (ns.classList && ns.classList.contains('paragraph')))
-			{
-				ns.parentNode.insertBefore(t = newZeroWidthDummyNode(), ns);
-				ns = created = t;
-			}
 			if(!ns)
 				throw new Error("couldn't find a good place to set the cursor")		
-			if(ns.is || (ns.matchesSelector && ns.matchesSelector('.embed-aspect-ratio')) || (ns.firstChild && (ns.firstChild.is || (ns.firstChild.matchesSelector && ns.firstChild.matchesSelector('.embed-aspect-ratio')))))
+			if(isSpecialElement(ns) || isSpecialElement(ns.firstChild))
 			{
-				ns.insertBefore(t = newZeroWidthDummyNode(), ns.firstChild);
+				ns.parentNode.insertBefore(t = newEmptyParagraph(), ns);
 				ns = created = t;
 			}
 			
