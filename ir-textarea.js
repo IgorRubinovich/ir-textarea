@@ -9,7 +9,7 @@
     ready : function() {
       var that = this,
         commands = this.commands.split(/,/),
-        newButton, cmdDef, icon, ev, handler, altTarget, moveOccured;
+        newButton, cmdDef, icon, ev, handler, altTarget, moveOccured, selectionTracker;
 
 		this.skipNodes = [];
 		this.__actionData = {};
@@ -17,7 +17,7 @@
 		handler = function(ev) {
 				that.selectionSave();
 
-				var el, toDelete, keyCode = ev.keyCode || ev.which, t, forcedelete, r, done, localRoot, last, n, pos, firstRange;
+				var el, toDelete, keyCode = ev.keyCode || ev.which, t, forcedelete, r, done, localRoot, last, n, nn, pos, firstRange;
 
 				if (ev.type == 'keydown' && ev.keyCode == 13) { 	// line break
 					r = that.selectionRestore();
@@ -79,10 +79,13 @@
 					else
 					if(ev.keyCode == 46 && (el = that.getElementAfterCaret({skip : 'br'}))) // del key
 					{
-						if(el && ((el.matchesSelector && el.matchesSelector('.embed-aspect-ratio')) || el.is))
+						nn = nextNode(el);
+						if((toDelete = isSpecialElement(el)) || (toDelete = isSpecialElement(el.firstChild)) || 
+							(el.firstChild && el.firstChild.nodeType == 3 && !el.firstChild.textContent && (toDelete = isSpecialElement(el.firstChild.nextSibling))) || 
+								(toDelete = isSpecialElement(nn)) || (toDelete = isSpecialElement(nn.firstChild)))
 						{
 							forcedelete = true;  //ev.preventDefault();
-							toDelete = el;
+							// toDelete = el;
 						}
 
 						while(!toDelete && el && el.nodeType == 1 && el.firstChild && el.firstChild.nodeType == 1)
@@ -134,11 +137,25 @@
 				that.selectionSave();
 			};
 
+			/*window.addEventListener("select", function() {
+				that.selectionSave(); console.log('selection saved')
+			});*/
+
 			"mousedown,mouseup,keydown,keyup,drop".split(',')
 				.forEach(function(evType)
 				{
 					that.$.editor.addEventListener(evType, handler);
 				});
+				
+			selectionTracker = function(ev) {
+					that.selectionSave();
+					window.removeEventListener('mouseup', selectionTracker);
+					console.log('saving selection on mouseup..., removing ', selectionTracker);
+				}
+
+			that.$.editor.addEventListener('mousedown', function(ev) {
+				window.addEventListener('mouseup', selectionTracker);
+			});
 
 			this.domProxyManager = ir.DomProxyManager.getProxyManager( // last argument maps selector->transformation for cases when target is not the dimensions source
 										':not(.embed-aspect-ratio)>iframe,.embed-aspect-ratio',
@@ -177,8 +194,8 @@
 					{
 						n = d.childNodes[i];
 
-						if(n.nodeType == 3 && /^\s*(&nbsp;)*\s*$/.test(n.textContent))
-							n.parentNode.removeChild(n);
+						if(((n.nodeType == 3 || (n.tagName == 'SPAN' && !n.childNodes.length)) && /^\s*(&nbsp;)*\s*$/.test(n.textContent)))
+							d.removeChild(n);
 						else
 						{
 							if(n.nodeType == 3) 
@@ -189,8 +206,6 @@
 								d.removeChild(n);
 								n = nn;
 							}
-							else
-								n.removeAttribute('style');																		
 
 							if(n.tagName == 'SPAN')
 								n.classList.add('paragraph');
@@ -198,6 +213,19 @@
 							i++;
 						}
 					}
+					
+					visitNodes(d, function(el) { 
+						if(el.nodeType == 1) el.removeAttribute('style') ;
+						/*
+							var d;
+							if(el.is) { // a postponed attempt to clean up custom elements
+							d = document.createElement('div');
+							d.appendChild(document.createElement('div'));
+							d.firstChild.outerHTML = recursiveOuterHTML(el);
+							el.parentNode.insertBefore(d.firstChild, el);
+							el.parentNode.removeChild(el);
+						}*/
+					}, { noRoot : true });
 					
 					that.pasteHtmlWithParagraphs(d.innerHTML, { removeFormat : false });
 					
@@ -241,6 +269,7 @@
 																		contentFrame : '<span class="paragraph"><br></span>[content]<span class="paragraph"><br></span>',
 																		timeout : false,
 																		onRestoreState : function(el) {
+																			this.selectionSave()
 																			this.ensureCursorLocationIsValid();
 																			//this.fire('scroll-into-view', el);
 																		}.bind(this)
@@ -942,7 +971,7 @@
         return null;
 
       if(r.startContainer.nodeType == 1)
-        return prevNodeDeep(r.startContainer.childNodes[r.startOffset], this.$.editor, opts);
+        return prevNodeDeep(r.startContainer.childNodes[r.startOffset] || r.startContainer, this.$.editor, opts);
       else
       if(!r.startOffset)
         return prevNodeDeep(r.startContainer, this.$.editor, opts);
@@ -950,11 +979,12 @@
       return r.startOffset;
     },
 
-    pasteHtmlWithParagraphs : function (html, opts)
+	pasteHtmlWithParagraphs : function (html, opts)
     {
-			var localRoot, done, first, last, pos, paragraph, div, target, lastPos, t, ln, isNewParagraph, forceNewParagraph, beInNewParagraph;
+			var localRoot, done, first, last, pos, paragraph, div, target, lastPos, t, ln, isNewParagraph, forceNewParagraph, beInNewParagraph,
+				hasContent = {}, lastInserted;
 			
-			this.frameContent();
+			// this.frameContent();
 			
 			div = document.createElement('div');
 			div.innerHTML = html;
@@ -964,16 +994,26 @@
 			
 			html = div.innerHTML;
 			
+			// check if there are any paragraphs
 			paragraph = div.querySelector('span.paragraph');
-			
+
+			// if not, fall back to regular paste
 			if(!paragraph)
 				return r = this.pasteHtmlAtCaret(html);
 			
+			// otherwise html contains paragraphs.
 			r = this.selectionRestore();
+
+			if(r.startContainer == this.$.editor && r.startOffset == 0)
+				r = this.pasteHtmlAtCaret(newEmptyParagraph());
+				
+						
+			// find local root to split around - a paragraph ancestor or editor root
 			localRoot = r.startContainer;
 			
 			while(localRoot && localRoot != this.$.editor && !done)
 			{
+				//if((localRoot.nodeType == 1 && !INLINE_ELEMENTS[localRoot.tagName]) || (localRoot.matchesSelector && localRoot.matchesSelector("span.paragraph")))
 				if((localRoot.nodeType == 1 && !INLINE_ELEMENTS[localRoot.tagName]) || (localRoot.matchesSelector && localRoot.matchesSelector("span.paragraph")))
 					done = true;
 
@@ -981,11 +1021,144 @@
 				localRoot = localRoot.parentNode
 			}
 
-			//if(r.startContainer.textContent || div.textContent)
-			if(r.startContainer == localRoot && !last)
-				node = first = last = r.startContainer.childNodes[r.startOffset];
+			isNewParagraph = div.childNodes && div.childNodes.length == 1 && isEmptyParagraph(div.firstChild);
+
+			
+			// make the split
+			last = splitNode(r.startContainer, r.startOffset, last);						
+			if(div.textContent && !last.textContent && (last.childNodes.length == 1 && last.childNodes[0].tagName == 'BR'))
+			{
+				last = last.previousSibling;
+				last.parentNode.removeChild(last.nextSibling);
+			}
+			first = last.previousSibling || {};
+			
+			hasContent.first = 	first.textContent ? 1 : 0; // (first.parentNode == last && (last.previousSibling && last.previousSibling.textContent)) ||
+								//	first.textContent && (!first.lastChild || first.lastChild.tagName != 'BR') && first != last ? 1 : 0; // !(first == last || first.parentNode == last) ? 1 : 0;
+			hasContent.html = div.textContent ? 1 : 0;
+			hasContent.last = last.textContent ? 1 : 0;
+			lastIsSpecial = isSpecialElement(last) || 
+							isSpecialElement(last.firstChild) || 
+							(last.firstChild && last.firstChild.nodeType == 3 && !last.firstChild.textContent && isSpecialElement(last.firstChild.nextSibling));
+
+			if(!r.collapsed)
+				r.deleteContents();
 				
+			/*
+			
+			mapping of caret states to next caret target (0 - no content, 1 - has content):
+			
+			if lastIsSpecial is true alsways go to last of html and return,
+			else:
+			
+			stateCode	first	html	last	insert html		cursor target 	(target code)	additional
+			---------	-----------------------------------------------------------------------------------------------------
+			0			0		0		0		yes				first of last	2				
+			1			0		0		1		yes				first of last	2				
+			2			0		1		0		yes				last of html	1				
+			3			0		1		1		yes				last of html	1				
+			4			1		0		0		yes				first of html	3				remove last
+			5			1		0		1		no				first of last	4				split only - nothing is inserted 
+			6			1		1		0		yes				last of html	1				remove last
+			7			1		1		1		yes				first of last	2				
+						
+			*/
+
+			this._updateValue();
+			
+			stateCode = hasContent.first * 4 + hasContent.html * 2 + hasContent.last;
+
+			console.log("State: ", stateCode, " lastIsSpecial", lastIsSpecial);			
+			
+			lastInserted = last;
+			if(lastIsSpecial || ((stateCode != 5) && !(first == this.$.editor.firstChild && isNewParagraph))) // (hasContent.html || first.previousSibling != this.$.editor.firstChild))
+				while(div.childNodes.length)
+					if(isNewParagraph || hasContent.html)
+						lastInserted = last.parentNode.insertBefore(div.firstChild, last)
+					else
+						div.removeChild(div.firstChild);
+
+			if(last.tagName == 'SPAN' && !last.innerHTML)
+			{
+				last.innerHTML = "<br>";
+				last.classList.add('paragraph');
+			}
+			
+			if([4, 6].indexOf(stateCode) > -1)
+				last.parentNode.removeChild(last);
+
+			// Move cursor to target as in table above:
+				
+			// 1. last of html
+			if(lastIsSpecial || [2, 3, 6].indexOf(stateCode) > -1)
+			{
+				lastPos = getLastCaretPosition(lastInserted);
+				setCaretAt(lastPos.container, lastPos.offset);
+				return;
+			}
+
+			// 1. first of html
+			//if([0].indexOf(stateCode) > -1)
+			//	setCaretAt(lastInserted, 0);
+			// 4. first of last - no html inserted, split is sufficient
+
+			// 2. first of last
+			if([0, 1, 7].indexOf(stateCode) > -1)
+				setCaretAt(last, 0);
+
+			
+			// 3. first of html
+			if([4].indexOf(stateCode) > -1)
+			{
+				lastPos = getLastCaretPosition(lastInserted);
+				setCaretAt(lastPos.container, lastPos.offset);
+			}
+	},
+	
+    apasteHtmlWithParagraphs : function (html, opts)
+    {
+			var localRoot, done, first, last, pos, paragraph, div, target, lastPos, t, ln, isNewParagraph, forceNewParagraph, beInNewParagraph;
+			
+			// this.frameContent();
+			
+			div = document.createElement('div');
+			div.innerHTML = html;
+
+			if(div.lastChild.nodeType == 1 && div.lastChild.tagName == 'BR')
+				div.removeChild(div.lastChild);
+			
+			html = div.innerHTML;
+			
+			// check if there are any paragraphs
+			paragraph = div.querySelector('span.paragraph');
+
+			// if not, fall back to regular paste
+			if(!paragraph)
+				return r = this.pasteHtmlAtCaret(html);
+			
+			// otherwise html contains paragraphs.
+			r = this.selectionRestore();
+			
+			// find local root to split around - a paragraph ancestor or editor root
+			localRoot = r.startContainer;
+			
+			while(localRoot && localRoot != this.$.editor && !done)
+			{
+				//if((localRoot.nodeType == 1 && !INLINE_ELEMENTS[localRoot.tagName]) || (localRoot.matchesSelector && localRoot.matchesSelector("span.paragraph")))
+				if((localRoot.nodeType == 1 && !INLINE_ELEMENTS[localRoot.tagName]) || (localRoot.matchesSelector && localRoot.matchesSelector("span.paragraph")))
+					done = true;
+
+				last = localRoot;				
+				localRoot = localRoot.parentNode
+			}
+			
+
+			// make the split
 			last = splitNode(r.startContainer, r.startOffset, last);
+			
+			// if caret is in local root and was at end of container
+			if(r.startContainer == localRoot && !(last || !last.innerHTML))
+				first = last = r.startContainer.childNodes[r.startOffset];
 			
 			pos = getChildPositionInParent(last);
 			first = localRoot.childNodes[pos-1];
@@ -998,11 +1171,18 @@
 				//last = last.parentNode.insertBefore(document.createElement('br'), last);
 				//setCaretAt(last.parentNode, getChildPositionInParent(last) - 1);
 				first.appendChild(document.createElement('br'));
-				setCaretAt(first, getChildPositionInParent(first.lastChild))
+				r = setCaretAt(first, getChildPositionInParent(first.lastChild))
 			}
 			
 			isNewParagraph = isEmptyParagraph(div.firstChild) && div.childNodes.length == 1;
-			beInNewParagraph = !last.innerHTML || (last && isSpecialElement(last) || (last.firstChild && isSpecialElement(last.firstChild)) || (last.nextSibling && (isSpecialElement(last.nextSibling) || (last.nextSibling.firstChild && isSpecialElement(last.nextSibling.firstChild)))));
+			beInNewParagraph = !last.textContent || isSpecialElement(last) || 
+								isSpecialElement(last.firstChild) || 
+								!/\s*/.test(first.textContent) || 
+								/\s*/.test(last.textContent) || 
+								(last.nextSibling && 
+								(isSpecialElement(last.nextSibling) || 
+								isSpecialElement(last.nextSibling.firstChild)));
+
 			forceNewParagraph = (!first || !first.textContent || beInNewParagraph);
 			
 			if(isNewParagraph && forceNewParagraph)
@@ -1013,7 +1193,7 @@
 					setCaretAt(last, 1)
 					return;
 				}
-					
+
 				div = last.parentNode.insertBefore(div.firstChild, last);
 
 				if(beInNewParagraph)
@@ -1029,8 +1209,8 @@
 				return;
 			}
 			
-			if(first && !first.innerHTML) 
-				first.innerHTML = "<br>";
+			//if(first && !first.innerHTML) 
+			//	first.innerHTML = "<br>";
 			
 			if(last.firstChild && last.firstChild.nodeType == 3 && last.firstChild == "<br>")
 				last.removeChild(last.firstChild);
@@ -1038,7 +1218,7 @@
 			//if(!last.textContent)
 			//	setCaretAt(last, 0);
 			//else
-							
+			
 			lastPos = getLastCaretPosition(last);
 			if(lastPos.container.nodeType == 3 && lastPos.offset == 0)
 			{
@@ -1375,6 +1555,7 @@
 
 		selectionSave : function () {
 			this._selectionRange = getSelectionRange();
+			//console.log("selection: ", this._selectionRange.toString());
 		},
 
 		selectionRestore : function (noForceSelection) {
@@ -2059,7 +2240,7 @@
 			return "";
 
 		return Array.prototype.map.call(el.childNodes, function(node) {
-				if(skipNodes.indexOf(node) > -1)
+				if(skipNodes && skipNodes.indexOf(node) > -1)
 					return "";
 
 				if((node.is ? Polymer.dom(node) : node).childNodes.length)
@@ -2115,7 +2296,7 @@
 	var recursiveOuterHTML = function(node, skipNodes){
 		var outerHTML, innerHTML, childNodes, res;
 
-		if(skipNodes.indexOf(node) > -1)
+		if(skipNodes && skipNodes.indexOf(node) > -1)
 			return "";
 
 		if(node.nodeType == 3)
@@ -2628,9 +2809,20 @@
 		}
 	})()
 	
+	function visitNodes(root, visitor, opts) {
+		var n = root;
+		if(!opts) opts = {};
+
+		if(!opts.noRoot) visitor(n)
+		if(!n.childNodes || !n.childNodes.length)
+		  return;
+
+		Array.prototype.forEach.call(n.childNodes, function(el) { visitNodes(el, visitor) });
+	}
+	
 		
 	function isSpecialElement(el) {
-		return el && (el.is || (el.matchesSelector && el.matchesSelector('.embed-aspect-ratio')));
+		return el && (el.is || (el.matchesSelector && el.matchesSelector('.embed-aspect-ratio'))) && el;
 	}
 	
 	function isEmptyParagraph(el) {
