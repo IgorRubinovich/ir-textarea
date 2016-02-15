@@ -1005,7 +1005,7 @@
 			r = this.selectionRestore();
 
 			if(r.startContainer == this.$.editor && r.startOffset == 0)
-				r = this.pasteHtmlAtCaret(newEmptyParagraph());
+				r = setCaretAt(this.$.editor.appendChild(newEmptyParagraph()), 0);
 				
 						
 			// find local root to split around - a paragraph ancestor or editor root
@@ -1084,7 +1084,7 @@
 				last.classList.add('paragraph');
 			}
 			
-			if([4, 6].indexOf(stateCode) > -1)
+			if([4, 6].indexOf(stateCode) > -1) // || ((r.startContainer == this.$.editor || r.startContainer == this.$.editor.firstChild) && r.startContainer != last))
 				last.parentNode.removeChild(last);
 
 			// Move cursor to target as in table above:
@@ -1094,6 +1094,10 @@
 			{
 				lastPos = getLastCaretPosition(lastInserted);
 				setCaretAt(lastPos.container, lastPos.offset);
+				
+				if(stateCode == 2)
+					last.parentNode.removeChild(last);
+				
 				return;
 			}
 
