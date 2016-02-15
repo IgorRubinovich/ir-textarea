@@ -184,8 +184,9 @@
 						v = v.replace(/\<\/?o\:[^>]*\>/g, '')
 							 .replace(/<p([\s\S]*?(?=<\/p>))<\/p>/gi, '<span class="paragraph" $1</span>')
 							 .replace(/\n/g, '')
-							 .replace(/<span[^>]*>\s*<\/span>/g, '');
-					
+							 .replace(/<span[^>]*>\s*<\/span>/g, '')
+							 .replace("&nbsp;", " ");
+							 
 					d = document.createElement('div');
 					d.innerHTML = v;
 
