@@ -17,7 +17,7 @@
 		handler = function(ev) {
 				that.selectionSave();
 
-				var el, toDelete, keyCode = ev.keyCode || ev.which, t, forcedelete, r, done, localRoot, last, n, nn, pn, pos, firstRange;
+				var el, toDelete, keyCode = ev.keyCode || ev.which, t, forcedelete, r, done, localRoot, last, n, nn, pn, pos, firstRange, merge;
 
 				// save position on control keys
 				console.log(ev.which || ev.keyCode);
@@ -116,15 +116,34 @@
 						
 						if(isSpecialElement(el))
 						{
+							
 							toDelete = el;								
 							forcedelete = true;  //ev.preventDefault()
+							
 						}
 					}
 
 					if(toDelete && toDelete.nodeType == 1  && (forcedelete || !ev.defaultPrevented)) //(ev.defaultPrevented) // should be prevented by ensureCursorLocationIsValid
 					{
+						that.customUndo.pushUndo();
+
+						if(toDelete.previousSibling && toDelete.nextSibling)
+							merge = { left : toDelete.previousSibling, right : toDelete.nextSibling };
+						else
+						if(toDelete.nextSibling && toDelete.parentNode.previousSibling)
+							merge = { left : toDelete.parentNode.previousSibling, right : toDelete.nextSibling };
+						else
+						if(toDelete.previousSibling && toDelete.parentNode.nextSibling)
+							merge = { left : toDelete.previousSibling, right : toDelete.parentNode.previousSibling };
+
 						that.deleteTarget(toDelete);
+
+						if(merge)
+							mergeNodes(merge.left, merge.right, true);
+
 						ev.preventDefault();
+
+						that.customUndo.pushUndo();
 					}
 				}
 				
@@ -1120,7 +1139,10 @@
 					if(/^\s*$/.test(first.textContent))
 						first = wrapInParagraph(first);
 				}
-				setCaretAt(last, 0);
+				if(lastIsSpecial)
+					setCaretAt(lastInseted, 0);
+				else
+					setCaretAt(last, 0);
 				
 				lastIsSpecial = selftOrLeftmostDescendantIsSpecial(last); // need to recheck because of (possbly) added paragraphs
 				if(lastIsSpecial && stateCode == 5)
@@ -1148,6 +1170,8 @@
 			if([0, 1].indexOf(stateCode) > -1)
 				setCaretAt(last, 0);
 
+			if(stateCode == 0 && !lastIsSpecial && last != lastInserted)
+				last.parentNode.removeChild(last);
 			
 			// 3. first of html
 			if([4].indexOf(stateCode) > -1)
@@ -2242,6 +2266,7 @@
 					undoRecord[undoRecord.length - 1].range = { startMemo : startMemo, endMemo : endMemo, startOffset : r.startOffset, endOffset : r.endOffset };
 				}
 				else
+				if(typeof innerHTML != 'undefined')
 					undoRecord.push({ content : innerHTML, range : { startMemo : startMemo, endMemo : endMemo, startOffset : r.startOffset, endOffset : r.endOffset }});
 			
 			//console.log('pushing:');
@@ -2928,4 +2953,53 @@
 		p.appendChild(el)
 		return p;
 	};	
+	
+	function mergeNodes(left, right, setCaretAtMergePoint) {
+		var ret = caretPos;
+		
+		caretPos = getLastCaretPosition(left);
+		
+		if(left.nodeType == 1) // left <-- right
+		{
+			
+			if(!canHaveChildren(left))
+				left = left.parentNode
+			
+			if(right.nodeType == 1) // element - element
+				while(right.firstChild)
+					left.appendChild(right.removeChild(right.firstChild));
+			else					// element - text
+				left.appendChild(right.parentNode.removeChild(right));
+
+			if(setCaretAtMergePoint)
+				setCaretAt(caretPos.container, caretPos.offset);
+			
+			ret = left;
+		}
+		else
+		{
+			caretPos.container = right; // offset won't change because it's still the length of left
+			
+			if(right.nodeType == 1)	// left -> right
+			{
+				if(right.firstChild)
+					right.insertBefore(left.parentNode.removeChild(left), right.firstChild);
+				else
+					right.appendChild(left.parentNode.removeChild(left));
+			}
+			else 				// text - text
+			{
+				right.textContent += left.textContent + right.textContent;
+				left.parentNode.removeChild(left);
+			}
+			
+			ret = right;
+		}
+		
+		if(setCaretAtMergePoint)
+			setCaretAt(caretPos.container, caretPos.offset);
+		
+		return ret;
+	}
 })();
+
