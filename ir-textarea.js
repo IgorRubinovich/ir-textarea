@@ -21,7 +21,7 @@
 
 				// save position on control keys
 				// console.log(ev.which || ev.keyCode);
-				if((((ev.type == 'keyup' || ev.type == 'keydown') && ([33,34,35,36,37,38,39,40].indexOf(ev.which || ev.keyCode))) || (ev.type == 'mousedown' || ev.type == 'mouseup'))
+				if(((ev.type == 'keyup' || ev.type == 'keydown') && ([33,34,35,36,37,38,39,40].indexOf(ev.which || ev.keyCode) > -1)) || (ev.type == 'mousedown' || ev.type == 'mouseup'))
 					that.customUndo.pushUndo(false, true);
 				
 				if (ev.type == 'keydown' && ev.keyCode == 13) { 	// line break
@@ -111,8 +111,8 @@
 					{
 						//t = el.childNodes[el.childNodes.length - 1];
 						
-						if(!isSpecialElement(el) && caretIsAtContainerStart())
-							el = prevNodeDeep(el, that.$.editor, { atomicCustomElements : true });
+						//if(!isSpecialElement(el) && caretIsAtContainerStart())
+						//	el = prevNodeDeep(el, that.$.editor, { atomicCustomElements : true });
 						
 						if(isSpecialElement(el))
 						{
@@ -125,16 +125,19 @@
 
 					if(toDelete && toDelete.nodeType == 1  && (forcedelete || !ev.defaultPrevented)) //(ev.defaultPrevented) // should be prevented by ensureCursorLocationIsValid
 					{
-						that.customUndo.pushUndo();
-
+						if(toDelete.parentNode.firstChild == toDelete && toDelete.parentNode.lastChild == toDelete)
+						{
+							toDelete = toDelete.parentNode;
+						}
+						
 						if(toDelete.previousSibling && toDelete.nextSibling)
 							merge = { left : toDelete.previousSibling, right : toDelete.nextSibling };
 						else
-						if(toDelete.nextSibling && toDelete.parentNode.previousSibling)
-							merge = { left : toDelete.parentNode.previousSibling, right : toDelete.nextSibling };
+						if(!toDelete.nextSibling && toDelete.parentNode != that.$.editor && toDelete.parentNode.nextSibling)
+							merge = { left : toDelete.parentNode, right : toDelete.parentNode.nextSibling };
 						else
-						if(toDelete.previousSibling && toDelete.parentNode.nextSibling)
-							merge = { left : toDelete.previousSibling, right : toDelete.parentNode.previousSibling };
+						if(!toDelete.previousSibling && toDelete.parentNode != that.$.editor && toDelete.parentNode.previousSibling)
+							merge = { left : toDelete.parentNode.previousSibling, right : toDelete.parentNode };
 
 						that.deleteTarget(toDelete);
 
@@ -1867,6 +1870,7 @@
 					Polymer.dom.flush();
 					this.async(function() {
 						that.ensureCursorLocationIsValid();
+						that.$.editor.focus();
 						that._updateValue();
 					})
 				});
@@ -2214,7 +2218,7 @@
 			if(!this._updateValueSkipped)
 				this._updateValueSkipped = 0;
 
-			if(!force && (this._updateValueTimeout && this._updateValueSkipped++ < 30))
+			if(!force && (this._updateValueTimeout && this._updateValueSkipped++ < 50))
 				return;
 
 			if(this._updateValueTimeout)
@@ -2447,8 +2451,8 @@
 
 			if(lastRedo)
 			{
-				pushUndo(true);
 				restoreState(lastRedo);
+				pushUndo(true);
 				lastRestoredStateContent = lastRedo.content;
 			}
 		}
@@ -2457,12 +2461,9 @@
 		{
 			var stateRange = state.range, sn, en, so, eo, smax, emax;
 
-			sel = document.getSelection();
-
 			editor.innerHTML = options.contentFrame.replace('[content]', state.content);
 
 			//setTimeout(function() {
-			sel.removeAllRanges();
 			r = document.createRange();
 
 			Polymer.dom.flush();
@@ -2505,8 +2506,11 @@
 			r.setStart(sn, so);
 			r.setEnd(en, eo);
 
-			sel.removeAllRanges();
 			editor.focus();
+
+			sel = document.getSelection();
+
+			sel.removeAllRanges();
 			sel.addRange(r);
 			if(options.onRestoreState)
 				options.onRestoreState(sn);
@@ -2516,7 +2520,7 @@
 			var r, sel, startMemo, endMemo, sc, ec, t,
 				innerHTML, onlyUpdateRangeMemo;
 
-			if(!onlyUpdateRangeMemo || !undoRecord.length)
+			if(!onlyUpdateRangeMemo || undoRecord.length <= 1)
 			{
 				innerHTML = getValue();
 				onlyUpdateRangeMemo = false;
