@@ -370,7 +370,9 @@
 
 
 			that.domProxyManager.createProxies()
-			this.$.editor.innerHTML = this.getCleanValue();
+			
+			
+			this._initialValue = this.$.editor.innerHTML = this.getCleanValue();
 
 			this._updateValue();
 		},
@@ -1804,7 +1806,13 @@
 				this.value = val;
 
 				this.textValue = this.$.editor.innerText;
-				this.fire('change');
+				
+				if(val != this._initialValue)
+					this.fire('change');
+				else
+					this.fire('unchange');
+				
+				
 				
 				this.$.editor.style.minHeight = this.$.editor.scrollHeight;
 
