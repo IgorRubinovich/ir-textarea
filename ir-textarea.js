@@ -16,6 +16,7 @@
 
 			handler = function(ev) {
 				that.selectionSave();
+				that.selectionRestore();
 
 				var el, toDelete, keyCode = ev.keyCode || ev.which, t, forcedelete, r, done, localRoot, last, n, nn, pn, pos, firstRange, merge;
 
@@ -111,10 +112,24 @@
 								forcedelete = true;  //ev.preventDefault()
 							}
 						}
+						
+						console.log('del handler');
+						
+						// firefox won't merge the nodes so we do it "manually"
+						if(/firefox|iceweasel/i.test(navigator.userAgent) && that.get("startContainer.parentNode.nextSibling", r) == el)
+						{
+							if(r.startContainer.parentNode.lastChild.tagName == 'BR')
+								r.startContainer.parentNode.removeChild(r.startContainer.parentNode.lastChild);
+							
+							mergeNodes(r.startContainer.parentNode, r.startContainer.parentNode.nextSibling, true);
+							//ev.preventDefault();
+						}
 					}
 					else
 					if(keyCode == 8 && (el = that.getElementBeforeCaret({ atomicCustomElements : true}))) // backspace key
 					{
+						r = getSelectionRange();
+
 						//t = el.childNodes[el.childNodes.length - 1];
 						
 						//if(!isSpecialElement(el) && caretIsAtContainerStart())
@@ -125,7 +140,16 @@
 							
 							toDelete = el;								
 							forcedelete = true;  //ev.preventDefault()
+						}
+
+						// firefox won't merge the nodes so we do it "manually"
+						if(/firefox|iceweasel/i.test(navigator.userAgent) && that.get("startContainer.previousSibling.lastChild", r) == el)
+						{
+							if(r.startContainer.previousSibling.lastChild.tagName == 'BR')
+								r.startContainer.previousSibling.removeChild(r.startContainer.previousSibling.lastChild);
 							
+							mergeNodes(r.startContainer.previousSibling, r.startContainer, true);
+							//ev.preventDefault();
 						}
 					}
 
@@ -271,8 +295,7 @@
 				// if it's a single paragraph only use text
 				// if(d.childNodes.length == 1 && d.firstChild == 
 				
-				if(d.textContent)
-					that.pasteHtmlWithParagraphs(d.innerHTML, { removeFormat : false });
+				that.pasteHtmlWithParagraphs(d.innerHTML, { removeFormat : false });
 				
 				/*if(d.childNodes.length > 1)
 					withParagraphs = v = d.innerHTML;
