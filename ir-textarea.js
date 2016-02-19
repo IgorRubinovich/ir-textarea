@@ -5,16 +5,16 @@
     .forEach(function(tag) { INLINE_ELEMENTS[tag.toUpperCase()] = true });
 
   Polymer({
-    is : 'ir-textarea',
-    ready : function() {
-      var that = this,
-        commands = this.commands.split(/,/),
-        newButton, cmdDef, icon, ev, handler, altTarget, moveOccured, selectionTracker;
+		is : 'ir-textarea',
+		ready : function() {
+		  var that = this,
+			commands = this.commands.split(/,/),
+			newButton, cmdDef, icon, ev, handler, altTarget, moveOccured, selectionTracker;
 
-		this.skipNodes = [];
-		this.__actionData = {};
+			this.skipNodes = [];
+			this.__actionData = {};
 
-		handler = function(ev) {
+			handler = function(ev) {
 				that.selectionSave();
 
 				var el, toDelete, keyCode = ev.keyCode || ev.which, t, forcedelete, r, done, localRoot, last, n, nn, pn, pos, firstRange, merge;
@@ -23,15 +23,21 @@
 				// console.log(ev.which || ev.keyCode);
 				if(((ev.type == 'keyup' || ev.type == 'keydown') && ([33,34,35,36,37,38,39,40].indexOf(keyCode) > -1)) || (ev.type == 'mousedown' || ev.type == 'mouseup'))
 					that.customUndo.pushUndo(false, true);
+
+				if(ev.type == 'keyup' || ev.type == 'keydown')
+					that.fire('scroll-into-view', getSelectionCoords());
+
 				
 				if (ev.type == 'keydown' && keyCode == 13) { 	// line break
 					r = that.selectionRestore();
-					if(ev.shiftKey || getTopCustomElementAncestor(r.startContainer, that.$.editor) || getTopCustomElementAncestor(r.endContainer, that.$.editor))
+					if(ev.shiftKey || 
+						getTopCustomElementAncestor(r.startContainer, that.$.editor) || 
+						that.selectAncestor(r.startContainer, 'table', that.$.editor) ||  // need more work to enable paragraphs in tables
+						getTopCustomElementAncestor(r.endContainer, that.$.editor))
 					{
 							r = getSelectionRange();
 							if(r.startContainer.nodeType == 3 && (r.startContainer.length - 1 <= r.startOffset && r.startContainer.textContent.charAt(r.startOffset).match(/^ ?$/) && nextNode(r.startContainer).tagName != "BR"))
 								firstRange = that.pasteHtmlAtCaret('<br>', false, true);
-
 								
 							that.pasteHtmlAtCaret('<br>', false, true);
 
@@ -61,7 +67,7 @@
 						that.pasteHtmlWithParagraphs('<span class="paragraph"><br></span>', true);
 
 					that.ensureCursorLocationIsValid({reverseDirection : true});
-
+					
 					that.frameContent();
 					that._updateValue();
 					that.selectionSave();
@@ -123,7 +129,7 @@
 						}
 					}
 
-					if(toDelete && toDelete.nodeType == 1  && (forcedelete || !ev.defaultPrevented)) //(ev.defaultPrevented) // should be prevented by ensureCursorLocationIsValid
+					if(toDelete && toDelete.parentNode && toDelete.nodeType == 1 && (forcedelete || !ev.defaultPrevented)) //(ev.defaultPrevented) // should be prevented by ensureCursorLocationIsValid
 					{
 						if(toDelete.parentNode.firstChild == toDelete && toDelete.parentNode.lastChild == toDelete)
 						{
@@ -170,9 +176,6 @@
 				that.selectionSave();
 			};
 
-			/*window.addEventListener("select", function() {
-				that.selectionSave(); console.log('selection saved')
-			});*/
 
 			"mousedown,mouseup,keydown,keyup,drop".split(',')
 				.forEach(function(evType)
@@ -202,8 +205,8 @@
 				if(typeof clipboardData != 'undefined')
 					v = clipboardData.getData();
 				else
-					v = e.originalEvent ? e.originalEvent.clipboardData.getData('text/html') : e.clipboardData.getData('text/html');
-
+					v = e.originalEvent ? e.originalEvent.clipboardData.getData('text/html') : (e.clipboardData.getData('text/html') || '<span class="paragraph">' + e.clipboardData.getData('text/plain').replace(/\n/, '</span><span class="paragraph">') + "</span>");
+				
 				if(!v)
 					return;
 
@@ -279,7 +282,8 @@
 				e.preventDefault();
 				return false;
 			};
-			
+
+			console.log('setting up paste handler...');
 			that.$.editor.addEventListener('paste', pasteHandler);
 			that.$.editor.addEventListener('copy', pasteHandler);
 
@@ -336,8 +340,6 @@
 						that.set("toolbarstyle",'top:'+tbar.condensedHeaderHeight+'px');
 					}
 					else if(tbar.headerState == 3){
-
-
 						that.set("toolbarstyle",'top:'+ (tbar.headerHeight) +'px');
 					}
 				}
@@ -355,7 +357,6 @@
 				tbar.transformOffset = arg.transformOffset;;
 				tbar.setPosition();
 
-				
 				that.skipNodes = that.domProxyManager.createProxies();
 			});
 			
@@ -408,836 +409,827 @@
 				return;
 			}
 
-      if(target && target.matchesSelector('.embed-aspect-ratio'))
-        actionTarget = target.childNodes[0];
+			if(target && target.matchesSelector('.embed-aspect-ratio'))
+				actionTarget = target.childNodes[0];
 
-      // select target for action
-      if(!this.__actionData.target)
-      {
-        this.selectForAction(actionTarget || target);
-        //this.rangeSelectElement(target);
-      }
+			// select target for action
+			if(!this.__actionData.target)
+				this.selectForAction(actionTarget || target);
 
-      // if target is resizable and wasn't set up do set it up for resize
-      if(target.matchesSelector(menuGroups.resizeable) ||
-        (target.proxyTarget && target.proxyTarget.matchesSelector(menuGroups.resizeable))
-        && (this.__actionData.resizableTarget != target))
-      {
-        this.resizeTarget(target);
+			// if target is resizable and wasn't set up do set it up for resize
+			if(target.matchesSelector(menuGroups.resizeable) ||
+				(target.proxyTarget && target.proxyTarget.matchesSelector(menuGroups.resizeable))
+				&& (this.__actionData.resizableTarget != target))
+				{
+					this.resizeTarget(target);
 
-        ev.stopImmediatePropagation();
-        ev.stopPropagation();
-      }
+					ev.stopImmediatePropagation();
+					ev.stopPropagation();
+				}
 
-      // return if just made an action
-      if(this.__actionData.lastAction)
-        return this.__actionData.lastAction = null;
+			// return if just made an action
+			if(this.__actionData.lastAction)
+				return this.__actionData.lastAction = null;
 
-      if(this.__actionData.showMenuFor != target) // show menu next time
-        return this.__actionData.showMenuFor = actionTarget;
+			if(this.__actionData.showMenuFor != target) // show menu next time
+				return this.__actionData.showMenuFor = actionTarget;
 
-      cm.disabled = false;
+			cm.disabled = false;
 
-      ev.screenX = ev.clientX = ev.detail.x
-      ev.screenY = ev.clientY = ev.detail.y
-      ev.preventDefault();
+			ev.screenX = ev.clientX = ev.detail.x;
+			ev.screenY = ev.clientY = ev.detail.y;
+			ev.preventDefault();
 
+			var imageAction = function(f) {
+				return function(param)
+				{
+					that.resizeTargetStop.call(that, true); // true means force stop dispite the event target being same as current resize target
 
-      var imageAction = function(f) {
-        return function(param)
-        {
-          that.resizeTargetStop.call(that, true); // true means force stop dispite the event target being same as current resize target
+					if(param.target && param.target.proxyTarget)
+						param.target = param.target.proxyTarget;
+					else
+					if(param.proxyTarget)
+						param = param.proxyTarget;
 
-          if(param.target && param.target.proxyTarget)
-            param.target = param.target.proxyTarget;
-          else
-          if(param.proxyTarget)
-            param = param.proxyTarget;
+					if(f)
+						f.call(that, param);
 
-          if(f)
-            f.call(that, param);
+					that.clearActionData();
+					that._updateValue();
+				}
+			};
 
-          that.clearActionData();
-          that._updateValue();
-        }
-      };
+			cm.options = [];
 
-      cm.options = [];
+			cm.options.push({label: '',  icon: 'icons:cancel', info: '', value : target, action : imageAction(null)});
 
-      cm.options.push({label: '',  icon: 'icons:cancel', info: '', value : target, action : imageAction(null)});
+			if(target.matchesSelector(menuGroups.resizeable) || (target.proxyTarget && target.proxyTarget.matchesSelector(menuGroups.resizeable)))
+				cm.options.push({label: 'Resize', icon: 'icons:size', info: '', value : target, action : this.resizeTarget.bind(this)});
 
-      if(target.matchesSelector(menuGroups.resizeable) || (target.proxyTarget && target.proxyTarget.matchesSelector(menuGroups.resizeable)))
-        cm.options.push({label: 'Resize', icon: 'icons:size', info: '', value : target, action : this.resizeTarget.bind(this)});
+			cm.options.push({label: 'Remove media',  icon: 'icons:align', info: '', value : target, action : imageAction(this.deleteTarget.bind(this))});
 
-      cm.options.push({label: 'Remove media',  icon: 'icons:align', info: '', value : target, action : imageAction(this.deleteTarget.bind(this))});
+			flowTarget = target;
 
-      flowTarget = target;
-
-      // target.is || target.matchesSelector(menuGroups.floatable) || (target.proxyTarget && target.proxyTarget.matchesSelector(menuGroups.floatable))
-      // can only float:
-      if((target.is == 'ir-gallery' && Polymer.dom(target).querySelectorAll('img').length == 1) ||    // single-image gallery for now
-        (target.proxyTarget && target.proxyTarget.matchesSelector(menuGroups.floatable)) ||		    // proxied elements (iframes)
-        (target.matchesSelector(menuGroups.floatable)))												// explicitly floatable elements
-      {
-        if(captionWrapper = mediaEditor.captionWrapperGet(target))
-          flowTarget = captionWrapper;
-
-        floatOptions = [
-          { label: 'default', value : { target : flowTarget, value : "none" }, action : imageAction(mediaEditor.setFloat.bind(mediaEditor)) },
-          { label: 'Left', value : { target : flowTarget, value : "float-left" }, action : imageAction(mediaEditor.setFloat.bind(mediaEditor)) },
-          { label: 'Right', value : { target : flowTarget, value : "float-right" }, action : imageAction(mediaEditor.setFloat.bind(mediaEditor)) }
-        ];
-
-        if(target.matchesSelector('img,.caption-wrapper'))
-        {
-          cm.options.push({label: 'Float', icon: 'icons:align', info: '', options: floatOptions});
-          if(captionWrapper)
-            cm.options.push({label: 'Remove caption', icon: 'icons:align', value : target, action : imageAction(mediaEditor.captionRemove.bind(mediaEditor))});
-          else
-            cm.options.push({label: 'Add caption', icon: 'icons:align', info: '', value : target, action : imageAction(mediaEditor.captionSet.bind(mediaEditor))});
-
-          cm.options.push({label: 'More...',  icon: 'icons:align', info: '', value : target, action : imageAction(mediaEditor.open.bind(mediaEditor))});
-        }
-      }
-
-      cm._openGroup(ev);
-    },
-
-    addActionBorder : function() {
-      var t = this.__actionData.target;
-
-      if(!t)
-        return;
-
-      this.__actionData._border = t.style.border;
-      this.__actionData._display = t.style.display;
-      t.style.border = "3px dashed grey";
-      t.style.display = "inline-block";
-    },
-
-    removeActionBorder : function() {
-      if(!this.__actionData.target)
-        return;
-
-      this.__actionData.target.style.border = this.__actionData._border || "none";
-      this.__actionData.target.style.display = this.__actionData._display || "";
-    },
-
-    selectForAction : function(target, type) {
-      var ad = this.__actionData;
-
-      if(this.__actionData.target == target || target.nodeType != 1)
-        return;
-
-      this.clearActionData();
-
-      this.__actionData.target = target;
-      this.__actionData.type = type;
-
-      target = getTopCustomElementAncestor(target, this.$.editor);
-
-      moveCaretAfterOrWrap(target, null, this.$.editor);
-
-      this.addActionBorder();
-    },
-
-    clearActionData : function() {
-      var ad = this.__actionData
-
-      this.removeActionBorder();
-
-      ad.target = ad.lastAction = ad.type = null
-    },
-
-    deleteCmd : function() {
-      if(this.__actionData && this.__actionData.target)
-        this.deleteTarget(this.__actionData.target);
-      else
-        this.execCommand('delete');
-    },
-
-    deleteTarget : function(target) {
-      var deleteTarget, p, pce;
-      if(target.proxyTarget)
-        target = target.proxyTarget;
-
-      if(this.__actionData && this.__actionData.target == target)
-      {
-        target.style.border = this.__actionData.border;
-        target = this.__actionData.target;
-        this.clearActionData();
-      };
-
-
-      if(!(deleteTarget = getTopCustomElementAncestor(target, this.$.editor)))
-        deleteTarget = target;
-      else
-        this.$.mediaEditor.captionRemove(target);
-
-      p = deleteTarget.parentNode; // delete target is a top parent custom element, meaning its parent is surely no in another custom element's dom
-
-      if(!p)
-        return;
-
-      if(p.is)
-        p = Polymer.dom(p);
-
-      p.removeChild(deleteTarget);
-      this._updateValue();
-
-      //Polymer.dom(target).removeChild(target);
-      //this._updateValue();
-    },
-
-    resizeTargetStop : function(ev) {
-      if(!(ev === true || ev.target != this.__actionData.resizeTarget))
-        return;
-
-      var interactable = this.__actionData.interactable,
-        target = this.__actionData.resizeTarget;
-
-      if(interactable)
-        interactable.unset();
-
-      this.clearActionData();
-
-      document.removeEventListener('mouseup', this.resizeTargetStop);
-      document.removeEventListener('click', this.resizeTargetStop);
-    },
-
-    resizeTarget : function(target) {
-      var that = this, resizeHandler;
-
-      if(this.__actionData.resizableTarget)
-        this.resizeTargetStop(true);
-
-      that.__actionData.resizeTarget = target;
-
-      document.addEventListener('mouseup', this.resizeTargetStop.bind(this));
-      document.addEventListener('click', this.resizeTargetStop.bind(this));
-
-      var interactable = interact(target)
-        .resizable({
-          edges: { left: true, right: true, bottom: true, top: true }
-        })
-        .on('resizemove', resizeHandler = function (event) {
-          var target = event.target,
-            computedStyle = target.getBoundingClientRect(),
-
-            x = (parseFloat(target.getAttribute('data-x')) || 0),
-            y = (parseFloat(target.getAttribute('data-y')) || 0),
-
-            sw = Number(target.style.width.replace(/px/, '') || 0) || computedStyle.width,
-            sh = Number(target.style.height.replace(/px/, '') || 0) || computedStyle.height,
-            ratio, w, h;
-
-          ratio = sh/sw;
-          w = event.rect.width;
-          h = ratio * w;
-
-          // update the element's style
-          target.style.width  = w + 'px';
-          target.style.height = h + 'px';
-          target.style.webkitTransform = target.style.transform = 'translate(' + x + 'px,' + y + 'px)';
-
-          if(target.tagName == 'IFRAME')
-          {
-            target.setAttribute("width", w + 'px');
-            target.setAttribute("height", h + 'px');
-          }
-
-
-          that.__actionData.dragTarget = null; // resize takes over drag
-          // translate when resizing from top or left edges
-          //x += event.deltaRect.left; //y += event.deltaRect.top;
-        })
-        .on('resizeend', function() {
-          var t, st;
-
-          if(t = st = that.__actionData.resizeTarget)
-          {
-            if(t.proxyTarget)
-            {
-              if(t.proxyTarget.matchesSelector('.embed-aspect-ratio'))
-              {
-                t.proxyTarget.style.width = t.style.width;
-                t.proxyTarget.style.paddingBottom = 100*(Number(t.style.height.replace(/px/,'')) / Number(t.style.width.replace(/px/, '')))
-                //t.proxyTarget.style.height = t.style.height;
-                st = t.proxyTarget.childNodes[0];
-              }
-              else
-              if(t.proxyTarget.matchesSelector('iframe'))
-                st = t.proxyTarget
-
-              st.style.width = t.style.width
-              st.style.height = t.style.height
-              st.style.webkitTransform = st.style.transform = t.style.transform;
-            }
-
-            if(that.__actionData.resizePosition)
-              t.style.position = that.__actionData.resizePosition;
-
-            //that.clearActionData();
-            that.__actionData.lastAction = "resize";
-          }
-        });
-
-      if(!target.style.position || target.style.position == 'static')
-      {
-        this.__actionData.resizePosition = target.style.position;
-        target.style.position = "relative";
-      }
-
-      this.__actionData.interactable = interactable;
-    },
-
-    moveTarget : function(target, done) {
-      var html, actualTarget, handler, caretPosData, moveOccured, tpce;
-
-      if(this.__actionData.dragTarget && !done)
-        return;
-
-      // calculate drop target and move drag target there
-      if(done)
-      {
-        actualTarget = this.__actionData.dragTarget.proxyTarget || this.__actionData.dragTarget;
-        caretPosData = this.__actionData.caretPosData;
-
-        if(caretPosData && caretPosData.node)
-          caretPosData.node = (tpce = getTopCustomElementAncestor(caretPosData.node, editor)) || caretPosData.node;
-
-        if(actualTarget.parentNode && (caretPosData && this.isOrIsAncestorOf(this.$.editor, caretPosData.node)) && !this.isOrIsAncestorOf(actualTarget, caretPosData.node))
-        {
-          this.clearActionData();
-          this.__actionData.caretPosData = null;
-
-          html = recursiveOuterHTML(actualTarget, this.skipNodes);
-
-          // for now, forbid explicitly to drop into custom elements. (for custom targets only - built-in text drop is still possible! - e.g., it's ok to move text into a caption inside a gallery)
-          if(tpce)
-            moveCaretAfterOrWrap(tpce, null, this.$.editor);
-          else
-          if(caretPosData.node.proxyTarget)
-            moveCaretAfterOrWrap(caretPosData.node.proxyTarget, null, this.$.editor);
-
-          this.ensureCursorLocationIsValid();
-
-          this.pasteHtmlAtCaret(html);
-          actualTarget.parentNode.removeChild(actualTarget);
-
-          moveOccured = true;
-
-          this.ensureCursorLocationIsValid();
-        }
-        else
-          this.__actionData.lastAction = null;
-
-        document.removeEventListener('mousemove', this.__actionData.dragMoveListener);
-        this.__actionData.dragTarget = null
-
-        return moveOccured;
-      }
-
-      if(this.__actionData.dragMoveListener)
-        document.removeEventListener('mousemove', this.__actionData.dragMoveListener);
-
-      // track drag target
-
-      this.__actionData.caretPosData = null;
-      this.__actionData.dragTarget = target;
-      this.__actionData.dragMoveListener = function(event) {
-        var ad = this.__actionData;
-        var caretPosData = caretPositionFromPoint(event.clientX, event.clientY);
-
-        if(!ad.dragTarget)
-        {
-          document.removeEventListener('mousemove', this.__actionData.dragMoveListener);
-          document.removeEventListener('mouseup', this.__actionData.dragStopListener);
-        }
-
-        if(!caretPosData)
-        {
-          ad.caretPosData = null;
-          return;
-        }
-
-        if(!ad.caretPosData || ad.caretPosData.node != caretPosData.node || ad.caretPosData.offset != caretPosData.offset)
-        {
-          setCaretAt(caretPosData.node, caretPosData.offset);
-          // this.ensureCursorLocationIsValid();
-          ad.caretPosData = caretPosData;
-          ad.caretPosData.changed = true;
-          this.__actionData.lastAction = 'drag';
-        }
-
-      }.bind(this);
-
-      this.__actionData.dragStopListener = function(ev) {
-        var moveOccured;
-
-        document.removeEventListener('mousemove', this.__actionData.dragMoveListener);
-        document.removeEventListener('mouseup', this.__actionData.dragStopListener);
-
-        if(this.__actionData.dragTarget)
-        {
-          moveOccured = this.moveTarget.call(this, this.__actionData.dragTarget, true);
-          if(moveOccured)
-            ev.preventDefault();
-        }
-      }.bind(this);
-
-      document.addEventListener('mousemove', this.__actionData.dragMoveListener);
-      document.addEventListener('mouseup', this.__actionData.dragStopListener);
-
-
-
-    },
-
-    clickedPresetCommand : function(ev) {
-      this.selectionRestore();
-      this.execCommand(ev.target.getAttribute("cmd-name"), ev.target.selected);
-    },
-
-    clickedCommand : function(e, presetval) {
-      cmdDef = e.currentTarget.cmdDef;
-      this.execCommand(cmdDef);
-    },
-
-    insertHtml : function(e) {
-      this.execCommand("insertHTML", null, this.$.mediaEmbedder);
-    },
-    createLink : function(e) {
-      this.execCommand("createLink", null, this.$.linkEditor);
-    },
-    createTable : function(e) {
-      this.execCommand("insertHTML", null, this.$.tableCreator);
-    },
-
-    removeFormat : function(element) {
-      function getRangeSelectedNodes(range, includePartiallySelectedContainers) {
-        var node = range.startContainer;
-        var endNode = range.endContainer;
-        var rangeNodes = [];
-
-        // Special case for a range that is contained within a single node
-        if (node == endNode) {
-          rangeNodes = [node];
-        } else {
-          // Iterate nodes until we hit the end container
-          while (node && node != endNode) {
-            rangeNodes.push( node = nextNode(node) );
-          }
-
-          // Add partially selected nodes at the start of the range
-          node = range.startContainer;
-          while (node && node != range.commonAncestorContainer) {
-            rangeNodes.unshift(node);
-            node = node.parentNode;
-          }
-        }
-
-        // Add ancestors of the range container, if required
-        //if (includePartiallySelectedContainers) {
-        //  node = range.commonAncestorContainer;
-        //  while (node) {
-        //    rangeNodes.push(node);
-        //    node = node.parentNode;
-        //  }
-        //}
-
-        return rangeNodes;
-      }
-
-      function getSelectedNodes() {
-        var nodes = [];
-        if (window.getSelection) {
-          var sel = window.getSelection();
-          var range = window.getSelection().getRangeAt(0);
-          for (var i = 0, len = sel.rangeCount; i < len; ++i) {
-            nodes.push.apply(nodes, getRangeSelectedNodes(sel.getRangeAt(i), true));
-          }
-        }
-        return nodes;
-      }
-
-      function replaceWithOwnChildren(el) {
-        var parent = el.parentNode, movedChildren = [];
-
-        if(!parent)
-          return;
-
-        while (el.hasChildNodes()) {
-          movedChildren.push(el.firstChild);
-          parent.insertBefore(el.firstChild, el);
-        }
-        parent.removeChild(el);
-
-        return movedChildren;
-      }
-
-      function replaceTagName(el, tag) {
-        var nn = document.createElement(tag),
-          parent = el.parentNode, ch;
-
-        while (el.hasChildNodes()) {
-          ch = el.firstChild;
-          el.removeChild(ch);
-          nn.appendChild(ch);
-        };
-        [].forEach.call(el.attributes, function(attr) {
-          nn.setAttribute(attr.name, attr.value);
-        });
-
-        parent.insertBefore(nn, el);
-        parent.removeChild(el);
-
-        return nn;
-      }
-
-      function removeSelectedElements(opts, top) {
-        var
-          removeTags = opts.removeTags.toLowerCase().split(","),
-          mapTags = {},
-          attrNamesArray = opts.attributeNames.toLowerCase().split(","),
-          root, movedChildren, node, mt;
-
-        Object.keys(opts.mapTags).forEach(function(src) {
-          src.split(',').forEach(function(t) {
-            mapTags[t] = opts.mapTags[src];
-          });
-        });
-
-        if(opts.root)
-          nodes = [].slice.call(opts.root.children);
-        else
-          nodes = getSelectedNodes();
-
-        while(node = nodes.pop())
-        {
-          if (node.nodeType == 3)
-            node = node.parentNode;
-
-          if(node && node != top)
-          {
-            if(node.children)
-              nodes = nodes.concat([].slice.call(node.children));
-
-            nlc = node.tagName.toLowerCase();
-            if (node.nodeType == 1)
-            {
-              if(removeTags.indexOf(nlc) > -1) {
-                replaceWithOwnChildren(node);
-              }
-              else
-              if(mt = mapTags[nlc]) {
-                node = replaceTagName(node, mt);
-              }
-
-              // clean attributes
-              attrNamesArray.forEach(function(attr) {
-                node.removeAttribute(attr)
-              });
-            }
-          }
-        };
-      }
-
-      if(!element)
-        this.selectionRestore();
-
-      removeSelectedElements({ root : element.children ? element : null, removeTags : "hr,b,i,span,font", mapTags : { "h1,h2,h3,h4,h5,h6,div" : "p" },  attributeNames : "style,class"}, this.$.editor);
-    },
-
-    getElementAfterCaret : function(opts) {
-      var i, done,
-        r = getSelectionRange(),
-        n = r.endContainer, o = r.endOffset;
-
-      opts.skip = opts.skip || [];
-      if(!(opts.skip instanceof Array))
-        opts.skip = [opts.skip];
-
-      //if(n.nodeType == 1)
-      //	n = n.childNodes[o];
-
-      if(n.nodeType == 1 && n.childNodes.length)
-      {
-        n = n.childNodes[o] || n;
-        o = getChildPositionInParent(n);
-      }
-
-      if(n.nodeType == 3 && o < n.length)
-        return n;
-
-      n = nextNode(n);
-      while(!done)
-        for(i = 0; !done && i < opts.skip.length; i++)
-        {
-          if(!n.matchesSelector || !n.matchesSelector(opts.skip[i]))
-            done = true;
-          else
-          {
-            n = nextNode(n);
-            i = -1;
-          }
-        }
-
-      return n; //nextNode(n);
-
-      /* -----
-
-       if(!r || (!r.startOffset && r.startOffset != 0) || r.startOffset != r.endOffset)
-       return null;
-
-       nn = r.endContainer
-       if(r.endOffset == (r.endContainer.nodeType == 3 ? r.length : r.endContainer.childNodes.length) - 1)
-       while(nn = nextNode(nn))
-       if(nn instanceof Text)
-       return nn;*/
-
-      return null;
-    },
-
-    getElementBeforeCaret : function(opts) {
-      var r = getSelectionRange();
-
-      opts = opts || {};
-      opts.atomic = ['.embed-aspect-ratio'];
-
-      if(!r || (!r.startOffset && r.startOffset != 0)  || r.startOffset != r.endOffset)
-        return null;
-
-      if(r.startContainer.nodeType == 1)
-        return prevNodeDeep(r.startContainer.childNodes[r.startOffset] || r.startContainer, this.$.editor, opts);
-      else
-      if(!r.startOffset)
-        return prevNodeDeep(r.startContainer, this.$.editor, opts);
-
-      return r.startContainer;
-    },
-
-	pasteHtmlWithParagraphs : function (html, opts)
-	{
-		var div, paragraph, r, caretAt = {}, firstIsEmptyParagraph, container, newWrapperParagraph, container, firstToWrap, index, isNewParagraph, lastInserted, pos, first, last;
-		
-		div = document.createElement('div');
-		div.innerHTML = html;
-
-		if(div.lastChild.nodeType == 1 && div.lastChild.tagName == 'BR')
-			div.removeChild(div.lastChild);
-		
-		// html = div.innerHTML;
-		
-		// check if there are any paragraphs
-		paragraph = div.querySelector('span.paragraph');
-
-		r = this.selectionSave();
-		r = this.selectionRestore();		
-		this.customUndo.pushUndo(false, true);
-		
-		// if not, fall back to regular paste
-		if(!paragraph)
-			return this.pasteHtmlAtCaret(html);
-		
-		// otherwise html contains paragraphs.
-		if(!r.collapsed)
-			r.deleteContents();
-
-		r = getSelectionRange();
-
-		first = r.startContainer;
-		firstOffset = r.startOffset;
-		if(first.nodeType == 1)
-		{
-			first = first.childNodes[firstOffset];
-			firstOffset = 0;
-		}
-		
-		firstIsEmptyParagraph = isEmptyParagraph(first);
-		isNewParagraph = div.childNodes.length == 1 && isEmptyParagraph(div.firstChild);
-
-		if(firstIsEmptyParagraph)
-			caretAt.containerStart = true;
-		else
-		// if it's a bare text/inline node wrap it and its text/inline siblings in paragraph
-		if(!isParagraph(first) && (first.nodeType == 3 || INLINE_ELEMENTS[first.tagName]) && first.parentNode == this.$.editor)
-		{
-			newWrapperParagraph = document.createElement('span');
-			newWrapperParagraph.classList.add('paragraph');
-			firstToWrap = first;
-			
-			// go back until paragraph/block element/container start
-			while(!isParagraph(firstToWrap.previousSibling) && (firstToWrap.previousSibling && (firstToWrap.previousSibling.nodeType == 3 || INLINE_ELEMENTS[firstToWrap.previousSibling.tagName])))
-				firstToWrap = firstToWrap.previousSibling;
-			
-			container = firstToWrap.parentNode;
-			index = getChildPositionInParent(firstToWrap);
-						
-			while(!isParagraph(firstToWrap) && (firstToWrap && (firstToWrap.nodeType == 3 || INLINE_ELEMENTS[firstToWrap.tagName])))
+			// target.is || target.matchesSelector(menuGroups.floatable) || (target.proxyTarget && target.proxyTarget.matchesSelector(menuGroups.floatable))
+			// can only float:
+			if((target.is == 'ir-gallery' && Polymer.dom(target).querySelectorAll('img').length == 1) ||    // single-image gallery for now
+			(target.proxyTarget && target.proxyTarget.matchesSelector(menuGroups.floatable)) ||		    // proxied elements (iframes)
+			(target.matchesSelector(menuGroups.floatable)))												// explicitly floatable elements
 			{
-				newWrapperParagraph.appendChild(firstToWrap)
-				firstToWrap = container.childNodes[index];
+				if(captionWrapper = mediaEditor.captionWrapperGet(target))
+				  flowTarget = captionWrapper;
+
+				floatOptions = [
+					{ label: 'default', value : { target : flowTarget, value : "none" }, action : imageAction(mediaEditor.setFloat.bind(mediaEditor)) },
+					{ label: 'Left', value : { target : flowTarget, value : "float-left" }, action : imageAction(mediaEditor.setFloat.bind(mediaEditor)) },
+					{ label: 'Right', value : { target : flowTarget, value : "float-right" }, action : imageAction(mediaEditor.setFloat.bind(mediaEditor)) }
+				];
+
+				if(target.matchesSelector('img,.caption-wrapper'))
+				{
+					cm.options.push({label: 'Float', icon: 'icons:align', info: '', options: floatOptions});
+					if(captionWrapper)
+						cm.options.push({label: 'Remove caption', icon: 'icons:align', value : target, action : imageAction(mediaEditor.captionRemove.bind(mediaEditor))});
+					else
+						cm.options.push({label: 'Add caption', icon: 'icons:align', info: '', value : target, action : imageAction(mediaEditor.captionSet.bind(mediaEditor))});
+
+					cm.options.push({label: 'More...',  icon: 'icons:align', info: '', value : target, action : imageAction(mediaEditor.open.bind(mediaEditor))});
+				}
 			}
-			firstIsEmptyParagraph = isEmptyParagraph(newWrapperParagraph);
-			
-			if(index < container.childNodes.length)
-				container.insertBefore(newWrapperParagraph, container.childNodes[index]);
-			else
-				container.appendChild(newWrapperParagraph);
-			
-			if(first.nodeType == 1)
-				firstOffset = getChildPositionInParent(first);
-		}
-		
-		// set caretAt
 
-		container = first;
-		// find first praragraph or non-text, non-inline container. it could have been the editor but we wrapped bare nodes earlier
-		while(!isParagraph(container) && (container.nodeType == 3 || INLINE_ELEMENTS[container.tagName]))
-			container = container.parentNode;
-		
-		if(caretAt.containerStart || (container.firstChild == first && firstOffset == 0))
-			caretAt.containerStart = true;
-		else
-		{
-			pos = getLastCaretPosition(container);
-			if(pos.container == first && pos.offset == firstOffset)
-				caretAt.containerEnd = true;
+		  cm._openGroup(ev);
+		},
+
+		addActionBorder : function() {
+		  var t = this.__actionData.target;
+
+		  if(!t)
+			return;
+
+		  this.__actionData._border = t.style.border;
+		  this.__actionData._display = t.style.display;
+		  t.style.border = "3px dashed grey";
+		  t.style.display = "inline-block";
+		},
+
+		removeActionBorder : function() {
+		  if(!this.__actionData.target)
+			return;
+
+		  this.__actionData.target.style.border = this.__actionData._border || "none";
+		  this.__actionData.target.style.display = this.__actionData._display || "";
+		},
+
+		selectForAction : function(target, type) {
+		  var ad = this.__actionData;
+
+		  if(this.__actionData.target == target || target.nodeType != 1)
+			return;
+
+		  this.clearActionData();
+
+		  this.__actionData.target = target;
+		  this.__actionData.type = type;
+
+		  target = getTopCustomElementAncestor(target, this.$.editor);
+
+		  moveCaretAfterOrWrap(target, null, this.$.editor);
+
+		  this.addActionBorder();
+		},
+
+		clearActionData : function() {
+		  var ad = this.__actionData
+
+		  this.removeActionBorder();
+
+		  ad.target = ad.lastAction = ad.type = null
+		},
+
+		deleteCmd : function() {
+			if(this.__actionData && this.__actionData.target)
+				this.deleteTarget(this.__actionData.target);
 			else
-				caretAt.containerMiddle = true;
-		}
-		
-		// paste html and move carret
-		if(caretAt.containerStart)
-		{
-			while(div.firstChild)
-				lastInserted = container.parentNode.insertBefore(div.firstChild, container);
+				this.execCommand('delete');
+		},
+
+		deleteTarget : function(target) {
+			var deleteTarget, p, pce, cover;
 			
-			if(!isNewParagraph)
+			if(target.proxyTarget)
+				target = target.proxyTarget;
+
+			cover = this.skipNodes.filter(function(n) { return n.proxyTarget == target })[0];
+
+			if(this.__actionData && this.__actionData.target == target)
 			{
+				target.style.border = this.__actionData.border;
+				target = this.__actionData.target;
+				this.clearActionData();
+			};
+
+
+			if(!(deleteTarget = getTopCustomElementAncestor(target, this.$.editor)))
+				deleteTarget = target;
+			else
+				this.$.mediaEditor.captionRemove(target);
+
+			p = deleteTarget.parentNode; // delete target is a top parent custom element, meaning its parent is surely no in another custom element's dom
+
+			if(!p)
+				return;
+
+			if(p.is)
+				p = Polymer.dom(p);
+
+			p.removeChild(deleteTarget);
+			this._updateValue();
+			
+			if(cover)
+				this.skipNodes = this.domProxyManager.createProxies()
+
+		  //Polymer.dom(target).removeChild(target);
+		  //this._updateValue();
+		},
+
+		resizeTargetStop : function(ev) {
+		  if(!(ev === true || ev.target != this.__actionData.resizeTarget))
+			return;
+
+		  var interactable = this.__actionData.interactable,
+			target = this.__actionData.resizeTarget;
+
+		  if(interactable)
+			interactable.unset();
+
+		  this.clearActionData();
+
+		  document.removeEventListener('mouseup', this.resizeTargetStop);
+		  document.removeEventListener('click', this.resizeTargetStop);
+		},
+
+		resizeTarget : function(target) {
+		  var that = this, resizeHandler;
+
+		  if(this.__actionData.resizableTarget)
+			this.resizeTargetStop(true);
+
+		  that.__actionData.resizeTarget = target;
+
+		  document.addEventListener('mouseup', this.resizeTargetStop.bind(this));
+		  document.addEventListener('click', this.resizeTargetStop.bind(this));
+
+		  var interactable = interact(target)
+			.resizable({
+			  edges: { left: true, right: true, bottom: true, top: true }
+			})
+			.on('resizemove', resizeHandler = function (event) {
+			  var target = event.target,
+				computedStyle = target.getBoundingClientRect(),
+
+				x = (parseFloat(target.getAttribute('data-x')) || 0),
+				y = (parseFloat(target.getAttribute('data-y')) || 0),
+
+				sw = Number(target.style.width.replace(/px/, '') || 0) || computedStyle.width,
+				sh = Number(target.style.height.replace(/px/, '') || 0) || computedStyle.height,
+				ratio, w, h;
+
+			  ratio = sh/sw;
+			  w = event.rect.width;
+			  h = ratio * w;
+
+			  // update the element's style
+			  target.style.width  = w + 'px';
+			  target.style.height = h + 'px';
+			  target.style.webkitTransform = target.style.transform = 'translate(' + x + 'px,' + y + 'px)';
+
+			  if(target.tagName == 'IFRAME')
+			  {
+				target.setAttribute("width", w + 'px');
+				target.setAttribute("height", h + 'px');
+			  }
+
+
+			  that.__actionData.dragTarget = null; // resize takes over drag
+			  // translate when resizing from top or left edges
+			  //x += event.deltaRect.left; //y += event.deltaRect.top;
+			})
+			.on('resizeend', function() {
+			  var t, st, numW, numH;
+
+			  if(t = st = that.__actionData.resizeTarget)
+			  {
+				if(t.proxyTarget)
+				{
+				  if(t.proxyTarget.matchesSelector('.embed-aspect-ratio'))
+				  {
+					t.proxyTarget.style.width = t.style.width;
+					
+					numW = Number(t.style.width.replace(/px/, ''));
+					numH = Number(t.style.height.replace(/px/,''));
+					
+					t.proxyTarget.style.paddingBottom = numH + "px"; //100*(numH / numW) + "%";
+					if(t.proxyTarget.firstChild && t.proxyTarget.firstChild.tagName == 'IFRAME')
+					{
+						t.proxyTarget.firstChild.setAttribute('width', numW);
+						t.proxyTarget.firstChild.setAttribute('height', numH);
+					}
+					//t.proxyTarget.style.height = t.style.height;
+					st = t.proxyTarget.childNodes[0];
+				  }
+				  else
+				  if(t.proxyTarget.matchesSelector('iframe'))
+					st = t.proxyTarget
+
+				  st.style.width = t.style.width
+				  st.style.height = t.style.height
+				  st.style.webkitTransform = st.style.transform = t.style.transform;
+				}
+
+				if(that.__actionData.resizePosition)
+				  t.style.position = that.__actionData.resizePosition;
+
+				//that.clearActionData();
+				that.__actionData.lastAction = "resize";
+			  }
+			});
+
+		  if(!target.style.position || target.style.position == 'static')
+		  {
+			this.__actionData.resizePosition = target.style.position;
+			target.style.position = "relative";
+		  }
+
+		  this.__actionData.interactable = interactable;
+		},
+
+		moveTarget : function(target, done) {
+		  var html, actualTarget, handler, caretPosData, moveOccured, tpce;
+
+		  if(this.__actionData.dragTarget && !done)
+			return;
+
+		  // calculate drop target and move drag target there
+		  if(done)
+		  {
+			actualTarget = this.__actionData.dragTarget.proxyTarget || this.__actionData.dragTarget;
+			caretPosData = this.__actionData.caretPosData;
+
+			if(caretPosData && caretPosData.node)
+			  caretPosData.node = (tpce = getTopCustomElementAncestor(caretPosData.node, editor)) || caretPosData.node;
+
+			if(actualTarget.parentNode && (caretPosData && this.isOrIsAncestorOf(this.$.editor, caretPosData.node)) && !this.isOrIsAncestorOf(actualTarget, caretPosData.node))
+			{
+			  this.clearActionData();
+			  this.__actionData.caretPosData = null;
+
+			  html = recursiveOuterHTML(actualTarget, this.skipNodes);
+
+			  // for now, forbid explicitly to drop into custom elements. (for custom targets only - built-in text drop is still possible! - e.g., it's ok to move text into a caption inside a gallery)
+			  if(tpce)
+				moveCaretAfterOrWrap(tpce, null, this.$.editor);
+			  else
+			  if(caretPosData.node.proxyTarget)
+				moveCaretAfterOrWrap(caretPosData.node.proxyTarget, null, this.$.editor);
+
+			  this.ensureCursorLocationIsValid();
+
+			  this.pasteHtmlAtCaret(html);
+			  actualTarget.parentNode.removeChild(actualTarget);
+
+			  moveOccured = true;
+
+			  this.ensureCursorLocationIsValid();
+			}
+			else
+			  this.__actionData.lastAction = null;
+
+			document.removeEventListener('mousemove', this.__actionData.dragMoveListener);
+			this.__actionData.dragTarget = null
+
+			return moveOccured;
+		  }
+
+		  if(this.__actionData.dragMoveListener)
+			document.removeEventListener('mousemove', this.__actionData.dragMoveListener);
+
+		  // track drag target
+
+		  this.__actionData.caretPosData = null;
+		  this.__actionData.dragTarget = target;
+		  this.__actionData.dragMoveListener = function(event) {
+			var ad = this.__actionData;
+			var caretPosData = caretPositionFromPoint(event.clientX, event.clientY);
+
+			if(!ad.dragTarget)
+			{
+			  document.removeEventListener('mousemove', this.__actionData.dragMoveListener);
+			  document.removeEventListener('mouseup', this.__actionData.dragStopListener);
+			}
+
+			if(!caretPosData)
+			{
+			  ad.caretPosData = null;
+			  return;
+			}
+
+			if(!ad.caretPosData || ad.caretPosData.node != caretPosData.node || ad.caretPosData.offset != caretPosData.offset)
+			{
+			  setCaretAt(caretPosData.node, caretPosData.offset);
+			  // this.ensureCursorLocationIsValid();
+			  ad.caretPosData = caretPosData;
+			  ad.caretPosData.changed = true;
+			  this.__actionData.lastAction = 'drag';
+			}
+
+		  }.bind(this);
+
+		  this.__actionData.dragStopListener = function(ev) {
+			var moveOccured;
+
+			document.removeEventListener('mousemove', this.__actionData.dragMoveListener);
+			document.removeEventListener('mouseup', this.__actionData.dragStopListener);
+
+			if(this.__actionData.dragTarget)
+			{
+			  moveOccured = this.moveTarget.call(this, this.__actionData.dragTarget, true);
+			  if(moveOccured)
+				ev.preventDefault();
+			}
+		  }.bind(this);
+
+		  document.addEventListener('mousemove', this.__actionData.dragMoveListener);
+		  document.addEventListener('mouseup', this.__actionData.dragStopListener);
+
+
+
+		},
+
+		clickedPresetCommand : function(ev) {
+		  this.selectionRestore();
+		  this.execCommand(ev.target.getAttribute("cmd-name"), ev.target.selected);
+		},
+
+		clickedCommand : function(e, presetval) {
+		  cmdDef = e.currentTarget.cmdDef;
+		  this.execCommand(cmdDef);
+		},
+
+		insertHtml : function(e) {
+		  this.execCommand("insertHTML", null, this.$.mediaEmbedder);
+		},
+		createLink : function(e) {
+		  this.execCommand("createLink", null, this.$.linkEditor);
+		},
+		createTable : function(e) {
+		  this.execCommand("insertHTML", null, this.$.tableCreator);
+		},
+
+		removeFormat : function(element) {
+		  function getRangeSelectedNodes(range, includePartiallySelectedContainers) {
+			var node = range.startContainer;
+			var endNode = range.endContainer;
+			var rangeNodes = [];
+
+			// Special case for a range that is contained within a single node
+			if (node == endNode) {
+			  rangeNodes = [node];
+			} else {
+			  // Iterate nodes until we hit the end container
+			  while (node && node != endNode) {
+				rangeNodes.push( node = nextNode(node) );
+			  }
+
+			  // Add partially selected nodes at the start of the range
+			  node = range.startContainer;
+			  while (node && node != range.commonAncestorContainer) {
+				rangeNodes.unshift(node);
+				node = node.parentNode;
+			  }
+			}
+
+			// Add ancestors of the range container, if required
+			//if (includePartiallySelectedContainers) {
+			//  node = range.commonAncestorContainer;
+			//  while (node) {
+			//    rangeNodes.push(node);
+			//    node = node.parentNode;
+			//  }
+			//}
+
+			return rangeNodes;
+		  }
+
+		  function getSelectedNodes() {
+			var nodes = [];
+			if (window.getSelection) {
+			  var sel = window.getSelection();
+			  var range = window.getSelection().getRangeAt(0);
+			  for (var i = 0, len = sel.rangeCount; i < len; ++i) {
+				nodes.push.apply(nodes, getRangeSelectedNodes(sel.getRangeAt(i), true));
+			  }
+			}
+			return nodes;
+		  }
+
+		  function replaceWithOwnChildren(el) {
+			var parent = el.parentNode, movedChildren = [];
+
+			if(!parent)
+			  return;
+
+			while (el.hasChildNodes()) {
+			  movedChildren.push(el.firstChild);
+			  parent.insertBefore(el.firstChild, el);
+			}
+			parent.removeChild(el);
+
+			return movedChildren;
+		  }
+
+		  function replaceTagName(el, tag) {
+			var nn = document.createElement(tag),
+			  parent = el.parentNode, ch;
+
+			while (el.hasChildNodes()) {
+			  ch = el.firstChild;
+			  el.removeChild(ch);
+			  nn.appendChild(ch);
+			};
+			[].forEach.call(el.attributes, function(attr) {
+			  nn.setAttribute(attr.name, attr.value);
+			});
+
+			parent.insertBefore(nn, el);
+			parent.removeChild(el);
+
+			return nn;
+		  }
+
+		  function removeSelectedElements(opts, top) {
+			var
+			  removeTags = opts.removeTags.toLowerCase().split(","),
+			  mapTags = {},
+			  attrNamesArray = opts.attributeNames.toLowerCase().split(","),
+			  root, movedChildren, node, mt;
+
+			Object.keys(opts.mapTags).forEach(function(src) {
+			  src.split(',').forEach(function(t) {
+				mapTags[t] = opts.mapTags[src];
+			  });
+			});
+
+			if(opts.root)
+			  nodes = [].slice.call(opts.root.children);
+			else
+			  nodes = getSelectedNodes();
+
+			while(node = nodes.pop())
+			{
+			  if (node.nodeType == 3)
+				node = node.parentNode;
+
+			  if(node && node != top)
+			  {
+				if(node.children)
+				  nodes = nodes.concat([].slice.call(node.children));
+
+				nlc = node.tagName.toLowerCase();
+				if (node.nodeType == 1)
+				{
+				  if(removeTags.indexOf(nlc) > -1) {
+					replaceWithOwnChildren(node);
+				  }
+				  else
+				  if(mt = mapTags[nlc]) {
+					node = replaceTagName(node, mt);
+				  }
+
+				  // clean attributes
+				  attrNamesArray.forEach(function(attr) {
+					node.removeAttribute(attr)
+				  });
+				}
+			  }
+			};
+		  }
+
+		  if(!element)
+			this.selectionRestore();
+
+		  removeSelectedElements({ root : element.children ? element : null, removeTags : "hr,b,i,span,font", mapTags : { "h1,h2,h3,h4,h5,h6,div" : "p" },  attributeNames : "style,class"}, this.$.editor);
+		},
+
+		getElementAfterCaret : function(opts) {
+		  var i, done,
+			r = getSelectionRange(),
+			n = r.endContainer, o = r.endOffset;
+
+		  opts.skip = opts.skip || [];
+		  if(!(opts.skip instanceof Array))
+			opts.skip = [opts.skip];
+
+		  //if(n.nodeType == 1)
+		  //	n = n.childNodes[o];
+
+		  if(n.nodeType == 1 && n.childNodes.length)
+		  {
+			n = n.childNodes[o] || n;
+			o = getChildPositionInParent(n);
+		  }
+
+		  if(n.nodeType == 3 && o < n.length)
+			return n;
+
+		  n = nextNode(n);
+		  while(!done)
+			for(i = 0; !done && i < opts.skip.length; i++)
+			{
+			  if(!n.matchesSelector || !n.matchesSelector(opts.skip[i]))
+				done = true;
+			  else
+			  {
+				n = nextNode(n);
+				i = -1;
+			  }
+			}
+
+		  return n;
+		},
+
+		getElementBeforeCaret : function(opts) {
+		  var r = getSelectionRange();
+
+		  opts = opts || {};
+		  opts.atomic = ['.embed-aspect-ratio'];
+
+		  if(!r || (!r.startOffset && r.startOffset != 0)  || r.startOffset != r.endOffset)
+			return null;
+
+		  if(r.startContainer.nodeType == 1)
+			return prevNodeDeep(r.startContainer.childNodes[r.startOffset] || r.startContainer, this.$.editor, opts);
+		  else
+		  if(!r.startOffset)
+			return prevNodeDeep(r.startContainer, this.$.editor, opts);
+
+		  return r.startContainer;
+		},
+
+		pasteHtmlWithParagraphs : function (html, opts)
+		{
+			var div, paragraph, r, caretAt = {}, firstIsEmptyParagraph, container, newWrapperParagraph, container, firstToWrap, index, isNewParagraph, lastInserted, pos, first, last;
+			
+			div = document.createElement('div');
+			div.innerHTML = html;
+
+			if(div.lastChild.nodeType == 1 && div.lastChild.tagName == 'BR')
+				div.removeChild(div.lastChild);
+			
+			// html = div.innerHTML;
+			
+			// check if there are any paragraphs
+			paragraph = div.querySelector('span.paragraph');
+
+			r = this.selectionSave();
+			r = this.selectionRestore();		
+			this.customUndo.pushUndo(false, true);
+			
+			// if not, fall back to regular paste
+			if(!paragraph)
+				return this.pasteHtmlAtCaret(html);
+			
+			// otherwise html contains paragraphs.
+			if(!r.collapsed)
+				r.deleteContents();
+
+			r = getSelectionRange();
+
+			first = r.startContainer;
+			firstOffset = r.startOffset;
+			if(first.nodeType == 1)
+			{
+				first = first.childNodes[firstOffset];
+				firstOffset = 0;
+			}
+			
+			firstIsEmptyParagraph = isEmptyParagraph(first);
+			isNewParagraph = div.childNodes.length == 1 && isEmptyParagraph(div.firstChild);
+
+			if(firstIsEmptyParagraph)
+				caretAt.containerStart = true;
+			else
+			// if it's a bare text/inline node wrap it and its text/inline siblings in paragraph
+			if(!isParagraph(first) && (first.nodeType == 3 || INLINE_ELEMENTS[first.tagName]) && first.parentNode == this.$.editor)
+			{
+				newWrapperParagraph = document.createElement('span');
+				newWrapperParagraph.classList.add('paragraph');
+				firstToWrap = first;
+				
+				// go back until paragraph/block element/container start
+				while(!isParagraph(firstToWrap.previousSibling) && (firstToWrap.previousSibling && (firstToWrap.previousSibling.nodeType == 3 || INLINE_ELEMENTS[firstToWrap.previousSibling.tagName])))
+					firstToWrap = firstToWrap.previousSibling;
+				
+				container = firstToWrap.parentNode;
+				index = getChildPositionInParent(firstToWrap);
+							
+				while(!isParagraph(firstToWrap) && (firstToWrap && (firstToWrap.nodeType == 3 || INLINE_ELEMENTS[firstToWrap.tagName])))
+				{
+					newWrapperParagraph.appendChild(firstToWrap)
+					firstToWrap = container.childNodes[index];
+				}
+				firstIsEmptyParagraph = isEmptyParagraph(newWrapperParagraph);
+				
+				if(index < container.childNodes.length)
+					container.insertBefore(newWrapperParagraph, container.childNodes[index]);
+				else
+					container.appendChild(newWrapperParagraph);
+				
+				if(first.nodeType == 1)
+					firstOffset = getChildPositionInParent(first);
+			}
+			
+			// set caretAt
+
+			container = first;
+			// find first praragraph or non-text, non-inline container. it could have been the editor but we wrapped bare nodes earlier
+			while(!isParagraph(container) && (container.nodeType == 3 || INLINE_ELEMENTS[container.tagName]))
+				container = container.parentNode;
+			
+			if(caretAt.containerStart || (container.firstChild == first && firstOffset == 0))
+				caretAt.containerStart = true;
+			else
+			{
+				pos = getLastCaretPosition(container);
+				if(pos.container == first && pos.offset == firstOffset)
+					caretAt.containerEnd = true;
+				else
+					caretAt.containerMiddle = true;
+			}
+			
+			// paste html and move carret
+			if(caretAt.containerStart)
+			{
+				while(div.firstChild)
+					lastInserted = container.parentNode.insertBefore(div.firstChild, container);
+				
+				if(!isNewParagraph)
+				{
+					pos = getLastCaretPosition(lastInserted);
+					setCaretAt(pos.container, pos.offset);
+					if(!container.textContent)
+						container.parentNode.removeChild(container);
+				}
+			}
+			else
+			if(caretAt.containerEnd)
+			{
+				if(last = container.nextSibling)
+					while(div.firstChild)
+						lastInserted = container.parentNode.insertBefore(div.firstChild, last);
+				else
+					while(div.firstChild)
+						lastInserted = container.parentNode.appendChild(div.firstChild);
+									
 				pos = getLastCaretPosition(lastInserted);
 				setCaretAt(pos.container, pos.offset);
-				if(!container.textContent)
-					container.parentNode.removeChild(container);
 			}
-		}
-		else
-		if(caretAt.containerEnd)
-		{
-			if(last = container.nextSibling)
-				while(div.firstChild)
-					lastInserted = container.parentNode.insertBefore(div.firstChild, last);
 			else
-				while(div.firstChild)
-					lastInserted = container.parentNode.appendChild(div.firstChild);
-								
-			pos = getLastCaretPosition(lastInserted);
-			setCaretAt(pos.container, pos.offset);
-		}
-		else
-		{
-			last = splitNode(first, firstOffset, container);
-			
-			// after the split first will actually sit inside last
-			if(!first.textContent)
 			{
-				first = first.nextSibling;
-				first.parentNode.removeChild(first.previousSibling);
-			}
-			
-			if(!isNewParagraph || (selfOrLeftmostDescendantIsSpecial(first)))
-			{
-				while(div.firstChild)
-					lastInserted = container.parentNode.insertBefore(div.firstChild, last);
-
-				pos = getLastCaretPosition(lastInserted);
-				return setCaretAt(pos.container, pos.offset);
-			}
-			return setCaretAt(last, 0);
-		}
-	},
-	
-	pasteHtmlAtCaret : function(html, removeFormat, keepLastBr) {
-		var sel, range, endNode, newRange, node, lastNode, preLastNode, el, frag, pos, isLastInEditor, target;
-
-		if (window.getSelection) {
-			// IE9 and non-IE
-			sel = window.getSelection();
-			if (sel.getRangeAt && sel.rangeCount) {
-				range = sel.getRangeAt(0);
-				range.deleteContents();
-
-				// Range.createContextualFragment() would be useful here but is
-				// only relatively recently standardized and is not supported in
-				// some browsers (IE9, for one)
-				el = document.createElement("div");
-				el.innerHTML = html;
-				frag = document.createDocumentFragment();
-
-				while ( (node = el.firstChild) ) {
-					preLastNode = lastNode;
-					lastNode = frag.appendChild(node);
-					if(removeFormat)
-						this.removeFormat(lastNode);
-				}
-				var firstNode = frag.firstChild;
-
-				if(range.startContainer.nodeType == 1 && 
-					(range.startOffset >= range.startContainer.childNodes.length) && 
-					range.startContainer.childNodes[range.startOffset-1] && 
-					range.startContainer.childNodes[range.startOffset-1].tagName == 'BR')
-					
-					range = setCaretAt(range.startContainer, range.startOffset-1)
-					
-				range.insertNode(frag);
+				last = splitNode(first, firstOffset, container);
 				
-				// Preserve the selection
-				if (lastNode) {
-					if(lastNode.nextSibling && lastNode.nextSibling.textContent == '' && !keepLastBr)
-						lastNode.parentNode.removeChild(lastNode.nextSibling);
-					if(lastNode.nextSibling && lastNode.nextSibling.tagName == 'BR' && !keepLastBr)
-						lastNode.parentNode.removeChild(lastNode.nextSibling);
-					
-					t = lastNode;
-					while(t.parentNode && t.parentNode != this.$.editor)
-						t = t.parentNode;
-
-					if(t.parentNode == this.$.editor && !t.nextSibling)
-						lastNode.parentNode.appendChild(target = newEmptyParagraph());
-					else
-						target = nextNode(lastNode, true);
-					
-					return setCaretAt(target, 0);
-					
-					range = range.cloneRange();
-											
-					range.setStartAfter(lastNode);
-					range.collapse(true);
-					sel.removeAllRanges();
-					sel.addRange(range);
+				// after the split first will actually sit inside last.
+				if(!first.textContent)
+				{
+					first = first.nextSibling;
+					first.parentNode.removeChild(first.previousSibling);
 				}
-			}
-		} else if ( (sel = document.selection) && sel.type != "Control") {
-			// IE < 9
-			document.selection.createRange().pasteHTML(html);
-			/*
-			var originalRange = sel.createRange();
-			originalRange.collapse(true);
-			sel.createRange().pasteHTML(html);
-			if (selectPastedContent) {
-				range = sel.createRange();
-				range.setEndPoint("StartToStart", originalRange);
-				range.select();
-			}
-			*/
-		}
+				
+				if(!isNewParagraph || (selfOrLeftmostDescendantIsSpecial(first)))
+				{
+					while(div.firstChild)
+						lastInserted = container.parentNode.insertBefore(div.firstChild, last);
 
-		this._updateValue();
+					pos = getLastCaretPosition(lastInserted);
+					return setCaretAt(pos.container, pos.offset);
+				}
+				return setCaretAt(last, 0);
+			}
+		},
 		
-		return range;
-	},
+		pasteHtmlAtCaret : function(html, removeFormat, keepLastBr) {
+			var sel, range, endNode, newRange, node, lastNode, preLastNode, el, frag, pos, isLastInEditor, target;
 
-		rangeSelectElement : function(node)
+			if (window.getSelection) {
+				// IE9 and non-IE
+				sel = window.getSelection();
+				if (sel.getRangeAt && sel.rangeCount) {
+					range = sel.getRangeAt(0);
+					range.deleteContents();
+
+					// Range.createContextualFragment() would be useful here but is
+					// only relatively recently standardized and is not supported in
+					// some browsers (IE9, for one)
+					el = document.createElement("div");
+					el.innerHTML = html;
+					frag = document.createDocumentFragment();
+
+					while ( (node = el.firstChild) ) {
+						preLastNode = lastNode;
+						lastNode = frag.appendChild(node);
+						if(removeFormat)
+							this.removeFormat(lastNode);
+					}
+					var firstNode = frag.firstChild;
+
+					if(range.startContainer.nodeType == 1 && 
+						(range.startOffset >= range.startContainer.childNodes.length) && 
+						range.startContainer.childNodes[range.startOffset-1] && 
+						range.startContainer.childNodes[range.startOffset-1].tagName == 'BR')
+						
+						range = setCaretAt(range.startContainer, range.startOffset-1)
+						
+					range.insertNode(frag);
+					
+					// Preserve the selection
+					if (lastNode) {
+						if(lastNode.nextSibling && lastNode.nextSibling.textContent == '' && !keepLastBr)
+							lastNode.parentNode.removeChild(lastNode.nextSibling);
+						if(lastNode.nextSibling && lastNode.nextSibling.tagName == 'BR' && !keepLastBr)
+							lastNode.parentNode.removeChild(lastNode.nextSibling);
+						
+						t = lastNode;
+						while(t.parentNode && t.parentNode != this.$.editor)
+							t = t.parentNode;
+
+						if(t.parentNode == this.$.editor && !t.nextSibling)
+							lastNode.parentNode.appendChild(target = newEmptyParagraph());
+						else
+							target = nextNode(lastNode, true);
+						
+						return setCaretAt(target, 0);
+					}
+				}
+			} else if ( (sel = document.selection) && sel.type != "Control") {
+				// IE < 9
+				document.selection.createRange().pasteHTML(html);
+				/*
+				var originalRange = sel.createRange();
+				originalRange.collapse(true);
+				sel.createRange().pasteHTML(html);
+				if (selectPastedContent) {
+					range = sel.createRange();
+					range.setEndPoint("StartToStart", originalRange);
+					range.select();
+				}
+				*/
+			}
+
+			this._updateValue();
+			
+			return range;
+		},
+
+			rangeSelectElement : function(node)
 		{
 			var sel = document.getSelection();
 			var range = document.createRange();
@@ -1712,8 +1704,8 @@
 			eo = r.endOffset;
 
 			// if navigation occured, scroll view to bing the cursor into view
-			if(!opts.originalEvent || [38, 40, 37, 39, 8].indexOf(opts.originalEvent.keyCode || opts.originalEvent.which) > -1)
-				this.fire('scroll-into-view', getSelectionCoords());
+			//if(!opts.originalEvent || [38, 40, 37, 39, 8].indexOf(opts.originalEvent.keyCode || opts.originalEvent.which) > -1)
+			this.fire('scroll-into-view', getSelectionCoords());
 		},
 
 		selectionSelectElement : function(el) {
