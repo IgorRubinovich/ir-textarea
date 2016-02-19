@@ -174,6 +174,8 @@
 					
 				that._updateValue();
 				that.selectionSave();
+				
+				console.log('default prevented: ', ev.defaultPrevented);
 			};
 
 
@@ -205,7 +207,7 @@
 				if(typeof clipboardData != 'undefined')
 					v = clipboardData.getData();
 				else
-					v = e.originalEvent ? e.originalEvent.clipboardData.getData('text/html') : (e.clipboardData.getData('text/html') || '<span class="paragraph">' + e.clipboardData.getData('text/plain').replace(/\n/, '</span><span class="paragraph">') + "</span>");
+					v = e.originalEvent ? e.originalEvent.clipboardData.getData('text/html') : ((e.clipboardData.getData('text/html') || '<span class="paragraph">' + e.clipboardData.getData('text/plain').replace(/\n/, '</span><span class="paragraph">') + "</span>"));
 				
 				if(!v)
 					return;
@@ -215,69 +217,70 @@
 					v = v	.replace(/<!--\[if[^\[]*\[endif\]--\>/gi).replace(/\<style[\s][\S]+<\/style>/ig, '')
 							.replace(/<(meta|link)[^>]>/, '')
 							.match(/<!--StartFragment-->([\s\S]*?)(?=<!--EndFragment-->)/i)[1]
-					if(v)
-						v = v.replace(/\<\/?o\:[^>]*\>/g, '')
-							 .replace(/<p([\s\S]*?(?=<\/p>))<\/p>/gi, '<span class="paragraph" $1</span>')
-							 .replace(/\n/g, '')
-							 .replace(/<span[^>]*>\s*<\/span>/g, '')
-							 .replace("&nbsp;", " ");
-							 
-					d = document.createElement('div');
-					d.innerHTML = v;
-
-					i = 0; 
-					while(i < d.childNodes.length)
-					{
-						n = d.childNodes[i];
-
-						if(((n.nodeType == 3 || (n.tagName == 'SPAN' && !n.childNodes.length)) && /^\s*(&nbsp;)*\s*$/.test(n.textContent)))
-							d.removeChild(n);
-						else
-						{
-							if(n.nodeType == 3) 
-							{
-								nn = document.createElement('span'); 
-								nn.innerHTML = n.textContent;
-								d.insertBefore(nn, n);
-								d.removeChild(n);
-								n = nn;
-							}
-
-							if(n.tagName == 'SPAN')
-								if(d.childNodes.length == 1 && n.childNodes.length == 1 && n.childNodes[0].nodeType == 3)
-								{
-									d.insertBefore(n.childNodes[0], n);
-									d.removeChild(n);
-								}
-								else
-									n.classList.add('paragraph');
-							
-							i++;
-						}
-					}
-					
-					visitNodes(d, function(el) { 
-						if(el.nodeType == 1) el.removeAttribute('style') ;
-						/*
-							var d;
-							if(el.is) { // a postponed attempt to clean up custom elements
-							d = document.createElement('div');
-							d.appendChild(document.createElement('div'));
-							d.firstChild.outerHTML = recursiveOuterHTML(el);
-							el.parentNode.insertBefore(d.firstChild, el);
-							el.parentNode.removeChild(el);
-						}*/
-					}, { noRoot : true });
-					
-					that.pasteHtmlWithParagraphs(d.innerHTML, { removeFormat : false });
-					
-					/*if(d.childNodes.length > 1)
-						withParagraphs = v = d.innerHTML;
-					else
-						v = d.childNodes[0].innerHTML;*/
 				}
+
+				if(v)
+					v = v.replace(/\<\/?o\:[^>]*\>/g, '')
+						 .replace(/<p([\s\S]*?(?=<\/p>))<\/p>/gi, '<span class="paragraph" $1</span>')
+						 .replace(/\n/g, '')
+						 .replace(/<span[^>]*>\s*<\/span>/g, '')
+						 .replace("&nbsp;", " ");
+				
+				d = document.createElement('div');
+				d.innerHTML = v;
+
+				i = 0; 
+				while(i < d.childNodes.length)
+				{
+					n = d.childNodes[i];
+
+					if(((n.nodeType == 3 || (n.tagName == 'SPAN' && !n.childNodes.length)) && /^\s*(&nbsp;)*\s*$/.test(n.textContent)))
+						d.removeChild(n);
+					else
+					{
+						if(n.nodeType == 3) 
+						{
+							nn = document.createElement('span'); 
+							nn.innerHTML = n.textContent;
+							d.insertBefore(nn, n);
+							d.removeChild(n);
+							n = nn;
+						}
+
+						if(n.tagName == 'SPAN')
+							if(d.childNodes.length == 1 && n.childNodes.length == 1 && n.childNodes[0].nodeType == 3)
+							{
+								d.insertBefore(n.childNodes[0], n);
+								d.removeChild(n);
+							}
+							else
+								n.classList.add('paragraph');
+						
+						i++;
+					}
+				}
+				
+				visitNodes(d, function(el) { 
+					if(el.nodeType == 1) el.removeAttribute('style') ;
+				}, { noRoot : true });
+				
+				// edit out eventual closing br
+				if(d.lastChild && d.lastChild != d.firstChild && d.lastChild.tagName == "BR")
+					d.removeChild(d.lastChild);
+				
+				// if it's a single paragraph only use text
+				// if(d.childNodes.length == 1 && d.firstChild == 
+				
+				if(d.textContent)
+					that.pasteHtmlWithParagraphs(d.innerHTML, { removeFormat : false });
+				
+				/*if(d.childNodes.length > 1)
+					withParagraphs = v = d.innerHTML;
 				else
-					that.pasteHtmlAtCaret(v);
+					v = d.childNodes[0].innerHTML;*/
+				//}
+				//else
+				//	that.pasteHtmlAtCaret(v);
 				
 				e.preventDefault();
 				return false;
@@ -285,7 +288,7 @@
 
 			console.log('setting up paste handler...');
 			that.$.editor.addEventListener('paste', pasteHandler);
-			that.$.editor.addEventListener('copy', pasteHandler);
+			// that.$.editor.addEventListener('copy', pasteHandler);
 
 			var defs = {};
 			window.ir.textarea.commands
@@ -1159,7 +1162,7 @@
 		},
 		
 		pasteHtmlAtCaret : function(html, removeFormat, keepLastBr) {
-			var sel, range, endNode, newRange, node, lastNode, preLastNode, el, frag, pos, isLastInEditor, target;
+			var sel, range, endNode, newRange, node, lastNode, preLastNode, el, frag, pos, isLastInEditor, target, pos, offset;
 
 			if (window.getSelection) {
 				// IE9 and non-IE
@@ -1198,17 +1201,28 @@
 							lastNode.parentNode.removeChild(lastNode.nextSibling);
 						if(lastNode.nextSibling && lastNode.nextSibling.tagName == 'BR' && !keepLastBr)
 							lastNode.parentNode.removeChild(lastNode.nextSibling);
-						
+
 						t = lastNode;
 						while(t.parentNode && t.parentNode != this.$.editor)
 							t = t.parentNode;
 
+						offset = 0;
 						if(t.parentNode == this.$.editor && !t.nextSibling)
 							lastNode.parentNode.appendChild(target = newEmptyParagraph());
 						else
-							target = nextNode(lastNode, true);
+						{
+							pos = getLastCaretPosition(lastNode);
+							if(!pos)
+								target = nextNode(lastNode, true);
+							else
+							{
+								target = pos.container;
+								offset = pos.offset;
+							}
+								
+						}
 						
-						return setCaretAt(target, 0);
+						return setCaretAt(target, offset);
 					}
 				}
 			} else if ( (sel = document.selection) && sel.type != "Control") {
@@ -2626,7 +2640,7 @@
 	var canHaveChildren = (function() {
 		var cache = {};
 		return function(node) {
-			if(!node || node.nodeType != 1)
+			if(!node || node.nodeType != 1 || !node.tagName)
 				return false;
 
 			if(node.is)
@@ -2652,10 +2666,6 @@
 		return res;
 	};
 	
-	
-	var getLastCaretPosition = function(node, offset) { 
-	
-	}
 	
 	var getLastCaretPosition = function(node, offset) { 
 		var lastContainer, pos;
