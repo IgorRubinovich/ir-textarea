@@ -1846,10 +1846,6 @@
 				
 				if(val != this._initialValue)
 					this.fire('change');
-				else
-					this.fire('unchange');
-				
-				
 				
 				this.$.editor.style.minHeight = this.$.editor.scrollHeight;
 
