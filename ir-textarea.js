@@ -1848,7 +1848,7 @@
 					this.fire('change');
 				else
 					this.fire('unchange');
-				
+
 				this.$.editor.style.minHeight = this.$.editor.scrollHeight;
 
 				/*if(that.customUndo.lastTimeout)
@@ -2106,13 +2106,13 @@
 			var r, sel, startMemo, endMemo, sc, ec, t,
 				innerHTML, onlyUpdateRangeMemo;
 
-			if(!onlyUpdateRangeMemo || undoRecord.length <= 1)
+			if(!onlyUpdateRangeMemo || undoRecord.length <= 2)
 			{
 				innerHTML = getValue();
 				onlyUpdateRangeMemo = false;
 			}
 				
-			if(!onlyUpdateRangeMemo && undoRecord.length > 1 && (undoRecord[undoRecord.length-1].content == innerHTML))
+			if(!onlyUpdateRangeMemo && undoRecord.length > 2 && (undoRecord[undoRecord.length-1].content == innerHTML))
 				onlyUpdateRangeMemo = true;
 
 			lastRestoredStateContent == null;
@@ -2138,14 +2138,13 @@
 				startMemo = getDomPathMemo(sc, editor);
 				endMemo = getDomPathMemo(ec, editor);
 
-				if(onlyUpdateRangeMemo && undoRecord.length > 1)
+				if(onlyUpdateRangeMemo)
 				{
 					//if(undoRecord.length > 2) // && !(startMemo.positionArray.length == 1 && !startMemo.positionArray[0]))
 					//console.log("only update pos, replacing ", undoRecord[undoRecord.length - 1].range.startMemo.positionArray, undoRecord[undoRecord.length - 1].range.startOffset, " with ", startMemo.positionArray, r.startOffset);
 					undoRecord[undoRecord.length - 1].range = { startMemo : startMemo, endMemo : endMemo, startOffset : r.startOffset, endOffset : r.endOffset };
 				}
 				else
-				if(typeof innerHTML != 'undefined')
 					undoRecord.push({ content : innerHTML, range : { startMemo : startMemo, endMemo : endMemo, startOffset : r.startOffset, endOffset : r.endOffset }});
 			
 			//console.log('pushing:');
