@@ -49,8 +49,8 @@ Example:
                         Caption: <input is="iron-input" placeholder="Change me" on-change="createLink"  id="ifCaption" value={{_linkState.caption}} >
                     </div>
 					<div class="layout vertical">
-						<paper-dropdown-menu id="target1" selected="_self"  label="Target" raised>
-							<paper-menu class="dropdown-content" selected="_self" attr-for-selected="value">
+						<paper-dropdown-menu id="target1" selected={{_linkState.target}} label="Target" raised>
+							<paper-menu class="dropdown-content" selected={{_linkState.target}} attr-for-selected="value">
 								<paper-item  value="_self"></paper-item>
 								<paper-item  value="_blank">_blank</paper-item>
 								<paper-item value="_self">_self</paper-item>
@@ -58,8 +58,8 @@ Example:
 								<paper-item value="_top">_top</paper-item>
 							</paper-menu>
 						</paper-dropdown-menu>
-						<paper-toggle-button id="follow" on-change="createLink">Nofollow</paper-toggle-button>
-                         <paper-toggle-button id="noindex" on-change="createLink">Noindex</paper-toggle-button>
+						<paper-toggle-button checked={{_linkState.follow}} id="follow" on-change="createLink">Nofollow</paper-toggle-button>
+                         <paper-toggle-button checked={{_linkState.noindex}} id="noindex" on-change="createLink">Noindex</paper-toggle-button>
 					</div>
 					<!--  here be plugins -->
 					<span on-link-selected="linkSelectedInPlugin">
@@ -95,12 +95,12 @@ Example:
 				_urlChanged : function() {
 					this.set('_linkState.url', this.url);
 				},
-				
+
 				_textChanged : function() {
 					this.set('_linkState.text', this.text);
 				},
-				
-				
+
+
                 doLink : function (target, follow, href, text, img, imgCaption, noindex) {
 
                     if (!linknode) var linknode = document.createElement('a');
@@ -126,7 +126,7 @@ Example:
 
                     return linknode;
                 },
-				
+
 				linkSelectedInPlugin: function(e) {
 					e.detail.text && this.set('_linkState.text', e.detail.text);
 					e.detail.url && this.set('_linkState.url', e.detail.url);
@@ -174,6 +174,11 @@ Example:
                     var parent = range.startContainer.parentNode;
 
                     var href = current.href || parent.href || '';
+                    var target = current.target || parent.target || '_self';
+                    var follow = ((current.rel == "nofollow") || (parent.rel== "nofollow"))? true : false;
+                    var noindex = ((current.parentElement.localName == "noindex") || (parent.parentElement.localName== "noindex")) ? true : false;
+
+
                     var selectedText;
                     if (current.href || parent.href){
                         selectedText = range.startContainer.textContent.trim();
@@ -186,6 +191,9 @@ Example:
                     this.set("_linkState", {});
                     this.set("_linkState.text", selectedText);
                     this.set("_linkState.url", href);
+                    this.set("_linkState.target", target);
+                    this.set("_linkState.follow", follow);
+                    this.set("_linkState.noindex", noindex);
                     this.set("_linkState.img", innerImage);
                     this.set("_linkState.imgUrl", pic ? pic.src : '');
                     this.set("_linkState.caption", imgCaption);
@@ -198,10 +206,10 @@ Example:
                     this.parent1 = parent;
                     this.pic1 = pic;
                     this.isItCaption = isItCaption;
-					
-					setTimeout(function() { 
+
+					setTimeout(function() {
 						var r, sel = window.getSelection();
-						
+
 						r = sel.getRangeAt(0).cloneRange();
 						sel.removeAllRanges();
 						r.startContainer = r.endContainer = this.$.Href;
@@ -232,7 +240,7 @@ Example:
 
 					if(!this.$.TextValue.value)
 						return alert('Please enter some text in the Texts box');
-						
+
                     this.createLink();
                     this.hideDialog();
                     this.removeAll();
