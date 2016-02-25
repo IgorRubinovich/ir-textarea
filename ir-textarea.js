@@ -1,7 +1,7 @@
 (function () {
 
   var INLINE_ELEMENTS = {};
-  "b,big,i,small,tt,abbr,acronym,cite,code,dfn,em,kbd,strong,samp,time,var,a,bdo,br,img,map,object,q,script,span,sub,sup".split(/,/)
+  "font,b,big,i,small,tt,abbr,acronym,cite,code,dfn,em,kbd,strong,samp,time,var,a,bdo,br,img,map,object,q,script,span,sub,sup".split(/,/)
     .forEach(function(tag) { INLINE_ELEMENTS[tag.toUpperCase()] = true });
 
   Polymer({
@@ -25,10 +25,6 @@
 				if(((ev.type == 'keyup' || ev.type == 'keydown') && ([33,34,35,36,37,38,39,40].indexOf(keyCode) > -1)) || (ev.type == 'mousedown' || ev.type == 'mouseup'))
 					that.customUndo.pushUndo(false, true);
 
-				if(ev.type == 'keyup' || ev.type == 'keydown')
-					that.fire('scroll-into-view', getSelectionCoords());
-
-				
 				if (ev.type == 'keydown' && keyCode == 13) { 	// line break
 					r = that.selectionRestore();
 					if(ev.shiftKey || 
@@ -70,9 +66,14 @@
 					that.ensureCursorLocationIsValid({reverseDirection : true});
 					
 					that.frameContent();
+					
+					that.customUndo.pushUndo();
+					
 					that._updateValue();
 					that.selectionSave();
 					ev.preventDefault();
+					
+					
 					return;
 				}
 				
@@ -123,17 +124,13 @@
 							
 							mergeNodes(r.startContainer.parentNode, r.startContainer.parentNode.nextSibling, true);
 							//ev.preventDefault();
+							
 						}
 					}
 					else
 					if(keyCode == 8 && (el = that.getElementBeforeCaret({ atomicCustomElements : true}))) // backspace key
 					{
 						r = getSelectionRange();
-
-						//t = el.childNodes[el.childNodes.length - 1];
-						
-						//if(!isSpecialElement(el) && caretIsAtContainerStart())
-						//	el = prevNodeDeep(el, that.$.editor, { atomicCustomElements : true });
 						
 						if(isSpecialElement(el))
 						{
@@ -174,6 +171,8 @@
 						if(merge)
 							mergeNodes(merge.left, merge.right, true);
 
+						that.ensureCursorLocationIsValid();
+						
 						ev.preventDefault();
 
 						that.customUndo.pushUndo();
@@ -195,7 +194,9 @@
 				// console.log(ev.type);
 				if(ev.type == 'drop' && ev.target && (getTopCustomElementAncestor(ev.target, that.$.editor) || ev.target.proxyTarget)) // prevent default drop (like text) into custom elements - it breaks them
 					ev.preventDefault();
-					
+				
+				removeWhenOutIfEmpty();
+				
 				that._updateValue();
 				that.selectionSave();
 				
@@ -335,7 +336,7 @@
 
 			this.set('customUndo', CustomUndoEngine(this.$.editor, {
 																		getValue : this.getCleanValue.bind(this),
-																		contentFrame : '<span class="paragraph"><br></span>[content]<span class="paragraph"><br></span>',
+																		contentFrame : '[content]<span class="paragraph"><br></span>',
 																		timeout : false,
 																		onRestoreState : function(el) {
 																			this.selectionSave()
@@ -397,9 +398,14 @@
 
 			that.domProxyManager.createProxies()
 			
+			if(/^\s*$/.test(this.$.editor.innerHTML))
+			{
+				this.$.editor.innerHTML = "";
+				this.$.editor.appendChild(newEmptyParagraph());
+			}
 			
 			this._initialValue = this.$.editor.innerHTML = this.getCleanValue();
-
+			
 			this._updateValue();
 		},
 
@@ -561,7 +567,9 @@
 
 		  target = getTopCustomElementAncestor(target, this.$.editor);
 
-		  moveCaretAfterOrWrap(target, null, this.$.editor);
+		  this.moveCaretAfterOrWrap(target, null, this.$.editor);
+		  this.fire('scroll-into-view', getSelectionCoords());
+		  removeWhenOutIfEmpty();
 
 		  this.addActionBorder();
 		},
@@ -755,10 +763,10 @@
 
 			  // for now, forbid explicitly to drop into custom elements. (for custom targets only - built-in text drop is still possible! - e.g., it's ok to move text into a caption inside a gallery)
 			  if(tpce)
-				moveCaretAfterOrWrap(tpce, null, this.$.editor);
+				this.moveCaretAfterOrWrap(tpce, null, this.$.editor);
 			  else
 			  if(caretPosData.node.proxyTarget)
-				moveCaretAfterOrWrap(caretPosData.node.proxyTarget, null, this.$.editor);
+				this.moveCaretAfterOrWrap(caretPosData.node.proxyTarget, null, this.$.editor);
 
 			  this.ensureCursorLocationIsValid();
 
@@ -1030,6 +1038,7 @@
 
 		  opts = opts || {};
 		  opts.atomic = ['.embed-aspect-ratio'];
+		  opts.skipAncestors = true;
 
 		  if(!r || (!r.startOffset && r.startOffset != 0)  || r.startOffset != r.endOffset)
 			return null;
@@ -1043,12 +1052,15 @@
 		  return r.startContainer;
 		},
 
-		pasteHtmlWithParagraphs : function (html, opts)
+		pasteHtmlWithParagraphs : function (html, opts) // html is either a string or an element that will be inserted as is
 		{
 			var div, paragraph, r, caretAt = {}, firstIsEmptyParagraph, container, newWrapperParagraph, container, firstToWrap, index, isNewParagraph, lastInserted, pos, first, last;
 			
 			div = document.createElement('div');
-			div.innerHTML = html;
+			if(typeof html == 'string')
+				div.innerHTML = html;
+			else
+				div.appendChild(html);
 
 			if(div.lastChild.nodeType == 1 && div.lastChild.tagName == 'BR')
 				div.removeChild(div.lastChild);
@@ -1068,13 +1080,25 @@
 			
 			// otherwise html contains paragraphs.
 			if(!r.collapsed)
+			{
+				if(r.startContainer.nodeType == 3 && r.startOffset > 0)
+					pos = { container : r.startContainer, offset : r.startOffset };
+				else
+					pos = { container : r.startContainer.parentNode, offset : getChildPositionInParent(r.startContainer) };
+					
 				r.deleteContents();
+				
+				if(!this.$.editor.childNodes.length)
+					setCaretAt(this.$.editor.appendChild(newEmptyParagraph()), 0);
+				else
+					setCaretAt(pos.container, pos.offset);
+			}
 
 			r = getSelectionRange();
 
 			first = r.startContainer;
 			firstOffset = r.startOffset;
-			if(first.nodeType == 1)
+			if(first.nodeType == 1 && !selfOrLeftmostDescendantIsSpecial(first))
 			{
 				first = first.childNodes[firstOffset];
 				firstOffset = 0;
@@ -1099,7 +1123,8 @@
 				
 				container = firstToWrap.parentNode;
 				index = getChildPositionInParent(firstToWrap);
-							
+				
+				// go forward and wrap anything until next paragraph/block element and wrap
 				while(!isParagraph(firstToWrap) && (firstToWrap && (firstToWrap.nodeType == 3 || INLINE_ELEMENTS[firstToWrap.tagName])))
 				{
 					newWrapperParagraph.appendChild(firstToWrap)
@@ -1120,7 +1145,7 @@
 
 			container = first;
 			// find first praragraph or non-text, non-inline container. it could have been the editor but we wrapped bare nodes earlier
-			while(!isParagraph(container) && (container.nodeType == 3 || INLINE_ELEMENTS[container.tagName]))
+			while(!isParagraph(container) && (container.nodeType == 3 || INLINE_ELEMENTS[container.tagName] || isSpecialElement(container)))
 				container = container.parentNode;
 			
 			if(caretAt.containerStart || (container.firstChild == first && firstOffset == 0))
@@ -1161,21 +1186,29 @@
 				pos = getLastCaretPosition(lastInserted);
 				setCaretAt(pos.container, pos.offset);
 			}
-			else
+			else // containerMiddle
 			{
-				last = splitNode(first, firstOffset, container);
+				if(!isSpecialElement(first))
+					last = splitNode(first, firstOffset, container);
+				else
+				if(first.parentNode != this.$.editor)
+					last = splitNode(first.parentNode, getChildPositionInParent(first), container);
+				else
+					last = first;
 				
 				// after the split first will actually sit inside last.
-				if(!first.textContent)
-				{
-					first = first.nextSibling;
-					first.parentNode.removeChild(first.previousSibling);
-				}
+				//if(!first.textContent)
+				//{
+				//first = first.nextSibling;
+				first = last.previousSibling;
+				//first.parentNode.removeChild(first.previousSibling);
+				//container = container.parentNode;
+				//}
 				
 				if(!isNewParagraph || (selfOrLeftmostDescendantIsSpecial(first)))
 				{
 					while(div.firstChild)
-						lastInserted = container.parentNode.insertBefore(div.firstChild, last);
+						lastInserted = last.parentNode.insertBefore(div.firstChild, last);
 
 					pos = getLastCaretPosition(lastInserted);
 					return setCaretAt(pos.container, pos.offset);
@@ -1525,7 +1558,7 @@
 			{
 				// if no selection, go to offset 0 of first child, creating one if needed
 				if(!this.$.editor.childNodes.length)
-					this.$.editor.appendChild(document.createTextNode());
+					setCaretAt(this.$.editor.appendChild(newEmptyParagraph()), 0);
 
 				range = document.createRange();
 
@@ -1572,7 +1605,7 @@
 				}
 			},
 			function inLightDom(opts, range) {
-				return ensureCaretIsInLightDom(this.$.editor, opts.reverseDirection)
+				return this.ensureCaretIsInLightDom(this.$.editor, opts.reverseDirection)
 			},
 			function notInProxy(opts, range) {
 				var sni = range.startContainer.proxyTarget,
@@ -1581,10 +1614,10 @@
 				if(sni = sni || eni ) {
 					if(opts.originalEvent.type == 'mouseup' || opts.originalEvent.type == 'drop')
 						opts.reverseDirection ? 
-							moveCaretBeforeOrWrap(sni, sni, this.$.editor) :
-							moveCaretAfterOrWrap(sni, sni, this.$.editor); 
+							this.moveCaretBeforeOrWrap(sni, sni, this.$.editor) :
+							this.moveCaretAfterOrWrap(sni, sni, this.$.editor); 
 					else // otherwise we reached there by keyboard and should be thrown back
-						moveCaretBeforeOrWrap(range.startContainer, range.startContainer, this.$.editor); // no need for moveCaretAfterOrWrap(sc) as proxy nodes should be sitting at the very end
+						this.moveCaretBeforeOrWrap(range.startContainer, range.startContainer, this.$.editor); // no need for moveCaretAfterOrWrap(sc) as proxy nodes should be sitting at the very end
 
 					return true;
 				}
@@ -1632,7 +1665,7 @@
 				}
 
 				if(sni || eni)
-					opts.reverseDirection ? moveCaretBeforeOrWrap(scat, null, this.$.editor) : moveCaretAfterOrWrap(scat, null, this.$.editor);
+					opts.reverseDirection ? this.moveCaretBeforeOrWrap(scat, null, this.$.editor) : this.moveCaretAfterOrWrap(scat, null, this.$.editor);
 				
 				return sni || eni;
 			},
@@ -1644,7 +1677,7 @@
 				eni = ec.is || (ec.nodeType == 1 && ec.childNodes[eo] && ec.childNodes[eo].is);
 							
 				if(sni || eni)
-					opts.reverseDirection ? moveCaretBeforeOrWrap(sc, null, this.$.editor) : moveCaretAfterOrWrap(sc, null, this.$.editor);
+					opts.reverseDirection ? this.moveCaretBeforeOrWrap(sc, null, this.$.editor) : this.moveCaretAfterOrWrap(sc, null, this.$.editor);
 								
 				return sni || eni;
 			},
@@ -1727,7 +1760,6 @@
 			for(i = 0; i < this.cursorRules.length && totalChecks++ < 50; i++)
 				if(this.cursorRules[i].call(this, opts, r = getSelectionRange()))
 				{
-					// console.log('was ' + this.cursorRules[i].name, " now in ", r.startContainer);
 					i = -1;
 					jumpsOccured++;
 				}
@@ -1735,16 +1767,11 @@
 			if(totalChecks >= 50)
 				console.log('too many cursor movements');
 
-			// now we can be sure the cursor is in editor and in light dom relative to the editor
-			r = getSelectionRange();
-			sc = r.startContainer;
-			ec = r.endContainer;			
-			so = r.startOffset;
-			eo = r.endOffset;
-
 			// if navigation occured, scroll view to bing the cursor into view
-			//if(!opts.originalEvent || [38, 40, 37, 39, 8].indexOf(opts.originalEvent.keyCode || opts.originalEvent.which) > -1)
-			this.fire('scroll-into-view', getSelectionCoords());
+			// if(!opts.originalEvent || [38, 40, 37, 39, 8].indexOf(opts.originalEvent.keyCode || opts.originalEvent.which) > -1)
+			this.async(function() {
+				this.fire('scroll-into-view', getSelectionCoords());
+			});
 		},
 
 		selectionSelectElement : function(el) {
@@ -1771,13 +1798,14 @@
 				
 
 			if(!ed.childNodes.length)
-				return ed.appendChild(newEmptyParagraph());
+				return setCaretAt(ed.appendChild(newEmptyParagraph()), 0)
 
 			if(!isEmptyParagraph(ed.childNodes[0]))
 			{
 				if(ed.childNodes[0] && ed.childNodes[0].matchesSelector && ed.childNodes[0].matchesSelector('span.paragraph') && !ed.childNodes[0].innerHTML)
 					ed.childNodes[0].innerHTML = '<br>'
 				else
+				if(selfOrLeftmostDescendantIsSpecial(ed.childNodes[0]))
 					ed.insertBefore(newEmptyParagraph(), ed.childNodes[0]);
 			}
 
@@ -1817,6 +1845,9 @@
 			// so we schedule it once per 400ms as long as there are actions happening
 			this._updateValueTimeout = setTimeout(function() {
 				var val, sameContent, d;
+				
+				this.fire('scroll-into-view', getSelectionCoords());
+				
 				var bottomPadding, topPadding, that = this, editor = this.$.editor;
 
 				if(this.__actionData.target)
@@ -1870,15 +1901,18 @@
 			v = recursiveInnerHTML(this.$.editor, this.skipNodes)
 					.replace(/^(\r\n|\n|\r)/,"")
 					.replace(/(\r\n|\n|\r)/gm,"<br>")
-					.replace(/\<pre\>/gmi,"<span>").replace(/\<\/?pre\>/gmi,"</span>")
-					.replace(/^\s*(\<span class="paragraph"\>\<br\>\<\/span\>\s*)+/, '')
-					.replace(/\s*(\<span class="paragraph"\>\<br\>\<\/span\>\s*)+$/, '')
+					.replace(/\<pre\>/gmi,"<span>").replace(/\<\/?pre\>/gmi,"</span>");
+					
+				if(selfOrLeftmostDescendantIsSpecial(this.$.editor.childNodes[0]))
+					v = v.replace(/^\s*(\<span class="paragraph"\>\<br\>\<\/span\>\s*)/, '')
+				
+				v = v.replace(/\s*(\<span class="paragraph"\>\<br\>\<\/span\>\s*)+$/, '')
 					// .replace(/&#8203;/gmi, '') 				// special chars
 					.replace(/\<span\>​<\/span\>/gmi, '') 	// empty spans are useless anyway. or are they?
 					.trim();
 
-			if(!/\<[^\<]+\>/.test(v))
-				v = '<span class="paragraph">' + v + "</span>"
+			//if(!/\<[^\<]+\>/.test(v))
+			//	v = '<span class="paragraph">' + v + "</span>"
 					
 			this.addActionBorder();
 
@@ -1922,6 +1956,172 @@
 			}
 
 			return caretOffset;
+		},
+
+		ensureCaretIsInLightDom : function(top, reverseDirection) {
+			var r = getSelectionRange(), slc, elc;
+
+			if(!r)
+				return;
+
+			slc = getClosestLightDomTarget(r.startContainer, top),
+			elc = getClosestLightDomTarget(r.endContainer, top);
+
+			if((r.startContainer == slc || slc == top) && (r.endContainer == elc || elc == top))
+				// this should in most cases be true except for when the user managed to move the caret into local dom.
+				return;
+
+			// otherwise move the caret outside the shadow dom
+			return reverseDirection ? this.moveCaretBeforeOrWrap(slc, elc, top) : this.moveCaretAfterOrWrap(slc, elc, top);
+					// moveCaretAfterOrWrap(slc, elc);
+		},
+
+		
+		// params: slc - range start node, elc - range end node
+		// if slc != elc will select from before slc to after elc
+		// otherwise will set caret after slc
+		moveCaretAfterOrWrap : function(slc, elc, top) {
+			var ns, targetNode, so, sp, created,
+				sel = window.getSelection(),
+				range = document.createRange(),
+				t, isLast, p;
+				//sel = window.getSelection(),
+				//range = document.createRange(),
+
+			range = range.cloneRange();
+			//range = range.cloneRange();
+
+			if(!top)
+				throw new Error('No top was provided');
+			
+			if(!slc) return
+			if(!elc) elc = slc;
+
+			if(slc == elc)
+			{
+				// note the order of things here is a bit different from the matching moveCaretBeforeOrWrap
+				ns = nextNode(slc, true);
+				while(ns && (ns == slc || ns.parentNode == slc || !isInLightDom(ns, top) || 
+						!(canHaveChildren(ns) || ns.nodeType == 3)) && !(ns.tagName == 'BR' && !(ns.previousChild && isSpecialElement(ns.previouschild))) ) // || !canHaveChildren(ns) 
+					ns = nextNode(ns);
+
+				if(ns == top || (isLast = (!ns && slc.parentNode == top)))
+				{
+					setCaretAt(ns, 0);
+					this.pasteHtmlWithParagraphs(newEmptyParagraph());
+					
+					if(isLast)
+						slc.parentNode.appendChild(created);
+					else
+						slc.parentNode.insertBefore(created, ns);
+					
+					ns = created;
+				}
+				if(!ns)
+					throw new Error("couldn't find a good place to set the cursor")		
+				if(selfOrLeftmostDescendantIsSpecial(ns))
+				{
+					setCaretAt(ns, 0);
+					this.pasteHtmlWithParagraphs(created = ns = newEmptyParagraph());
+				}
+				
+				offset = 0;
+				if(ns.nodeType == 3)
+				{
+					offset = getChildPositionInParent(ns);
+					ns = ns.parentNode
+				}
+
+				range = setCaretAt(ns, offset);
+				if(created)
+					removeWhenOutIfEmpty(created);
+			}
+			else
+			{
+				range.setStartBefore(slc);
+				range.setEndBefore(slc);
+				sel.removeAllRanges();
+				sel.addRange(range);
+			}
+
+
+			return range;
+		},
+
+		moveCaretBeforeOrWrap : function(slc, elc, top) {
+			var sel = window.getSelection(), created, t,
+				range = document.createRange(), zeroWidthDummy,
+				ns, fromNode, pos;
+
+			if(!top)
+				throw new Error('No top was provided');
+
+			range = range.cloneRange();
+
+			if(!slc) return
+			if(!elc) elc = slc;
+
+			if(slc == elc)
+			{
+				//while(ns && ns != top && ( && ns == slc || ns.parentNode == slc || !isInLightDom(ns, top))) // || !(canHaveChildren(ns) || ns.nodeType == 3))) // the last one needed to not get stuck on img inside custom element // || !(!canHaveChildren(ns) && getTopCustomElementAncestor(ns, top))*/ || (slc.is && fromNode == slc))) // || (slc.is && ns.children[0] == slc))) // !canHaveChildren(ns) || 
+				ns = prevNodeDeep(slc, this.$.editor);
+				
+				while(ns && ns != top && (!isInLightDom(ns, this.$.editor) || selfOrLeftmostDescendantIsSpecial(ns) == slc || (ns.nodeType != 3 && !canHaveChildren(ns) && ns.tagName != 'BR')))
+				{
+					ns = prevNodeDeep(fromNode = ns, this.$.editor);
+					console.log(ns, ns.parentNode);
+				}
+				if(!ns)
+					throw new Error("couldn't find a good place to set the cursor")
+				
+				t = selfOrLeftmostDescendantIsSpecial(ns);
+				if(t) // && !(nextNode(ns) == t))
+				{
+					// make the last attempt before inserting a new paragraph before the special element
+					//t = prevNodeDeep(ns, top);
+					//if(!getTopCustomElementAncestor(t, top) && !selfOrLeftmostDescendantIsSpecial(t))
+					//	ns = t;
+					ns = slc;
+				}
+				
+				if(ns == top || selfOrLeftmostDescendantIsSpecial(ns))
+				{
+					setCaretAt(ns, 0);
+					this.pasteHtmlWithParagraphs(created = ns = newEmptyParagraph());
+					range = setCaretAt(created, 0);
+					removeWhenOutIfEmpty(created);
+				}
+				else
+				if(ns.nodeType == 3)
+					range = setCaretAt(ns, ns.length);
+				else
+				{
+					pos = getLastCaretPosition(canHaveChildren(ns) ? ns : ns.parentNode);
+					range = setCaretAt(pos.container, pos.offset);
+				}
+					
+				/*if(!canHaveChildren(ns))
+				{
+					offset = getChildPositionInParent(ns);
+					ns = ns.parentNode
+				}
+				else
+				{
+					offset = fromNode.parentNode == ns ? getChildPositionInParent(fromNode) : ns.childNodes.length - 1;
+					if(offset < 0) 
+						offset = 0;
+				}*/
+			}
+			else
+			{
+				range.setStartBefore(slc);
+				range.setEndAfter(elc);
+			}
+
+			sel.removeAllRanges();
+			sel.addRange(range);
+
+			return range;
 		},
 
 		cleanHTML : function() {
@@ -2297,6 +2497,8 @@
 	}
 
 	var isInLightDom = function(node, top) { // is in light dom relative to top, i.e. top is considered the light dom root like a scoped document.body
+		// console.log("isInLightDom", node, top);
+		
 		if(!node)
 			return false;
 
@@ -2449,7 +2651,7 @@
 
 	// previous sibling in deep sense - will look up the tree until there's a prevousSibling, then will look at the last (rightmost) node in its subtree
 	function prevNodeDeep(node, top, opts) {
-		var ni;
+		var ni, index;
 
 		if(!node)
 			return;
@@ -2458,51 +2660,40 @@
 		opts.atomic = opts.atomic || [];
 		
 		ni = node;
-		if(!ni.previousSibling)
+		while(ni && ni != top && !Polymer.dom(ni).previousSibling)
 		{
-			ni = node.parentNode;		
-			while(ni && ni != top && !ni.previousSibling)
+			if(opts.skipAncestors)
 				ni = ni.parentNode;
+			else
+				return node.parentNode || top;
+
+			//index = getChildPositionInParent(node);
+			//if(index > 0)
+			//	ni = 
+			//while(ni && ni != top && !ni.previousSibling)
+			//	ni = ni.parentNode;
 		}
 		
 		if(!ni || ni == top)
 			return top;
 		
-		ni = ni.previousSibling;
+		ni = Polymer.dom(ni).previousSibling;
 		
 		if(ni.is && opts.atomicCustomElements)
 			return ni;
 		
-		while(ni && ni.childNodes && ni.childNodes.length && !(ni.is && opts.atomicCustomElements) &&
+		while(ni && Polymer.dom(ni).childNodes && Polymer.dom(ni).childNodes.length && !(ni.is && opts.atomicCustomElements) &&
 				!(ni.matchesSelector && opts.atomic.filter(function(s) { return ni.matchesSelector(s) }).length ))
-			ni = ni.childNodes[ni.childNodes.length - 1];
+			ni = Polymer.dom(ni).childNodes[Polymer.dom(ni).childNodes.length - 1];
 		
 		return ni;
 	}
 	
-	var ensureCaretIsInLightDom = function(top, reverseDirection) {
-		var r = getSelectionRange(), slc, elc;
-
-		if(!r)
-			return;
-
-		slc = getClosestLightDomTarget(r.startContainer, top),
-		elc = getClosestLightDomTarget(r.endContainer, top);
-
-		if((r.startContainer == slc || slc == top) && (r.endContainer == elc || elc == top))
-			// this should in most cases be true except for when the user managed to move the caret into local dom.
-			return;
-
-		// otherwise move the caret outside the shadow dom
-		return reverseDirection ? moveCaretBeforeOrWrap(slc, elc, top) : moveCaretAfterOrWrap(slc, elc, top);
-				// moveCaretAfterOrWrap(slc, elc);
-
-
-	}
 
 	function isZeroWidthDummyNode(ns) {
 		return ns && ns.tagName == 'SPAN' && ns.innerHTML.length == 1 //(ns.innerHTML.length == 1) && (ns.innerHTML.charCodeAt(0) == 8203)
 	}
+	
 	function newZeroWidthDummyNode() {
 		var zwd;
 
@@ -2513,135 +2704,44 @@
 		return zwd;
 	}
 
-	// params: slc - range start node, elc - range end node
-	// if slc != elc will select from before slc to after elc
-	// otherwise will set caret after slc
-	function moveCaretAfterOrWrap(slc, elc, top) {
-		var ns, targetNode, so, sp, created,
-			sel = window.getSelection(),
-			range = document.createRange(),
-			t, isLast;
-			//sel = window.getSelection(),
-			//range = document.createRange(),
-
-		range = range.cloneRange();
-		//range = range.cloneRange();
-
-		if(!top)
-			throw new Error('No top was provided');
+	var removeWhenOutIfEmpty = (function() {
+		var lastTarget;
 		
-		if(!slc) return
-		if(!elc) elc = slc;
-
-		if(slc == elc)
-		{
-			// note the order of things here is a bit different from the matching moveCaretBeforeOrWrap
-			ns = nextNode(slc, true);
-			while(ns && (ns == slc || (ns.parentNode == slc || !isInLightDom(ns, top) || !(canHaveChildren(ns) || ns.nodeType == 3)))) // || !canHaveChildren(ns) 
-					ns = nextNode(ns);
-
-			if(ns == top || (isLast = (!ns && slc.parentNode == top)))
-			{
-				created = document.createElement('span');
-				if(isLast)
-					slc.parentNode.appendChild(created);
-				else
-					slc.parentNode.insertBefore(created, ns);
-				
-				ns = created;
-				ns.classList.add('paragraph');
-				ns.innerHTML = "<br>"
-			}
-			if(!ns)
-				throw new Error("couldn't find a good place to set the cursor")		
-			if(isSpecialElement(ns) || isSpecialElement(ns.firstChild))
-			{
-				ns.parentNode.insertBefore(t = newEmptyParagraph(), ns);
-				ns = created = t;
-			}
+		return function(el) {
+			var anc;
 			
-			offset = 0;
-			if(ns.nodeType == 3)
+			if((!el && !lastTarget) || el == lastTarget)
+				return;
+			
+			var r = getSelectionRange();
+			if(!r)
+				return;
+			
+			anc = r.startContainer;
+			while(anc && anc != lastTarget)
+				anc = anc.parentNode;
+			
+			if(anc != lastTarget && /^\s*$/.test(lastTarget.textContent))
 			{
-				offset = getChildPositionInParent(ns);
-				ns = ns.parentNode
+				if(lastTarget.parentNode)
+				{
+					if(lastTarget.previousSibling && lastTarget.nextSibling	&& !isSpecialElement(lastTarget.previousSibling) && !isSpecialElement(lastTarget.nextSibling))
+						mergeNodes(lastTarget.previousSibling, lastTarget.nextSibling, true);
+					
+					console.log("lastTarget", lastTarget, "deleted, its parent: ", lastTarget.parentNode);
+					
+					lastTarget.parentNode.removeChild(lastTarget);
+				}
+				
+				lastTarget = null;
 			}
 
-			range.setStart(ns, offset);
-			range.setEnd(ns, offset);
-			range.collapse(true);
+			if(el)
+				return lastTarget = el;
 		}
-		else
-		{
-			range.setStartBefore(slc);
-			range.setEndBefore(slc);
-		}
+	})();
+	
 
-		sel.removeAllRanges();
-		sel.addRange(range);
-
-		return range;
-	}
-
-	function moveCaretBeforeOrWrap(slc, elc, top) {
-		var sel = window.getSelection(), created, t,
-			range = document.createRange(), zeroWidthDummy,
-			ns, fromNode;
-
-		if(!top)
-			throw new Error('No top was provided');
-
-		range = range.cloneRange();
-
-		if(!slc) return
-		if(!elc) elc = slc;
-
-		if(slc == elc)
-		{
-			ns = prevNodeDeep(fromNode = slc, top);
-			while(ns && ns != top && (ns == slc || ns.parentNode == slc || !isInLightDom(ns, top))) // || !(canHaveChildren(ns) || ns.nodeType == 3))) // the last one needed to not get stuck on img inside custom element // || !(!canHaveChildren(ns) && getTopCustomElementAncestor(ns, top))*/ || (slc.is && fromNode == slc))) // || (slc.is && ns.children[0] == slc))) // !canHaveChildren(ns) || 
-				ns = prevNodeDeep(fromNode = ns, this.$.editor);
-
-			if(!ns)
-				throw new Error("couldn't find a good place to set the cursor")
-			if(ns == top)
-				slc.parentNode.insertBefore(ns = created = newZeroWidthDummyNode(), slc);
-			if(ns.is)
-			{
-				ns.parentNode.insertBefore(t = created = newZeroWidthDummyNode(), ns);
-				ns = t;
-			}
-
-			if((offset = ns.nodeType) == 3)
-				offset = ns.textContent.length;
-			else
-			if(!canHaveChildren(ns))
-			{
-				offset = getChildPositionInParent(ns);
-				ns = ns.parentNode
-			}
-			else
-			{
-				offset = fromNode.parentNode == ns ? getChildPositionInParent(fromNode) : ns.childNodes.length - 1;
-				if(offset < 0) 
-					offset = 0;
-			}
-
-			range.setStart(ns, offset);
-			range.setEnd(ns, offset);
-			range.collapse(true);
-		}
-		else
-		{
-			range.setStartBefore(slc);
-			range.setEndAfter(elc);
-		}
-
-		sel.removeAllRanges();
-		sel.addRange(range);
-
-		return range;
-	}
 
 	function getSelectionRange() {
 		var sel, range;

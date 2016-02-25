@@ -77,14 +77,32 @@
 		},
 	
 		accept : function() {
-			var value, tempEl;
+			var value, d, w, h;
 			
 			value = this.embedCode;
 			
 			value = HTMLtoXML(value).trim();
 			
+			d = document.createElement('div');
+			
+			d.innerHTML = value;
+			
 			if(!this.noWrapper && value)
+			{
 				value = '<div class=' + this.wrapperClass + '>' + value + '</div>';
+				if(d.firstChild.tagName == 'IFRAME')
+				{
+					w = d.firstChild.getAttribute('width');
+					h = d.firstChild.getAttribute('height');
+				}
+				d.innerHTML = value;
+				if(w && h)
+				{
+					d.firstChild.style.width = w + "px";
+					d.firstChild.style.paddingBottom = h + "px"
+				}
+				value = d.innerHTML;
+			}
 			
 			if(this._promptCallback)
 				this._promptCallback(value);
