@@ -98,8 +98,8 @@
 				d.innerHTML = value;
 				if(w && h)
 				{
-					d.firstChild.style.width = w + "px";
-					d.firstChild.style.paddingBottom = h + "px"
+					d.firstChild.style.width = 100 + "%";
+					d.firstChild.style.paddingBottom = (h * 100 / w) + "%"
 				}
 				value = d.innerHTML;
 			}
