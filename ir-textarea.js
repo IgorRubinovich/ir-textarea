@@ -1188,7 +1188,7 @@
 			}
 			else // containerMiddle
 			{
-				if(!isSpecialElement(first))
+				if(!selfOrLeftmostDescendantIsSpecial(first))
 					last = splitNode(first, firstOffset, container);
 				else
 				if(first.parentNode != this.$.editor)
@@ -1767,11 +1767,8 @@
 			if(totalChecks >= 50)
 				console.log('too many cursor movements');
 
-			// if navigation occured, scroll view to bing the cursor into view
-			// if(!opts.originalEvent || [38, 40, 37, 39, 8].indexOf(opts.originalEvent.keyCode || opts.originalEvent.which) > -1)
-			this.async(function() {
-				this.fire('scroll-into-view', getSelectionCoords());
-			});
+			this.selectionSave();
+			this.fire('scroll-into-view', getSelectionCoords());
 		},
 
 		selectionSelectElement : function(el) {
@@ -1855,8 +1852,8 @@
 
 				val = this.getCleanValue();
 				
-				if(!this.$.editor.querySelector('span.paragraph'))
-					val = '<span class="paragraph">' + val + '</span>';
+				//if(!this.$.editor.querySelector('span.paragraph'))
+				//	val = '<span class="paragraph">' + val + '</span>';
 
 				this.frameContent();
 				this.skipNodes = this.domProxyManager.createProxies();
@@ -2100,26 +2097,14 @@
 					range = setCaretAt(pos.container, pos.offset);
 				}
 					
-				/*if(!canHaveChildren(ns))
-				{
-					offset = getChildPositionInParent(ns);
-					ns = ns.parentNode
-				}
-				else
-				{
-					offset = fromNode.parentNode == ns ? getChildPositionInParent(fromNode) : ns.childNodes.length - 1;
-					if(offset < 0) 
-						offset = 0;
-				}*/
 			}
 			else
 			{
 				range.setStartBefore(slc);
 				range.setEndAfter(elc);
+				sel.removeAllRanges();
+				sel.addRange(range);
 			}
-
-			sel.removeAllRanges();
-			sel.addRange(range);
 
 			return range;
 		},
@@ -2708,7 +2693,7 @@
 		var lastTarget;
 		
 		return function(el) {
-			var anc;
+			var anc, ns, ps;
 			
 			if((!el && !lastTarget) || el == lastTarget)
 				return;
@@ -2726,11 +2711,17 @@
 				if(lastTarget.parentNode)
 				{
 					if(lastTarget.previousSibling && lastTarget.nextSibling	&& !isSpecialElement(lastTarget.previousSibling) && !isSpecialElement(lastTarget.nextSibling))
-						mergeNodes(lastTarget.previousSibling, lastTarget.nextSibling, true);
+					{
+						ps = lastTarget.previousSibling; 
+						ns = lastTarget.nextSibling;
+					}
 					
 					console.log("lastTarget", lastTarget, "deleted, its parent: ", lastTarget.parentNode);
 					
 					lastTarget.parentNode.removeChild(lastTarget);
+					
+					if(ps && ns)
+						mergeNodes(ps, ns, false);
 				}
 				
 				lastTarget = null;
