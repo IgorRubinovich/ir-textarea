@@ -20,6 +20,11 @@
 <link rel="import" href="./lib/ir-textarea-table.html">
 <link rel="import" href="./lib/ir-dom-proxy-manager.html">
 
+
+<link rel="import" href="../neon-animation/neon-animation-runner-behavior.html">
+<link rel="import" href="../neon-animation/neon-animated-pages.html">
+<link rel="import" href="../neon-animation/neon-animations.html">
+
 <link rel="import" href="./commands.html">
 
 <script src="./htmlparser.js"></script>
@@ -137,7 +142,7 @@ Issues and pull requests are most welcome. Fork it [here](https://github.com/Igo
 		height: 100%;
 		left: 0; top: 0;
 	}
-	
+
 	#wrapper {
 		position : absolute;
 	}
@@ -152,17 +157,23 @@ Issues and pull requests are most welcome. Fork it [here](https://github.com/Igo
 
 	}
 
-	@media (max-width:@screen-sm) {
+	@media (max-width:900px) {
 		.fixit {
 		width: 100%;
 		left: 0;
 		}
+
+		#toolbar{
+			display: inline-block;
+			@apply(--shadow-elevation-2dp);
+
+		}
 	}
-	
-	span.paragraph { 
+
+	span.paragraph {
 	    border: blue 1px solid;
 	}
-	
+
 	.io-menu-option-0 .label.io-menu-option {
 		position : absolute;
 		right : 5px;
