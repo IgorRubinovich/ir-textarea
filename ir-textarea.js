@@ -100,8 +100,7 @@
 							(el.firstChild && el.firstChild.nodeType == 3 && !el.firstChild.textContent && (toDelete = isSpecialElement(el.firstChild.nextSibling))) ||
 								(nn && (toDelete = isSpecialElement(nn)) || (toDelete = isSpecialElement(nn.firstChild))))
 						{
-							forcedelete = true;  //ev.preventDefault();
-							// toDelete = el;
+							forcedelete = true;
 						}
 
 						while(!toDelete && el && el.nodeType == 1 && el.firstChild && el.firstChild.nodeType == 1)
@@ -110,11 +109,9 @@
 							if(isSpecialElement(el) || (getTopCustomElementAncestor(el, that.$.editor) && !isInLightDom(el, this.$editor)))
 							{
 								toDelete = el;
-								forcedelete = true;  //ev.preventDefault()
+								forcedelete = true;
 							}
 						}
-
-						console.log('del handler');
 
 						// firefox won't merge the nodes so we do it "manually"
 						if(/firefox|iceweasel/i.test(navigator.userAgent) && that.get("startContainer.parentNode.nextSibling", r) == el)
@@ -123,8 +120,8 @@
 								r.startContainer.parentNode.removeChild(r.startContainer.parentNode.lastChild);
 
 							mergeNodes(r.startContainer.parentNode, r.startContainer.parentNode.nextSibling, true);
-							//ev.preventDefault();
-
+							
+							this.preventDefault();
 						}
 					}
 					else
@@ -134,9 +131,8 @@
 
 						if(isSpecialElement(el))
 						{
-
 							toDelete = el;
-							forcedelete = true;  //ev.preventDefault()
+							forcedelete = true;
 						}
 
 						// firefox won't merge the nodes so we do it "manually"
@@ -146,7 +142,8 @@
 								r.startContainer.previousSibling.removeChild(r.startContainer.previousSibling.lastChild);
 
 							mergeNodes(r.startContainer.previousSibling, r.startContainer, true);
-							//ev.preventDefault();
+							
+							this.preventDefault();
 						}
 					}
 
@@ -183,7 +180,6 @@
 				if(ev.type == 'mousedown' && altTarget && that.__actionData.type != 'drag' &&
 					!(ev.target.childNodes.length == 1 && ev.target.childNodes[0].nodeType == 3) && !(isInLightDom(ev.target) && ev.target.nodeType == 3))
 				{
-					//console.log(ev.target);
 					that.moveTarget.call(that, altTarget);
 					ev.preventDefault();
 				}
@@ -191,7 +187,6 @@
 				if(ev.type != 'mousedown')
 					that.ensureCursorLocationIsValid({reverseDirection : [8,33,37,38].indexOf(keyCode) > -1, originalEvent : ev}); // left, up, pgup
 
-				// console.log(ev.type);
 				if(ev.type == 'drop' && ev.target && (getTopCustomElementAncestor(ev.target, that.$.editor) || ev.target.proxyTarget)) // prevent default drop (like text) into custom elements - it breaks them
 					ev.preventDefault();
 
@@ -199,8 +194,6 @@
 
 				that._updateValue();
 				that.selectionSave();
-
-				console.log('default prevented: ', ev.defaultPrevented);
 			};
 
 
@@ -242,14 +235,15 @@
 					v = v	.replace(/<!--\[if[^\[]*\[endif\]--\>/gi).replace(/\<style[\s][\S]+<\/style>/ig, '')
 							.replace(/<(meta|link)[^>]>/, '')
 							.match(/<!--StartFragment-->([\s\S]*?)(?=<!--EndFragment-->)/i)[1]
+							.replace(/\<\/?o\:[^>]*\>/g, '')
+							.replace(/<p([\s\S]*?(?=<\/p>))<\/p>/gi, '<span class="paragraph" $1</span>')
+							.replace(/\n/g, '')
+							.replace(/<span[^>]*>\s*<\/span>/g, '')
+							.replace("&nbsp;", " ");
 				}
+				else
+					v = '<span class="paragraph">' + v.replace(/\r|\n/, '</span><span class="paragraph">') + "</span>";
 
-				if(v)
-					v = v.replace(/\<\/?o\:[^>]*\>/g, '')
-						 .replace(/<p([\s\S]*?(?=<\/p>))<\/p>/gi, '<span class="paragraph" $1</span>')
-						 .replace(/\n/g, '')
-						 .replace(/<span[^>]*>\s*<\/span>/g, '')
-						 .replace("&nbsp;", " ");
 
 				d = document.createElement('div');
 				d.innerHTML = v;
@@ -310,7 +304,6 @@
 				return false;
 			};
 
-			console.log('setting up paste handler...');
 			that.$.editor.addEventListener('paste', pasteHandler);
 			// that.$.editor.addEventListener('copy', pasteHandler);
 
@@ -1076,6 +1069,9 @@
 		{
 			var div, paragraph, r, caretAt = {}, firstIsEmptyParagraph, container, newWrapperParagraph, container, firstToWrap, index, isNewParagraph, lastInserted, pos, first, last;
 
+			if(!html) 
+				return;
+			
 			div = document.createElement('div');
 			if(typeof html == 'string')
 				div.innerHTML = html;
@@ -1130,36 +1126,36 @@
 			if(firstIsEmptyParagraph)
 				caretAt.containerStart = true;
 			else
-			// if it's a bare text/inline node wrap it and its text/inline siblings in paragraph
-			if(!isParagraph(first) && (first.nodeType == 3 || INLINE_ELEMENTS[first.tagName]) && first.parentNode == this.$.editor)
-			{
-				newWrapperParagraph = document.createElement('span');
-				newWrapperParagraph.classList.add('paragraph');
-				firstToWrap = first;
-
-				// go back until paragraph/block element/container start
-				while(!isParagraph(firstToWrap.previousSibling) && (firstToWrap.previousSibling && (firstToWrap.previousSibling.nodeType == 3 || INLINE_ELEMENTS[firstToWrap.previousSibling.tagName])))
-					firstToWrap = firstToWrap.previousSibling;
-
-				container = firstToWrap.parentNode;
-				index = getChildPositionInParent(firstToWrap);
-
-				// go forward and wrap anything until next paragraph/block element and wrap
-				while(!isParagraph(firstToWrap) && (firstToWrap && (firstToWrap.nodeType == 3 || INLINE_ELEMENTS[firstToWrap.tagName])))
+				// if it's a bare text/inline node wrap it and its text/inline siblings in paragraph
+				if(!isParagraph(first) && (first.nodeType == 3 || INLINE_ELEMENTS[first.tagName]) && first.parentNode == this.$.editor)
 				{
-					newWrapperParagraph.appendChild(firstToWrap)
-					firstToWrap = container.childNodes[index];
+					newWrapperParagraph = document.createElement('span');
+					newWrapperParagraph.classList.add('paragraph');
+					firstToWrap = first;
+
+					// go back until paragraph/block element/container start
+					while(!isParagraph(firstToWrap.previousSibling) && (firstToWrap.previousSibling && (firstToWrap.previousSibling.nodeType == 3 || INLINE_ELEMENTS[firstToWrap.previousSibling.tagName])))
+						firstToWrap = firstToWrap.previousSibling;
+
+					container = firstToWrap.parentNode;
+					index = getChildPositionInParent(firstToWrap);
+
+					// go forward and wrap anything until next paragraph/block element and wrap
+					while(!isParagraph(firstToWrap) && (firstToWrap && (firstToWrap.nodeType == 3 || INLINE_ELEMENTS[firstToWrap.tagName])))
+					{
+						newWrapperParagraph.appendChild(firstToWrap)
+						firstToWrap = container.childNodes[index];
+					}
+					firstIsEmptyParagraph = isEmptyParagraph(newWrapperParagraph);
+
+					if(index < container.childNodes.length)
+						container.insertBefore(newWrapperParagraph, container.childNodes[index]);
+					else
+						container.appendChild(newWrapperParagraph);
+
+					if(first.nodeType == 1)
+						firstOffset = getChildPositionInParent(first);
 				}
-				firstIsEmptyParagraph = isEmptyParagraph(newWrapperParagraph);
-
-				if(index < container.childNodes.length)
-					container.insertBefore(newWrapperParagraph, container.childNodes[index]);
-				else
-					container.appendChild(newWrapperParagraph);
-
-				if(first.nodeType == 1)
-					firstOffset = getChildPositionInParent(first);
-			}
 
 			// set caretAt
 
@@ -1178,6 +1174,7 @@
 				else
 					caretAt.containerMiddle = true;
 			}
+			
 
 			// paste html and move carret
 			if(caretAt.containerStart)
@@ -1208,6 +1205,15 @@
 			}
 			else // containerMiddle
 			{
+				if(first.tagName == 'BR') // remember we are in the middle of a paragprah so prevSibling exists
+				{
+					first = first.previousSibling;
+					first.parentNode.removeChild(first.nextSibling);
+					pos = getLastCaretPosition(first);
+					first = pos.container;
+					firstOffset = pos.offset;
+				}
+				
 				if(!selfOrLeftmostDescendantIsSpecial(first))
 					last = splitNode(first, firstOffset, container);
 				else
@@ -1216,16 +1222,14 @@
 				else
 					last = first;
 
-				// after the split first will actually sit inside last.
-				//if(!first.textContent)
-				//{
-				//first = first.nextSibling;
 				first = last.previousSibling;
-				//first.parentNode.removeChild(first.previousSibling);
-				//container = container.parentNode;
-				//}
+				
+				if(last.firstChild.nodeType == 3 && !last.firstChild.textContent)
+					last.removeChild(last.firstChild);
+				if(last.firstChild && last.firstChild.tagName == "BR")
+					last.removeChild(last.firstChild);
 
-				if(!isNewParagraph || (selfOrLeftmostDescendantIsSpecial(first)))
+				if(!isNewParagraph || (selfOrLeftmostDescendantIsSpecial(first)) || !last.childNodes.length)
 				{
 					while(div.firstChild)
 						lastInserted = last.parentNode.insertBefore(div.firstChild, last);
@@ -1365,41 +1369,28 @@
 
 			this.ensureCursorLocationIsValid();
 
-      if(cmd == 'replaceHTML')
-        this.insertHTMLCmd(val, true);
-      else
-      if(cmd == 'insertHTML')
-        this.insertHTMLCmd(val);
-      else
-      if(cmd == 'paste') {
-        that.$.editor.focus();
-        that.selectionRestore();
-        setTimeout(function() {
-          document.execCommand('Paste');
-        }, 300);
-      }
-      else {
-        if(this.isCommandPossible(cmd, sdu, val)){
-          document.execCommand(cmd, sdu, val);
-          this.selectionSave();
-          setTimeout(function(){
-            that.selectionRestore();
-          }, 200);
-
-
-
-        }
-
-      }
-
-      // this.selectionRestore();
-      /*
-       if(cmd == 'cut' || cmd == 'copy'){
-       this.text = this.getSelectionHtml();
-       document.execCommand(cmd, sdu, val);
-       }
-
-			else*/
+			if(cmd == 'replaceHTML')
+				this.insertHTMLCmd(val, true);
+			else
+			if(cmd == 'insertHTML')
+				this.insertHTMLCmd(val);
+			else
+			if(cmd == 'paste') {
+				that.$.editor.focus();
+				that.selectionRestore();
+				setTimeout(function() {
+					document.execCommand('Paste');
+				}, 300);
+			}
+			else {
+				if(this.isCommandPossible(cmd, sdu, val)) {
+					document.execCommand(cmd, sdu, val);
+					this.selectionSave();
+					setTimeout(function(){
+						that.selectionRestore();
+					}, 200);
+				}
+			}
 		},
 
 		isCommandPossible : function(cmd, sdu, val) {
@@ -1442,8 +1433,8 @@
 					html = document.selection.createRange().htmlText;
 				}
 			}
-				return html;
-			},
+			return html;
+		},
 
 		insertPlugins: function(){
 			var dynamicEl, par;
@@ -1544,7 +1535,6 @@
 
 			if(range && this.isOrIsAncestorOf(this.$.editor, range.startContainer))
 				this._selectionRange = range;
-			//console.log("selection: ", this._selectionRange.toString());
 		},
 
 		selectionRestore : function (noForceSelection) {
@@ -1561,8 +1551,6 @@
 				sc = range.startContainer;
 				ec = range.endContainer;
 			}
-
-			this.$.editor.focus();
 
 			if (range && sc && ec && this.isOrIsAncestorOf(this.$.editor, sc) && this.isOrIsAncestorOf(this.$.editor, ec)) {
 				if (window.getSelection) {
@@ -1596,6 +1584,8 @@
 
 			this._selectionRange = range;
 
+			this.$.editor.focus();
+			
 			return range;
 		},
 
@@ -1642,16 +1632,6 @@
 					return true;
 				}
 			},
-
-			/*function isTextNode(opts, range) {
-				var sc = range.startContainer, ec = range.endContainer;
-
-				if(!sc.matchesSelector || !ec.matchesSelector)
-					console.log('in a text node - so what?');
-
-				//if(!sc.matchesSelector) sc = getClosestLightDomTarget(sc.parentNode, this.$.editor);
-				//if(!ec.matchesSelector) ec = getClosestLightDomTarget(ec.parentNode, this.$.editor);
-			},*/
 
 			function isInForbiddenElement(opts, range) {
 				var sni, eni,
@@ -1785,7 +1765,7 @@
 				}
 
 			if(totalChecks >= 50)
-				console.log('too many cursor movements');
+				console.error('too many cursor movements');
 
 			this.selectionSave();
 			this.fire('scroll-into-view', getSelectionCoords());
@@ -1803,7 +1783,7 @@
 
 		// wraps content in <p><br></p>[content]<p><br></p>
 		frameContent : function() {
-			var ed = this.$.editor, nn, i, d, lastBeforeSkip;
+			var ed = this.$.editor, nn, i, d, lastBeforeSkip, r;
 
 				// is a <span><br></span>
 				/*isFramingEl = function(d) { return 	d.tagName &&
@@ -1820,7 +1800,18 @@
 			if(!isEmptyParagraph(ed.childNodes[0]))
 			{
 				if(ed.childNodes[0] && ed.childNodes[0].matchesSelector && ed.childNodes[0].matchesSelector('span.paragraph') && !ed.childNodes[0].innerHTML)
-					ed.childNodes[0].innerHTML = '<br>'
+				{
+					if(ed.childNodes.length == 1)
+						ed.childNodes[0].innerHTML = '<br>'
+					else
+					{
+						if((getSelectionRange() || {}).startContaier == ed.childNodes[0])
+							setCaretAt(ed.childNodes[1], 0);
+						
+						ed.removeChild(ed.childNodes[0]);
+					}
+						
+				}
 				else
 				if(selfOrLeftmostDescendantIsSpecial(ed.childNodes[0]))
 					ed.insertBefore(newEmptyParagraph(), ed.childNodes[0]);
@@ -1914,10 +1905,10 @@
 		getCleanValue : function() {
 			var v;
 			this.removeActionBorder();
-
+			
 			v = recursiveInnerHTML(this.$.editor, this.skipNodes)
 					.replace(/^(\r\n|\n|\r)/,"")
-					.replace(/(\r\n|\n|\r)/gm,"<br>")
+					.replace(/(\r\n|\n|\r)/gm," ")
 					.replace(/\<pre\>/gmi,"<span>").replace(/\<\/?pre\>/gmi,"</span>");
 
 				if(selfOrLeftmostDescendantIsSpecial(this.$.editor.childNodes[0]))
@@ -2084,10 +2075,8 @@
 				ns = prevNodeDeep(slc, this.$.editor);
 
 				while(ns && ns != top && (!isInLightDom(ns, this.$.editor) || selfOrLeftmostDescendantIsSpecial(ns) == slc || (ns.nodeType != 3 && !canHaveChildren(ns) && ns.tagName != 'BR')))
-				{
 					ns = prevNodeDeep(fromNode = ns, this.$.editor);
-					console.log(ns, ns.parentNode);
-				}
+
 				if(!ns)
 					throw new Error("couldn't find a good place to set the cursor")
 
@@ -2299,45 +2288,23 @@
 
 			editor.innerHTML = options.contentFrame.replace('[content]', state.content);
 
-			//setTimeout(function() {
 			r = document.createRange();
 
 			Polymer.dom.flush();
-
-			//console.log('restoring:');
-			//console.log(stateRange.startMemo.positionArray, stateRange.startOffset);
 
 			sn = (stateRange && stateRange.startMemo && stateRange.startMemo.restore()) || editor;
 			en = (stateRange && stateRange.endMemo && stateRange.endMemo.restore()) || sn;
 			so = sn ? stateRange.startOffset : 0;
 			eo = sn && en ? stateRange.endOffset : 0;
 
-			// console.log("in restore state: ", stateRange.startMemo.positionArray, sn, so);
-			/*if(sn.nodeType != 3 && sn.childNodes[so])
-			{
-				sn = sn.childNodes[so];
-				so = sn.length;
-			}*/
-
-			/*if(en.nodeType != 3 && en.childNodes[eo])
-			{
-				en = en.childNodes[eo];
-				eo = en.length;
-			}*/
 			smax = sn.nodeType == 1 ? sn.childNodes.length - 1 : sn.length;
 			smax = smax >= 0 ? smax : 0;
 
 			emax = en.nodeType == 1 ? en.childNodes.length - 1 : en.length;
 			emax = emax >= 0 ? emax : 0;
 
-			//if(so < smax || se < emax)
-			//	adjustToLast = true;
-
 			so = so < smax ? so : smax;
 			eo = eo < emax ? eo : emax;
-
-			//if(adjustToLast)
-			//	if(!prevNode)
 
 			r.setStart(sn, so);
 			r.setEnd(en, eo);
@@ -2389,17 +2356,9 @@
 				endMemo = getDomPathMemo(ec, editor);
 
 				if(onlyUpdateRangeMemo)
-				{
-					//if(undoRecord.length > 2) // && !(startMemo.positionArray.length == 1 && !startMemo.positionArray[0]))
-					//console.log("only update pos, replacing ", undoRecord[undoRecord.length - 1].range.startMemo.positionArray, undoRecord[undoRecord.length - 1].range.startOffset, " with ", startMemo.positionArray, r.startOffset);
 					undoRecord[undoRecord.length - 1].range = { startMemo : startMemo, endMemo : endMemo, startOffset : r.startOffset, endOffset : r.endOffset };
-				}
 				else
 					undoRecord.push({ content : innerHTML, range : { startMemo : startMemo, endMemo : endMemo, startOffset : r.startOffset, endOffset : r.endOffset }});
-
-			//console.log('pushing:');
-			//console.log(startMemo.positionArray, r.startOffset);
-
 			}
 			else
 			{
@@ -2514,9 +2473,6 @@
 		if(node.nodeType == 3)
 			return node.textContent;
 
-		//if(!node.is && node.outerHTML)
-		//	return node.outerHTML;
-
 		childNodes = node.is ? Polymer.dom(node).childNodes : node.childNodes;
 		if(!childNodes.length)
 			return tagOutline(node);
@@ -2547,8 +2503,6 @@
 	}
 
 	var isInLightDom = function(node, top) { // is in light dom relative to top, i.e. top is considered the light dom root like a scoped document.body
-		// console.log("isInLightDom", node, top);
-
 		if(!node)
 			return false;
 
@@ -2596,7 +2550,7 @@
 		if(!child || child == document.body)
 			return null;
 
-		cn = child.parentNode.childNodes; //Polymer.dom(child).parentNode.childNodes;
+		cn = child.parentNode.childNodes;
 		for(i=0; cn[i] != child && i < cn.length; i++)
 			;
 
@@ -2611,7 +2565,7 @@
 		if(child == top)
 			return [];
 
-		p = child.parentNode; //Polymer.dom(child).parentNode;
+		p = child.parentNode;
 		t = getChildPathFromTop(p, top);
 		if(!t)
 			return null;
@@ -2716,12 +2670,6 @@
 				ni = ni.parentNode;
 			else
 				return node.parentNode || top;
-
-			//index = getChildPositionInParent(node);
-			//if(index > 0)
-			//	ni =
-			//while(ni && ni != top && !ni.previousSibling)
-			//	ni = ni.parentNode;
 		}
 
 		if(!ni || ni == top)
@@ -2741,7 +2689,7 @@
 
 
 	function isZeroWidthDummyNode(ns) {
-		return ns && ns.tagName == 'SPAN' && ns.innerHTML.length == 1 //(ns.innerHTML.length == 1) && (ns.innerHTML.charCodeAt(0) == 8203)
+		return ns && ns.tagName == 'SPAN' && ns.innerHTML.length == 1;
 	}
 
 	function newZeroWidthDummyNode() {
@@ -2749,7 +2697,6 @@
 
 		zwd = document.createElement('span');
 		zwd.innerHTML = "<br>";
-		//zwd.innerHTML = "&#8203;";
 
 		return zwd;
 	}
@@ -2994,7 +2941,6 @@
 
 		Array.prototype.forEach.call(n.childNodes, function(el) { visitNodes(el, visitor) });
 	}
-
 
 	function isSpecialElement(el) {
 		return el && (el.is || (el.matchesSelector && el.matchesSelector('.embed-aspect-ratio'))) && el;
