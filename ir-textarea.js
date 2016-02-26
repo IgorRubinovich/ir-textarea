@@ -1890,7 +1890,7 @@
 
 				this.value = val;
 
-				this.textContent = this.$.editor.textContent;
+				this.textValue = this.$.editor.textContent;
 
 				if(val != this._initialValue)
 					this.fire('change');
