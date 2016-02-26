@@ -144,6 +144,9 @@ Example:
                     this.set("_linkState.disable", false);
                     link = link.outerHTML;
 
+					if(href && !/^https?:/.test(href))
+						this.set("$.Href.value", "http://" + href);
+					
                     this._updateValue(link);
                 },
 
