@@ -120,7 +120,7 @@
 								r.startContainer.parentNode.removeChild(r.startContainer.parentNode.lastChild);
 
 							mergeNodes(r.startContainer.parentNode, r.startContainer.parentNode.nextSibling, true);
-							
+
 							this.preventDefault();
 						}
 					}
@@ -142,7 +142,7 @@
 								r.startContainer.previousSibling.removeChild(r.startContainer.previousSibling.lastChild);
 
 							mergeNodes(r.startContainer.previousSibling, r.startContainer, true);
-							
+
 							this.preventDefault();
 						}
 					}
@@ -351,7 +351,8 @@
 			tbar.toolbarOffsetWidth = this.offsetWidth;
 
 			tbar.setPosition = function(x){
-				if(tbar.scrollTop > tbar.toolbarOffsetTop && (that.clientHeight + tbar.toolbarOffsetTop - tbar.toolbarOffsetHeight) > tbar.scrollTop){
+
+				if(tbar.scrollTop > tbar.toolbarOffsetTop && (that.$.borderWrapper.clientHeight + tbar.toolbarOffsetTop ) > tbar.scrollTop){
 
 					if(tbar.headerState == 0){
 						that.set("toolbarstyle",'top:'+tbar.headerHeight+'px');
@@ -370,7 +371,7 @@
 				else{
 					if(window.innerWidth > 900){
 						that.set("toolbarfix",'nofix');
-						that.set("toolbarstyle",'top:0');
+						that.set("toolbarstyle",'top:56px');
 					}
 
 				}
@@ -1069,9 +1070,9 @@
 		{
 			var div, paragraph, r, caretAt = {}, firstIsEmptyParagraph, container, newWrapperParagraph, container, firstToWrap, index, isNewParagraph, lastInserted, pos, first, last;
 
-			if(!html) 
+			if(!html)
 				return;
-			
+
 			div = document.createElement('div');
 			if(typeof html == 'string')
 				div.innerHTML = html;
@@ -1174,7 +1175,7 @@
 				else
 					caretAt.containerMiddle = true;
 			}
-			
+
 
 			// paste html and move carret
 			if(caretAt.containerStart)
@@ -1213,7 +1214,7 @@
 					first = pos.container;
 					firstOffset = pos.offset;
 				}
-				
+
 				if(!selfOrLeftmostDescendantIsSpecial(first))
 					last = splitNode(first, firstOffset, container);
 				else
@@ -1223,7 +1224,7 @@
 					last = first;
 
 				first = last.previousSibling;
-				
+
 				if(last.firstChild.nodeType == 3 && !last.firstChild.textContent)
 					last.removeChild(last.firstChild);
 				if(last.firstChild && last.firstChild.tagName == "BR")
@@ -1585,7 +1586,7 @@
 			this._selectionRange = range;
 
 			this.$.editor.focus();
-			
+
 			return range;
 		},
 
@@ -1807,10 +1808,10 @@
 					{
 						if((getSelectionRange() || {}).startContaier == ed.childNodes[0])
 							setCaretAt(ed.childNodes[1], 0);
-						
+
 						ed.removeChild(ed.childNodes[0]);
 					}
-						
+
 				}
 				else
 				if(selfOrLeftmostDescendantIsSpecial(ed.childNodes[0]))
@@ -1905,7 +1906,7 @@
 		getCleanValue : function() {
 			var v;
 			this.removeActionBorder();
-			
+
 			v = recursiveInnerHTML(this.$.editor, this.skipNodes)
 					.replace(/^(\r\n|\n|\r)/,"")
 					.replace(/(\r\n|\n|\r)/gm," ")
@@ -2146,12 +2147,16 @@
 		  this.$.toolbar.classList.add('fixit');
 		  this._showing = true;
 		  this.playAnimation('entry');
+		  this.set('isToolbarHidden', false)
 	  },
 	  hide: function() {
 
 		  this._showing = false;
 		  this.playAnimation('exit');
 
+	  },
+	  hideToolbar: function(){
+		  this.hide();
 	  },
 
 		properties : {
@@ -2203,6 +2208,10 @@
 				type: String,
 				value: 'nofix',
 				notify : true
+			},
+			isToolbarHidden:{
+				type: Boolean,
+				value: true
 			},
 			animationConfig: {
 				type: Object,
