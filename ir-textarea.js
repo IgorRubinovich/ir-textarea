@@ -225,7 +225,7 @@
 				if(typeof clipboardData != 'undefined')
 					v = clipboardData.getData();
 				else
-					v = e.originalEvent ? e.originalEvent.clipboardData.getData('text/html') : ((e.clipboardData.getData('text/html') || '<span class="paragraph">' + e.clipboardData.getData('text/plain').replace(/\n/, '</span><span class="paragraph">') + "</span>"));
+					v = e.originalEvent ? e.originalEvent.clipboardData.getData('text/html') : ((e.clipboardData.getData('text/html') || '<span class="paragraph">' + e.clipboardData.getData('text/plain').replace(/\n/g, '</span><span class="paragraph">') + "</span>"));
 
 				if(!v)
 					return;
@@ -679,7 +679,7 @@
 
 				x = (parseFloat(target.getAttribute('data-x')) || 0),
 				y = (parseFloat(target.getAttribute('data-y')) || 0),
-				
+
 
 				sw = Number(target.style.width.replace(/px/, '') || 0) || computedStyle.width,
 				sh = Number(target.style.height.replace(/px/, '') || 0) || computedStyle.height,
@@ -688,7 +688,7 @@
 			  if(!target.ratio) // keep the initial ratio on target, as interactible gets regreated on every resize start
 				  target.ratio = sh/sw;;
 			  ratio = interactable.ratio;
-			  
+
 			  w = event.rect.width;
 			  h = ratio * w;
 
