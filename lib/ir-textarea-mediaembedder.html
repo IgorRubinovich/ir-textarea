@@ -85,11 +85,19 @@
 			
 			d = document.createElement('div');
 			
-			d.innerHTML = value;
+			if(!value)
+				return this._promptCallback('');;
+				
+			//if(!this.noWrapper)
+			//	value = '<div class=' + this.wrapperClass + '>' + value + '</div>';
 			
-			if(!this.noWrapper && value)
+			value = "<embedded-media>" + value + "</embedded-media>";
+			
+			d.innerHTML = value;
+			//swapScripts(d);
+			
+			/*if(value)
 			{
-				value = '<div class=' + this.wrapperClass + '>' + value + '</div>';
 				if(d.firstChild.tagName == 'IFRAME')
 				{
 					w = d.firstChild.getAttribute('width');
@@ -102,7 +110,7 @@
 					d.firstChild.style.paddingBottom = (h * 100 / w) + "%"
 				}
 				value = d.innerHTML;
-			}
+			}*/
 			
 			if(this._promptCallback)
 				this._promptCallback(value);
@@ -132,4 +140,141 @@
 
 	});
 })();
+</script>
+
+<dom-module id="embedded-media">
+	<style>
+		#cover {
+			position : relative;
+			top : 0;
+			left : 0;
+			background : red;
+			opacity  : 0.5;
+		}
+		#aspectKeeper {
+			width : 100%;
+			height : 0;
+		}
+	</style>
+	<template>
+		<div id="content">
+			<div id="aspectKeeper" on-dom-change="domChanged"><content></content></div>
+			<div id="cover"></div>
+		</div>
+	</template>
+</dom-module>
+
+<script>
+	(function () {
+		Polymer({
+			is : 'embedded-media',
+			
+			properties : [
+				{ 
+					name : "originalInnerHTML",
+					type : String
+				},
+				{ 
+					name : "width",
+					type : Number,
+					notify : true,
+					observer : "widthChanged"
+				}
+			],
+
+			widthChanged : function() {
+				var bcr;
+				
+				if(this.iframe)
+				{
+					bcr = this.$.content.getBoundingClientRect();
+					//w = iframe.getAttribute('width');
+					//h = iframe.getAttribute('height');
+					//w = this.$.content.scrollWidth;
+					//h = this.$.content.scrollHeight;
+					w = bcr.width || this.$.content.scrollWidth;
+					h = bcr.height || this.$.content.scrollHeight;
+					
+					if(w && h)
+						this.$.aspectKeeper.style.paddingBottom = (h * 100 / w) + "%"
+					
+					this.$.cover.style.width = w + "px";
+					this.$.cover.style.height = h + "px";
+					this.$.cover.style.marginTop = "-" + h + "px";
+					
+					this.$.content.style.minHeight = "0";
+				}
+				else
+					this.$.content.style.minHeight = this.$.content.scrollHeight + "px";
+			},
+			
+			attributeChanged : function(name) {
+				if(name == 'width')
+					this.widthChanged();
+			},
+			
+			ready : function() {
+				this.originalInnerHTML = this.$.aspectKeeper.innerHTML;
+				this.firstAttachment = true;
+			},
+			
+			attached : function() {
+				var p = this, firstChild, iframe, w, h, rect;
+				if(!this.firstAttachment)
+					return;
+
+				this.firstAttachment = false;
+				
+				var interval, iframe = Polymer.dom(this).querySelector('iframe');
+				this.iframe = iframe;
+				
+				while(p.nodeType == 1 && (p = Polymer.dom(p).parentNode))
+					if(p.hasAttribute && p.hasAttribute("contenteditable"))
+					{
+						this.setAttribute('hasScripts', 'true');
+					
+						swapScripts(Polymer.dom(this));
+						
+						Polymer.dom.flush();
+						interval = setInterval(function() {
+							if(!this.$.content.scrollHeight)
+								return;
+							
+							clearInterval(interval);
+							this.widthChanged();
+						}.bind(this), 100);
+						
+						return;
+					}
+					
+				//this.addEventListener('dom-change', this.domChanged.bind(this));
+			},
+			
+			domChanged : function() {
+				console.log('dom changed!')
+			}
+		})
+		
+				
+		function swapScripts (d) {
+			var clone, attrs, pn;
+			
+			//document.body.appendChild(d);
+			
+			var s = d.querySelectorAll('script'), i;
+			
+			for(i = 0; i < s.length; i++)
+			{
+				clone = document.createElement('script');
+				clone.appendChild(document.createTextNode(s[i].textContent));
+				attrs = Array.prototype.slice.call(s[i].attributes);
+				attrs.forEach(function(a) { if(a.name != 'async') clone.setAttribute(a.name, a.value); });
+				
+				pn = s[i].parentNode; //Polymer.dom(s[i]).parentNode;
+				pn.insertBefore(clone, s[i]);
+				pn.removeChild(s[i]);
+			}
+			//document.body.removeChild(d);
+		}
+	})();
 </script>

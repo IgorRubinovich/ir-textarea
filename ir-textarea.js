@@ -212,11 +212,11 @@
 				window.addEventListener('mouseup', selectionTracker);
 			});
 
-			this.domProxyManager = ir.DomProxyManager.getProxyManager( // last argument maps selector->transformation for cases when target is not the dimensions source
+			/*this.domProxyManager = ir.DomProxyManager.getProxyManager( // last argument maps selector->transformation for cases when target is not the dimensions source
 										':not(.embed-aspect-ratio)>iframe,.embed-aspect-ratio',
 										{ rootNode : this.$.editor, createRootNode : this.$.editor, fromElement : this.$.editor },
 										{ '.embed-aspect-ratio' : function(el) { return el.childNodes[0]; } }
-									);
+									);*/
 
 			this.$.editor.addEventListener('click', this.contextMenuShow.bind(this), true); // capturing phase
 
@@ -385,7 +385,7 @@
 				tbar.transformOffset = arg.transformOffset;;
 				tbar.setPosition();
 
-				that.skipNodes = that.domProxyManager.createProxies();
+				//that.skipNodes = that.domProxyManager.createProxies();
 			});
 
 			mediator.subscribe('showToolbar', function( arg ){
@@ -410,7 +410,7 @@
 			}.bind(this));
 
 
-			that.domProxyManager.createProxies()
+			//that.domProxyManager.createProxies()
 
 			if(/^\s*$/.test(this.$.editor.innerHTML))
 			{
@@ -428,7 +428,7 @@
 				mediaEditor = this.$.mediaEditor, that = this, altTarget = ev.target, candidateTarget, parentCustomEl,
 				actionTarget = target,
 				menuGroups = {
-						resizeable : "video,img,iframe,.embed-aspect-ratio",
+						resizeable : "video,img,iframe,.embed-aspect-ratio,embedded-media",
 						floatable : "video,img,iframe,.embed-aspect-ratio",
 						removeable : "video,img,table,iframe,.embed-aspect-ratio"
 				},
@@ -635,8 +635,8 @@
 			p.removeChild(deleteTarget);
 			this._updateValue();
 
-			if(cover)
-				this.skipNodes = this.domProxyManager.createProxies()
+			//if(cover)
+			//	this.skipNodes = this.domProxyManager.createProxies()
 
 		  //Polymer.dom(target).removeChild(target);
 		  //this._updateValue();
@@ -679,25 +679,35 @@
 
 				x = (parseFloat(target.getAttribute('data-x')) || 0),
 				y = (parseFloat(target.getAttribute('data-y')) || 0),
+				
 
 				sw = Number(target.style.width.replace(/px/, '') || 0) || computedStyle.width,
 				sh = Number(target.style.height.replace(/px/, '') || 0) || computedStyle.height,
 				ratio, w, h;
 
-			  ratio = sh/sw;
+			  if(!target.ratio) // keep the initial ratio on target, as interactible gets regreated on every resize start
+				  target.ratio = sh/sw;;
+			  ratio = interactable.ratio;
+			  
 			  w = event.rect.width;
 			  h = ratio * w;
 
 			  // update the element's style
+
 			  target.style.width  = w + 'px';
 			  target.style.height = h + 'px';
+
+			  // in case it's a custom element
+			  target.width = w;
+			  target.height = h;
+
 			  target.style.webkitTransform = target.style.transform = 'translate(' + x + 'px,' + y + 'px)';
 
-			  if(target.tagName == 'IFRAME')
-			  {
+			  //if(target.tagName == 'IFRAME')
+			  //{
 				target.setAttribute("width", w + 'px');
 				target.setAttribute("height", h + 'px');
-			  }
+			  //}
 
 
 			  that.__actionData.dragTarget = null; // resize takes over drag
@@ -709,7 +719,7 @@
 
 			  if(t = st = that.__actionData.resizeTarget)
 			  {
-				if(t.proxyTarget)
+				/*if(t.proxyTarget)
 				{
 				  if(t.proxyTarget.matchesSelector('.embed-aspect-ratio'))
 				  {
@@ -734,7 +744,7 @@
 				  st.style.width = t.style.width
 				  st.style.height = t.style.height
 				  st.style.webkitTransform = st.style.transform = t.style.transform;
-				}
+				}*/
 
 				if(that.__actionData.resizePosition)
 				  t.style.position = that.__actionData.resizePosition;
@@ -1623,7 +1633,7 @@
 					eni = range.endContainer.proxyTarget;
 
 				if(sni = sni || eni ) {
-					if(opts.originalEvent.type == 'mouseup' || opts.originalEvent.type == 'drop')
+					if(opts.originalEvent && (opts.originalEvent.type == 'mouseup' || opts.originalEvent.type == 'drop'))
 						opts.reverseDirection ?
 							this.moveCaretBeforeOrWrap(sni, sni, this.$.editor) :
 							this.moveCaretAfterOrWrap(sni, sni, this.$.editor);
@@ -1868,7 +1878,7 @@
 				//	val = '<span class="paragraph">' + val + '</span>';
 
 				this.frameContent();
-				this.skipNodes = this.domProxyManager.createProxies();
+				// this.skipNodes = this.domProxyManager.createProxies();
 
 				this._updateValueTimeout = null;
 
@@ -1889,7 +1899,7 @@
 				else
 					this.fire('unchange');
 
-				this.$.editor.style.minHeight = this.$.editor.scrollHeight;
+				this.$.editor.style.minHeight = this.$.editor.scrollHeight + "px";
 
 				/*if(that.customUndo.lastTimeout)
 					clearTimeout(that.customUndo.lastTimeout);
@@ -2162,7 +2172,7 @@
 		properties : {
 			commands : {
 				type : String,
-				value : "bold,italic,underline,insertOrderedList,insertUnorderedList,align-left,justifyLeft,justifyCenter,justifyRight,insertImage,foreColor,backColor,,indent,outdent,insertHorizontalRule,,copy,cut"
+				value : "bold,italic,underline,insertOrderedList,insertUnorderedList,align-left,justifyLeft,justifyCenter,justifyRight,indent,outdent,insertHorizontalRule,,insertImage,foreColor,backColor,,copy,cut"
 			},
 
 			customUndo : {
@@ -2486,7 +2496,7 @@
 		if(!childNodes.length)
 			return tagOutline(node);
 
-		innerHTML = Array.prototype.map.call(childNodes, function(n) { return recursiveOuterHTML(n, skipNodes) }).join('');
+		innerHTML = (node.is && node.originalInnerHTML) ? node.originalInnerHTML : Array.prototype.map.call(childNodes, function(n) { return recursiveOuterHTML(n, skipNodes) }).join('');
 
 		res = tagOutline(node)
 		if(innerHTML)
