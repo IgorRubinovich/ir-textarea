@@ -17,7 +17,6 @@
 			handler = function(ev) {
 				var noMoreSave, el, toDelete, keyCode = ev.keyCode || ev.which, t, forcedelete, r, done, localRoot, last, n, nn, pn, pos, firstRange, merge;
 
-
 				that.selectionSave();
 				if(['mousedown'].indexOf(ev.type) == -1)
 					that.selectionRestore(true);
@@ -187,6 +186,7 @@
 				{
 					that.moveTarget.call(that, altTarget);
 					ev.preventDefault();
+					return;
 				}
 
 				if(ev.type != 'mousedown' && ev.type != 'mouseup')
