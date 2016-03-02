@@ -149,12 +149,12 @@ Issues and pull requests are most welcome. Fork it [here](https://github.com/Igo
 
 	.fixit {
 		position: fixed;
-		margin-right: 27px;
+		margin: 0;
 		background: white;
-		width: auto;
+		width: 1028px;
 		z-index: 10;
 		border: 1px solid #ccc;
-		padding: 0 5px;
+
 	}
 
 	@media (max-width:900px) {
@@ -250,7 +250,11 @@ Issues and pull requests are most welcome. Fork it [here](https://github.com/Igo
 				<paper-icon-button raised icon="code" on-tap="insertHtml" alt="insert html"></paper-icon-button>
 				<paper-icon-button raised icon="icons:link" on-tap="createLink" alt="create link"></paper-icon-button>
 				<paper-icon-button raised icon="image:grid-on" on-tap="createTable" alt="create table"></paper-icon-button>
+<<<<<<< 7532eece1779c3b8099bd6de181c84752e9c1686
 
+=======
+				
+>>>>>>> in progress: switch to embedded-media element for iframes etc.
 			</div>
 			<div id="borderWrapper">
 				<div id="floatWrapper">
@@ -258,7 +262,7 @@ Issues and pull requests are most welcome. Fork it [here](https://github.com/Igo
 						<content></content>
 					</div>
 				</div>
-				<io-menu id="contextMenu" listener="click" options="{}"></io-menu>
+				<io-menu id="contextMenu" listener="click"></io-menu>
 			</div>
 		</div>
 		<div>

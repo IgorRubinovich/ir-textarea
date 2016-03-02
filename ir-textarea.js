@@ -15,16 +15,21 @@
 			this.__actionData = {};
 
 			handler = function(ev) {
-				that.selectionSave();
-				that.selectionRestore();
+				var noMoreSave, el, toDelete, keyCode = ev.keyCode || ev.which, t, forcedelete, r, done, localRoot, last, n, nn, pn, pos, firstRange, merge;
 
-				var el, toDelete, keyCode = ev.keyCode || ev.which, t, forcedelete, r, done, localRoot, last, n, nn, pn, pos, firstRange, merge;
+
+				that.selectionSave();
+				if(['mousedown'].indexOf(ev.type) == -1)
+					that.selectionRestore(true);
 
 				// save position on control keys
 				// console.log(ev.which || ev.keyCode);
-				if(((ev.type == 'keyup' || ev.type == 'keydown') && ([33,34,35,36,37,38,39,40].indexOf(keyCode) > -1)) || (ev.type == 'mousedown' || ev.type == 'mouseup'))
+				if(((ev.type == 'keyup' || ev.type == 'keydown') && ([33,34,35,36,37,38,39,40].indexOf(keyCode) > -1)) || (ev.type == 'mouseup'))
 					that.customUndo.pushUndo(false, true);
 
+				if(String.fromCharCode(event.keyCode))
+					that.clearActionData();
+				
 				if (ev.type == 'keydown' && keyCode == 13) { 	// line break
 					r = that.selectionRestore();
 					if(ev.shiftKey ||
@@ -129,7 +134,7 @@
 					{
 						r = getSelectionRange();
 
-						if(isSpecialElement(el))
+						if(selfOrLeftmostDescendantIsSpecial(el))
 						{
 							toDelete = el;
 							forcedelete = true;
@@ -178,22 +183,31 @@
 
 				altTarget = getTopCustomElementAncestor(ev.target, that.$.editor) || (ev.target.proxyTarget && ev.target);
 				if(ev.type == 'mousedown' && altTarget && that.__actionData.type != 'drag' &&
-					!(ev.target.childNodes.length == 1 && ev.target.childNodes[0].nodeType == 3) && !(isInLightDom(ev.target) && ev.target.nodeType == 3))
+					!(isInLightDom(ev.target) && (ev.target.nodeType == 3 || (ev.target.firstChild && ev.target.firstChild.nodeType == 3))))
 				{
 					that.moveTarget.call(that, altTarget);
 					ev.preventDefault();
 				}
 
-				if(ev.type != 'mousedown')
+				if(ev.type != 'mousedown' && ev.type != 'mouseup')
 					that.ensureCursorLocationIsValid({reverseDirection : [8,33,37,38].indexOf(keyCode) > -1, originalEvent : ev}); // left, up, pgup
-
+				else 
+				if(ev.type == 'mousedown') { // let the event through first
+					that.async(function() {
+						that.selectionSave();
+						that.ensureCursorLocationIsValid({reverseDirection : [8,33,37,38].indexOf(keyCode) > -1, originalEvent : ev});
+						that.selectionSave();
+					});
+					noMoreSave = true;
+				}
 				if(ev.type == 'drop' && ev.target && (getTopCustomElementAncestor(ev.target, that.$.editor) || ev.target.proxyTarget)) // prevent default drop (like text) into custom elements - it breaks them
 					ev.preventDefault();
 
 				removeWhenOutIfEmpty();
 
 				that._updateValue();
-				that.selectionSave();
+				if(!noMoreSave)
+					that.selectionSave();
 			};
 
 
@@ -202,6 +216,10 @@
 				{
 					that.$.editor.addEventListener(evType, handler);
 				});
+
+			this.$.editor.addEventListener('click', this.contextMenuShow.bind(this), true); // capturing phase
+
+
 
 			selectionTracker = function(ev) {
 					that.selectionSave();
@@ -217,8 +235,6 @@
 										{ rootNode : this.$.editor, createRootNode : this.$.editor, fromElement : this.$.editor },
 										{ '.embed-aspect-ratio' : function(el) { return el.childNodes[0]; } }
 									);*/
-
-			this.$.editor.addEventListener('click', this.contextMenuShow.bind(this), true); // capturing phase
 
 			var pasteHandler = function(e) {
 				var v, d, withParagraphs, i, n, nn;
@@ -556,7 +572,7 @@
 
 		  this.__actionData._border = t.style.border;
 		  this.__actionData._display = t.style.display;
-		  t.style.border = "3px dashed grey";
+		  t.style.border = "3px dashed grey"; 
 		  t.style.display = "inline-block";
 		},
 
@@ -643,23 +659,23 @@
 		},
 
 		resizeTargetStop : function(ev) {
-		  if(!(ev === true || ev.target != this.__actionData.resizeTarget))
-			return;
+			if(!(ev === true || ev.target != this.__actionData.resizeTarget))
+				return;
 
-		  var interactable = this.__actionData.interactable,
+			var interactable = this.__actionData.interactable,
 			target = this.__actionData.resizeTarget;
 
-		  if(interactable)
-			interactable.unset();
+			if(interactable)
+				interactable.unset();
 
-		  this.clearActionData();
+			this.clearActionData();
 
-		  document.removeEventListener('mouseup', this.resizeTargetStop);
-		  document.removeEventListener('click', this.resizeTargetStop);
+			document.removeEventListener('mouseup', this.resizeTargetStop);
+			document.removeEventListener('click', this.resizeTargetStop);
 		},
 
 		resizeTarget : function(target) {
-		  var that = this, resizeHandler;
+		  var that = this, resizeHandler, cbr;
 
 		  if(this.__actionData.resizableTarget)
 			this.resizeTargetStop(true);
@@ -668,13 +684,19 @@
 
 		  document.addEventListener('mouseup', this.resizeTargetStop.bind(this));
 		  document.addEventListener('click', this.resizeTargetStop.bind(this));
+		  
+			if(target.tagName == 'IMG')
+			{
+				cbr = target.getBoundingClientRect();
+				target._aspect = cbr.height / cbr.width;
+			}
 
 		  var interactable = interact(target)
 			.resizable({
 			  edges: { left: true, right: true, bottom: true, top: true }
 			})
 			.on('resizemove', resizeHandler = function (event) {
-			  var target = event.target,
+				var target = event.target, bcr, stu,
 				computedStyle = target.getBoundingClientRect(),
 
 				x = (parseFloat(target.getAttribute('data-x')) || 0),
@@ -685,69 +707,62 @@
 				sh = Number(target.style.height.replace(/px/, '') || 0) || computedStyle.height,
 				ratio, w, h;
 
-			  if(!target.ratio) // keep the initial ratio on target, as interactible gets regreated on every resize start
-				  target.ratio = sh/sw;;
-			  ratio = interactable.ratio;
+				if(!target.ratio) // keep the initial ratio on target, as interactible gets regreated on every resize start
+					target.ratio = target._aspect; //sh/sw;;
 
-			  w = event.rect.width;
-			  h = ratio * w;
+				//if(target._aspect)
+				ratio = target.ratio;
 
-			  // update the element's style
-
-			  target.style.width  = w + 'px';
-			  target.style.height = h + 'px';
-
-			  // in case it's a custom element
-			  target.width = w;
-			  target.height = h;
-
-			  target.style.webkitTransform = target.style.transform = 'translate(' + x + 'px,' + y + 'px)';
-
-			  //if(target.tagName == 'IFRAME')
-			  //{
-				target.setAttribute("width", w + 'px');
-				target.setAttribute("height", h + 'px');
-			  //}
+				w = event.rect.width;
+				h = ratio * w;
+				
+				if(target.tagName == 'IMG' && h / ratio > target.width)
+					h = target.width * ratio;
 
 
-			  that.__actionData.dragTarget = null; // resize takes over drag
-			  // translate when resizing from top or left edges
-			  //x += event.deltaRect.left; //y += event.deltaRect.top;
-			})
+				stu = function(w, h) 
+				{
+					// update the element's style
+					target.style.width  = w + 'px';
+					target.style.height = h + 'px';
+
+					// in case it's a custom element
+					target.width = w;
+					target.height = h;
+
+					target.style.webkitTransform = target.style.transform = 'translate(' + x + 'px,' + y + 'px)';
+
+					target.setAttribute("width", w);
+					target.setAttribute("height", h);
+				};
+				
+				stu(w, h);
+				
+				bcr = target.getBoundingClientRect();
+				
+				//if(bcr.width != w || bcr.height !=)
+				stu(bcr.width, bcr.height);
+				
+				console.log('wanted: w: ' + w + " h:" + h);
+				console.log('got:    w: ' + bcr.width + " h:" + bcr.height);
+
+				that.__actionData.dragTarget = null; // resize takes over drag
+				// translate when resizing from top or left edges
+				//x += event.deltaRect.left; //y += event.deltaRect.top;
+				})
 			.on('resizeend', function() {
 			  var t, st, numW, numH;
 
+			  that.__actionData.resizeTarget.removeAttribute('data-x');
+			  that.__actionData.resizeTarget.removeAttribute('data-y'); 
+			  
 			  if(t = st = that.__actionData.resizeTarget)
 			  {
-				/*if(t.proxyTarget)
-				{
-				  if(t.proxyTarget.matchesSelector('.embed-aspect-ratio'))
-				  {
-					t.proxyTarget.style.width = t.style.width;
-
-					numW = Number(t.style.width.replace(/px/, ''));
-					numH = Number(t.style.height.replace(/px/,''));
-
-					t.proxyTarget.style.paddingBottom = numH + "px"; //100*(numH / numW) + "%";
-					if(t.proxyTarget.firstChild && t.proxyTarget.firstChild.tagName == 'IFRAME')
-					{
-						t.proxyTarget.firstChild.setAttribute('width', numW);
-						t.proxyTarget.firstChild.setAttribute('height', numH);
-					}
-					//t.proxyTarget.style.height = t.style.height;
-					st = t.proxyTarget.childNodes[0];
-				  }
-				  else
-				  if(t.proxyTarget.matchesSelector('iframe'))
-					st = t.proxyTarget
-
-				  st.style.width = t.style.width
-				  st.style.height = t.style.height
-				  st.style.webkitTransform = st.style.transform = t.style.transform;
-				}*/
-
+				st.style.width = t.style.width
+				st.style.height = t.style.height
+				st.style.webkitTransform = st.style.transform = t.style.transform;
 				if(that.__actionData.resizePosition)
-				  t.style.position = that.__actionData.resizePosition;
+					t.style.position = that.__actionData.resizePosition;
 
 				//that.clearActionData();
 				that.__actionData.lastAction = "resize";
@@ -1078,7 +1093,7 @@
 
 		pasteHtmlWithParagraphs : function (html, opts) // html is either a string or an element that will be inserted as is
 		{
-			var div, paragraph, r, caretAt = {}, firstIsEmptyParagraph, container, newWrapperParagraph, container, firstToWrap, index, isNewParagraph, lastInserted, pos, first, last;
+			var div, paragraph, r, sp, caretAt = {}, firstIsEmptyParagraph, container, newWrapperParagraph, container, firstToWrap, index, isNewParagraph, lastInserted, pos, first, last;
 
 			if(!html)
 				return;
@@ -1125,7 +1140,7 @@
 
 			first = r.startContainer;
 			firstOffset = r.startOffset;
-			if(first.nodeType == 1 && !selfOrLeftmostDescendantIsSpecial(first))
+			if(first.firstChild && (!selfOrLeftmostDescendantIsSpecial(first.childNodes[firstOffset])))
 			{
 				first = first.childNodes[firstOffset];
 				firstOffset = 0;
@@ -1240,10 +1255,13 @@
 				if(last.firstChild && last.firstChild.tagName == "BR")
 					last.removeChild(last.firstChild);
 
-				if(!isNewParagraph || (selfOrLeftmostDescendantIsSpecial(first)) || !last.childNodes.length)
+				if(!isNewParagraph || (sp = selfOrLeftmostDescendantIsSpecial(last)) || !last.childNodes.length)
 				{
-					while(div.firstChild)
-						lastInserted = last.parentNode.insertBefore(div.firstChild, last);
+					if(sp && !selfOrLeftmostDescendantIsSpecial(first))
+						lastInserted = first;
+					else
+						while(div.firstChild)
+							lastInserted = last.parentNode.insertBefore(div.firstChild, last);
 
 					pos = getLastCaretPosition(lastInserted);
 					return setCaretAt(pos.container, pos.offset);
@@ -1652,7 +1670,7 @@
 					eo = range.endOffset,
 					forbiddenElements, fe, scat, ecat;
 
-				forbiddenElements = ".caption-wrapper,.embed-aspect-ratio,iframe".split(',').concat(opts.extraForbiddenElements);
+				forbiddenElements = ".caption-wrapper,.embed-aspect-ratio,iframe,script".split(',').concat(opts.extraForbiddenElements);
 
 				scat = sc;
 				if(sc.nodeType == 3)
@@ -1719,7 +1737,7 @@
 						(
 							key == 46 &&
 							(
-								(sc.nodeType == 3 && so >= sc.length) ||
+								(sc.nodeType == 3 && so >= sc.length  && !sc.nextSibling) ||
 								(sc.nodeType != 3 && so >= sc.childNodes.length - 1) // delete @ end of a dangerous container
 							)
 						)
@@ -1776,7 +1794,7 @@
 				}
 
 			if(totalChecks >= 50)
-				console.error('too many cursor movements');
+				return console.error('too many cursor movements');
 
 			this.selectionSave();
 			this.fire('scroll-into-view', getSelectionCoords());
@@ -1863,9 +1881,11 @@
 			// this is too much work to execute on every event
 			// so we schedule it once per 400ms as long as there are actions happening
 			this._updateValueTimeout = setTimeout(function() {
-				var val, sameContent, d;
+				var val, sameContent, d, r;
 
-				this.fire('scroll-into-view', getSelectionCoords());
+				r = getSelectionRange();
+				if(r && this.isOrIsAncestorOf(this.$.editor, r.startContainer))
+					this.fire('scroll-into-view', getSelectionCoords());
 
 				var bottomPadding, topPadding, that = this, editor = this.$.editor;
 
@@ -2038,6 +2058,7 @@
 				}
 				if(!ns)
 					throw new Error("couldn't find a good place to set the cursor")
+
 				if(selfOrLeftmostDescendantIsSpecial(ns))
 				{
 					setCaretAt(ns, 0);
@@ -2049,6 +2070,11 @@
 				{
 					offset = getChildPositionInParent(ns);
 					ns = ns.parentNode
+				}
+				if(isParagraph(ns) && !ns.childNodes.length)
+				{
+					ns.appendChild(document.createElement('br'));
+					created = ns;
 				}
 
 				range = setCaretAt(ns, offset);
@@ -2083,7 +2109,7 @@
 			if(slc == elc)
 			{
 				//while(ns && ns != top && ( && ns == slc || ns.parentNode == slc || !isInLightDom(ns, top))) // || !(canHaveChildren(ns) || ns.nodeType == 3))) // the last one needed to not get stuck on img inside custom element // || !(!canHaveChildren(ns) && getTopCustomElementAncestor(ns, top))*/ || (slc.is && fromNode == slc))) // || (slc.is && ns.children[0] == slc))) // !canHaveChildren(ns) ||
-				ns = prevNodeDeep(slc, this.$.editor);
+				ns = prevNodeDeep(slc, this.$.editor, { skipAncestors : true });
 
 				while(ns && ns != top && (!isInLightDom(ns, this.$.editor) || selfOrLeftmostDescendantIsSpecial(ns) == slc || (ns.nodeType != 3 && !canHaveChildren(ns) && ns.tagName != 'BR')))
 					ns = prevNodeDeep(fromNode = ns, this.$.editor);
@@ -2812,6 +2838,9 @@
 	var getLastCaretPosition = function(node, offset) {
 		var lastContainer, pos;
 
+		if(!node)
+			return ni
+		
 		if(node.nodeType == 1 && (offset || offset == 0))
 			node = node.childNodes[offset];
 
@@ -2927,7 +2956,7 @@
 
 	function caretIsAtContainerEnd() {
 		var r = getSelectionRange(),
-			maxOffset = (r.startContainer.length || (r.startContainer.childNodes && r.startContainer.childNodes.length)) - 1
+			maxOffset = (r.startContainer.length || (r.startContainer.childNodes && r.startContainer.childNodes.length))
 			i;
 
 		if(r.startOffset >= maxOffset) return true;
@@ -2962,13 +2991,23 @@
 	}
 
 	function isSpecialElement(el) {
-		return el && (el.is || (el.matchesSelector && el.matchesSelector('.embed-aspect-ratio'))) && el;
+		return el && el.is && el;
 	}
 
 	function selfOrLeftmostDescendantIsSpecial(el) {
-		return el && (isSpecialElement(el) ||
-							isSpecialElement(el.firstChild) ||
-							(el.firstChild && el.firstChild.nodeType == 3 && !el.firstChild.textContent && isSpecialElement(el.firstChild.nextSibling)))
+		var n;
+		
+		if(isSpecialElement(el))
+			return el;
+		
+		// skip empty text nodes
+		n = el.firstChild;
+		while(n && (n.nodeType == 3 && !n.textContent))
+			n = n.nextSibling;
+		
+		// go recursive
+		if(n)
+			return selfOrLeftmostDescendantIsSpecial(n);
 	}
 
 	function isParagraph(el) {
