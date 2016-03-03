@@ -125,7 +125,7 @@
 
 							mergeNodes(r.startContainer.parentNode, r.startContainer.parentNode.nextSibling, true);
 
-							that.preventDefault();
+							ev.preventDefault();
 						}
 					}
 					else
@@ -147,7 +147,7 @@
 
 							mergeNodes(r.startContainer.previousSibling, r.startContainer, true);
 
-							that.preventDefault();
+							ev.preventDefault();
 						}
 					}
 
