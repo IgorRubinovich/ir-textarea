@@ -803,9 +803,9 @@
 			  // for now, forbid explicitly to drop into custom elements. (for custom targets only - built-in text drop is still possible! - e.g., it's ok to move text into a caption inside a gallery)
 			  if(tpce)
 				this.moveCaretAfterOrWrap(tpce, null, this.$.editor);
-			  else
-			  if(caretPosData.node.proxyTarget)
-				this.moveCaretAfterOrWrap(caretPosData.node.proxyTarget, null, this.$.editor);
+			  //else
+			  //if(caretPosData.node.proxyTarget)
+			  //	this.moveCaretAfterOrWrap(caretPosData.node.proxyTarget, null, this.$.editor);
 
 			  this.ensureCursorLocationIsValid();
 
@@ -1093,7 +1093,9 @@
 
 		pasteHtmlWithParagraphs : function (html, opts) // html is either a string or an element that will be inserted as is
 		{
-			var div, paragraph, r, sp, caretAt = {}, firstIsEmptyParagraph, container, newWrapperParagraph, container, firstToWrap, index, isNewParagraph, lastInserted, pos, first, last;
+			var div, paragraph, r, sp, caretAt = {}, firstIsEmptyParagraph, 
+				container, newWrapperParagraph, container, firstToWrap, index, 
+				isNewParagraph, lastInserted, pos, first, last, takeout, tp;
 
 			if(!html)
 				return;
@@ -1241,7 +1243,15 @@
 				}
 
 				if(!selfOrLeftmostDescendantIsSpecial(first))
+				{
+					//if(firstOffset == 0 && first.previousSibling && first.previousSibling.is) // if right after custom element it will be broken by splitNode
+					//	first.parentNode.removeChild(takeout = first.previousSibling);
+					
 					last = splitNode(first, firstOffset, container);
+					
+					//if(takeout)
+					//	last.previousSibling.appendChild(takeout);
+				}
 				else
 				if(first.parentNode != this.$.editor)
 					last = splitNode(first.parentNode, getChildPositionInParent(first), container);
@@ -2455,7 +2465,7 @@
 		if(!((el.is ? Polymer.dom(el) : el).childNodes.length))
 			return "";
 
-		return Array.prototype.map.call(el.childNodes, function(node) {
+		return Array.prototype.map.call((el.is ? Polymer.dom(el) : el).childNodes, function(node) {
 				if(skipNodes && skipNodes.indexOf(node) > -1)
 					return "";
 
@@ -2485,6 +2495,17 @@
 		}
 	})();
 
+	var cloneCustomElement = function(el) {
+		var n = document.createElement(el.tagName), a;
+		for(i = 0; i < el.attributes.length; i++)
+		{
+			a = el.attributes[i];
+			n.setAttribute(a.name, a.value);
+		}
+		n.innerHTML = recursiveInnerHTML(el);
+		return n;
+	}
+	
 	var tagOutline = function(el){ // effectively outerHTML - innerHTML
 		var nn = el.cloneNode(false),
 			d = document.createElement('div'),
@@ -2875,20 +2896,33 @@
 		limit - the root of the split.
 	*/
 	splitNode = function(node, offset, limit) {
-	  var parent = limit.parentNode;
-	  var parentOffset = getChildPositionInParent(limit); //parent, limit);
+		var parent = limit.parentNode,
+			parentOffset = getChildPositionInParent(limit),
+			doc = node.ownerDocument, 
+			left,
+			leftRange = doc.createRange();
+		
+		leftRange.setStart(parent, parentOffset);
+		leftRange.setEnd(node, offset);
+		left = leftRange.extractContents();
+		parent.insertBefore(left, limit);
 
-	  var doc = node.ownerDocument;
-	  var leftRange = doc.createRange();
-	  leftRange.setStart(parent, parentOffset);
-	  leftRange.setEnd(node, offset);
-	  var left = leftRange.extractContents();
-	  parent.insertBefore(left, limit);
-	  return limit;
+		visitNodes(limit.previousSibling, function(el) {  // hard-reattach custom elements lest they lose their powers
+			var h; 
+			if(el.is)
+			{
+				h = document.createElement('div'); // other ways don't cause the element to get reinitialized
+				h.innerHTML = recursiveOuterHTML(el);
+				el.parentNode.insertBefore(h.firstChild, el);
+				el.parentNode.removeChild(el);
+			}
+		});
+
+		return limit;
 	}
 
 	// modified code by Tim Down http://stackoverflow.com/questions/6846230/coordinates-of-selected-text-in-browser-page
-	// returns x, y of the current coordinates
+	// returns {x : x, y : y} of the current coordinates
 	var getSelectionCoords = (function () {
 		span = document.createElement("span");
 		span.appendChild( document.createTextNode("\u200b") );
