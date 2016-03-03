@@ -26,7 +26,7 @@
 				if(((ev.type == 'keyup' || ev.type == 'keydown') && ([33,34,35,36,37,38,39,40].indexOf(keyCode) > -1)) || (ev.type == 'mouseup'))
 					that.customUndo.pushUndo(false, true);
 
-				if(String.fromCharCode(event.keyCode))
+				if(String.fromCharCode(ev.keyCode))
 					that.clearActionData();
 				
 				if (ev.type == 'keydown' && keyCode == 13) { 	// line break
