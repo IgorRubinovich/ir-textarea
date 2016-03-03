@@ -3031,6 +3031,9 @@
 	function selfOrLeftmostDescendantIsSpecial(el) {
 		var n;
 		
+		if(!el) 
+			return el;
+		
 		if(isSpecialElement(el))
 			return el;
 		
