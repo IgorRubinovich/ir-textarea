@@ -205,9 +205,14 @@
 
 				removeWhenOutIfEmpty();
 
-				that._updateValue();
+				if(!this.interactionCount)
+					return this.interactionCount = 0;
+				
+				this.interactionCount++;
+				
+				that.selectionSave();
 				if(!noMoreSave)
-					that.selectionSave();
+					that._updateValue();
 			};
 
 
@@ -1237,9 +1242,17 @@
 				{
 					first = first.previousSibling;
 					first.parentNode.removeChild(first.nextSibling);
-					pos = getLastCaretPosition(first);
-					first = pos.container;
-					firstOffset = pos.offset;
+					if(canHaveChildren(first))
+					{
+						pos = getLastCaretPosition(first);
+						first = pos.container;
+						firstOffset = pos.offset;
+					}
+					else
+					{
+						firstOffset = getChildPositionInParent(first);
+						first = first.parentNode;
+					}
 				}
 
 				if(!selfOrLeftmostDescendantIsSpecial(first))
