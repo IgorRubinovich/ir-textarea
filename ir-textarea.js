@@ -191,14 +191,12 @@
 
 				if(ev.type != 'mousedown' && ev.type != 'mouseup')
 					that.ensureCursorLocationIsValid({reverseDirection : [8,33,37,38].indexOf(keyCode) > -1, originalEvent : ev}); // left, up, pgup
-				else 
+				else
 				if(ev.type == 'mousedown') { // let the event through first
-					that.async(function() {
-						that.selectionSave();
-						that.ensureCursorLocationIsValid({reverseDirection : [8,33,37,38].indexOf(keyCode) > -1, originalEvent : ev});
-						that.selectionSave();
-					});
+					that.ensureCursorLocationIsValid({reverseDirection : [8,33,37,38].indexOf(keyCode) > -1, originalEvent : ev});
 					noMoreSave = true;
+					
+					return;
 				}
 				if(ev.type == 'drop' && ev.target && (getTopCustomElementAncestor(ev.target, that.$.editor) || ev.target.proxyTarget)) // prevent default drop (like text) into custom elements - it breaks them
 					ev.preventDefault();
