@@ -14,20 +14,24 @@
 			this.skipNodes = [];
 			this.__actionData = {};
 
-			handler = function(ev) {
+			handler = function userInputHandler(ev) {
 				var noMoreSave, el, toDelete, keyCode = ev.keyCode || ev.which, t, forcedelete, r, done, localRoot, last, n, nn, pn, pos, firstRange, merge;
 
-				that.selectionSave();
-				if(['mousedown'].indexOf(ev.type) == -1)
+				//that.selectionSave();
+				//if(['mousedown'].indexOf(ev.type) == -1)
+				if(ev.type != 'mousedown')
 					that.selectionRestore(true);
 
 				// save position on control keys
 				// console.log(ev.which || ev.keyCode);
 				if(((ev.type == 'keyup' || ev.type == 'keydown') && ([33,34,35,36,37,38,39,40].indexOf(keyCode) > -1)) || (ev.type == 'mouseup'))
 					that.customUndo.pushUndo(false, true);
-
-				if(String.fromCharCode(ev.keyCode))
+				else
+				if(ev.keyCode && !ev.ctrlKey && !ev.metaKey && !ev.altKey)
+				{
 					that.clearActionData();
+					moveCaretBackOrInsertTextNode();
+				}
 				
 				if (ev.type == 'keydown' && keyCode == 13) { 	// line break
 					r = that.selectionRestore();
@@ -37,7 +41,7 @@
 						getTopCustomElementAncestor(r.endContainer, that.$.editor))
 					{
 							r = getSelectionRange();
-							if(r.startContainer.nodeType == 3 && (r.startContainer.length - 1 <= r.startOffset && r.startContainer.textContent.charAt(r.startOffset).match(/^ ?$/) && nextNode(r.startContainer).tagName != "BR"))
+							if(r.startContainer.nodeType == 3 && (r.startContainer.length - 1 <= r.startOffset && r.startContainer.textContent.charAt(r.startOffset).match(/^ ?$/) && ((nextNode(r.startContainer) || {}).tagName != "BR")))
 								firstRange = that.pasteHtmlAtCaret('<br>', false, true);
 
 							that.pasteHtmlAtCaret('<br>', false, true);
@@ -61,8 +65,8 @@
 							  n = r.startContainer;
 							}
 
-							if(n = nextNode(r.startContainer.childNodes[pos]) && n.is)
-									setCaretAt(r.startContainer, r.startOffset - 1);
+							//if(n = nextNode(r.startContainer.childNodes[pos]) && n.is)
+							//		setCaretAt(r.startContainer, r.startOffset - 1);
 					}
 					else														// new paragraph
 						that.pasteHtmlWithParagraphs('<span class="paragraph"><br></span>', true);
@@ -100,14 +104,10 @@
 
 						nn = caretIsAtContainerEnd() && nextNode(el);
 
-						if((toDelete = isSpecialElement(el)) || (toDelete = isSpecialElement(el.firstChild)) ||
-							(el.firstChild && el.firstChild.nodeType == 3 && !el.firstChild.textContent && (toDelete = isSpecialElement(el.firstChild.nextSibling))) ||
-								(nn && (toDelete = isSpecialElement(nn)) || (toDelete = isSpecialElement(nn.firstChild))))
-						{
+						if(toDelete = isSpecialElement(el)) //selfOrLeftmostDescendantIsSpecial(el))
 							forcedelete = true;
-						}
 
-						while(!toDelete && el && el.nodeType == 1 && el.firstChild && el.firstChild.nodeType == 1)
+						/*while(!toDelete && el && el.nodeType == 1 && el.firstChild && el.firstChild.nodeType == 1)
 						{
 							el = el.childNodes[0];
 							if(isSpecialElement(el) || (getTopCustomElementAncestor(el, that.$.editor) && !isInLightDom(el, this.$editor)))
@@ -115,7 +115,7 @@
 								toDelete = el;
 								forcedelete = true;
 							}
-						}
+						}*/
 
 						// firefox won't merge the nodes so we do it "manually"
 						if(/firefox|iceweasel/i.test(navigator.userAgent) && that.get("startContainer.parentNode.nextSibling", r) == el)
@@ -180,7 +180,7 @@
 					}
 				}
 
-				altTarget = getTopCustomElementAncestor(ev.target, that.$.editor) || (ev.target.proxyTarget && ev.target);
+				altTarget = getTopCustomElementAncestor(ev.target, that.$.editor); // || (ev.target.proxyTarget && ev.target);
 				if(ev.type == 'mousedown' && altTarget && that.__actionData.type != 'drag' &&
 					!(isInLightDom(ev.target) && (ev.target.nodeType == 3 || (ev.target.firstChild && ev.target.firstChild.nodeType == 3))))
 				{
@@ -191,26 +191,25 @@
 
 				if(ev.type != 'mousedown' && ev.type != 'mouseup')
 					that.ensureCursorLocationIsValid({reverseDirection : [8,33,37,38].indexOf(keyCode) > -1, originalEvent : ev}); // left, up, pgup
-				else
+				/*else
 				if(ev.type == 'mousedown') { // let the event through first
 					that.ensureCursorLocationIsValid({reverseDirection : [8,33,37,38].indexOf(keyCode) > -1, originalEvent : ev});
 					noMoreSave = true;
 					
 					return;
-				}
-				if(ev.type == 'drop' && ev.target && (getTopCustomElementAncestor(ev.target, that.$.editor) || ev.target.proxyTarget)) // prevent default drop (like text) into custom elements - it breaks them
+				}*/
+				if(ev.type == 'drop' && ev.target && getTopCustomElementAncestor(ev.target, that.$.editor)) // || ev.target.proxyTarget)) // prevent default drop (like text) into custom elements - it breaks them
 					ev.preventDefault();
 
 				removeWhenOutIfEmpty();
-
-				if(!this.interactionCount)
-					return this.interactionCount = 0;
 				
-				this.interactionCount++;
-				
-				that.selectionSave();
-				if(!noMoreSave)
+				if(ev.type != 'mousedown')
+				{
+					that.selectionSave();
 					that._updateValue();
+				}
+				//else
+				//	that.selectionRestore();
 			};
 
 
@@ -232,12 +231,6 @@
 			that.$.editor.addEventListener('mousedown', function(ev) {
 				window.addEventListener('mouseup', selectionTracker);
 			});
-
-			/*this.domProxyManager = ir.DomProxyManager.getProxyManager( // last argument maps selector->transformation for cases when target is not the dimensions source
-										':not(.embed-aspect-ratio)>iframe,.embed-aspect-ratio',
-										{ rootNode : this.$.editor, createRootNode : this.$.editor, fromElement : this.$.editor },
-										{ '.embed-aspect-ratio' : function(el) { return el.childNodes[0]; } }
-									);*/
 
 			var pasteHandler = function(e) {
 				var v, d, withParagraphs, i, n, nn;
@@ -357,7 +350,7 @@
 																		}.bind(this)
 																	}))
 		},
-
+		
 		attached: function(){
 			this.insertPlugins();
 			setTimeout(function() { this._updateValue(); }.bind(this), 300);
@@ -447,9 +440,9 @@
 				mediaEditor = this.$.mediaEditor, that = this, altTarget = ev.target, candidateTarget, parentCustomEl,
 				actionTarget = target,
 				menuGroups = {
-						resizeable : "video,img,iframe,.embed-aspect-ratio,embedded-media",
-						floatable : "video,img,iframe,.embed-aspect-ratio",
-						removeable : "video,img,table,iframe,.embed-aspect-ratio"
+						resizeable : "video,img,iframe,embedded-media",
+						floatable : "video,img,iframe",
+						removeable : "video,img,table,iframe"
 				},
 				actionableTags = [menuGroups.resizeable, menuGroups.floatable, menuGroups.removeable].join(",");
 
@@ -469,24 +462,21 @@
 
 			// check whether target is...
 			if(!target || target == this.$.editor || // interesting
-				!(target.proxyTarget || target.is || target.matchesSelector(actionableTags))) // and actionable
+				!(target.is || target.matchesSelector(actionableTags))) // and actionable /*target.proxyTarget || */ 
 			{
 				this.__actionData.showMenuFor = null;
 				this.clearActionData();
 				return;
 			}
 
-			if(target && target.matchesSelector('.embed-aspect-ratio'))
-				actionTarget = target.childNodes[0];
-
 			// select target for action
 			if(!this.__actionData.target)
 				this.selectForAction(actionTarget || target);
 
 			// if target is resizable and wasn't set up do set it up for resize
-			if(target.matchesSelector(menuGroups.resizeable) ||
-				(target.proxyTarget && target.proxyTarget.matchesSelector(menuGroups.resizeable))
-				&& (this.__actionData.resizableTarget != target))
+			if(target.matchesSelector(menuGroups.resizeable) && this.__actionData.resizableTarget != target)
+				//(target.proxyTarget.matchesSelector(menuGroups.resizeable)) /*target.proxyTarget && */ 
+				
 				{
 					this.resizeTarget(target);
 
@@ -512,12 +502,12 @@
 				{
 					that.resizeTargetStop.call(that, true); // true means force stop dispite the event target being same as current resize target
 
-					if(param.target && param.target.proxyTarget)
+					/*if(param.target && param.target.proxyTarget)
 						param.target = param.target.proxyTarget;
 					else
 					if(param.proxyTarget)
 						param = param.proxyTarget;
-
+					*/
 					if(f)
 						f.call(that, param);
 
@@ -530,7 +520,7 @@
 
 			cm.options.push({label: '',  icon: 'icons:cancel', info: '', value : target, action : imageAction(null)});
 
-			if(target.matchesSelector(menuGroups.resizeable) || (target.proxyTarget && target.proxyTarget.matchesSelector(menuGroups.resizeable)))
+			if(target.matchesSelector(menuGroups.resizeable)) // || (target.proxyTarget.matchesSelector(menuGroups.resizeable))) //target.proxyTarget && 
 				cm.options.push({label: 'Resize', icon: 'icons:size', info: '', value : target, action : this.resizeTarget.bind(this)});
 
 			cm.options.push({label: 'Remove media',  icon: 'icons:align', info: '', value : target, action : imageAction(this.deleteTarget.bind(this))});
@@ -540,7 +530,7 @@
 			// target.is || target.matchesSelector(menuGroups.floatable) || (target.proxyTarget && target.proxyTarget.matchesSelector(menuGroups.floatable))
 			// can only float:
 			if((target.is == 'ir-gallery' && Polymer.dom(target).querySelectorAll('img').length == 1) ||    // single-image gallery for now
-			(target.proxyTarget && target.proxyTarget.matchesSelector(menuGroups.floatable)) ||		    // proxied elements (iframes)
+			/*(target.proxyTarget && target.proxyTarget.matchesSelector(menuGroups.floatable)) ||		*/    // proxied elements (iframes)
 			(target.matchesSelector(menuGroups.floatable)))												// explicitly floatable elements
 			{
 				if(captionWrapper = mediaEditor.captionWrapperGet(target))
@@ -625,10 +615,10 @@
 		deleteTarget : function(target) {
 			var deleteTarget, p, pce, cover;
 
-			if(target.proxyTarget)
-				target = target.proxyTarget;
+			/*if(target.proxyTarget)
+				target = target.proxyTarget;*/
 
-			cover = this.skipNodes.filter(function(n) { return n.proxyTarget == target })[0];
+			/*cover = this.skipNodes.filter(function(n) { return n.proxyTarget == target })[0];*/
 
 			if(this.__actionData && this.__actionData.target == target)
 			{
@@ -790,7 +780,7 @@
 		  // calculate drop target and move drag target there
 		  if(done)
 		  {
-			actualTarget = this.__actionData.dragTarget.proxyTarget || this.__actionData.dragTarget;
+			actualTarget = this.__actionData.dragTarget; // /*this.__actionData.dragTarget.proxyTarget ||*/
 			caretPosData = this.__actionData.caretPosData;
 
 			if(caretPosData && caretPosData.node)
@@ -1039,37 +1029,30 @@
 		},
 
 		getElementAfterCaret : function(opts) {
-		  var i, done,
+			var i, done,
 			r = getSelectionRange(),
 			n = r.endContainer, o = r.endOffset;
 
-		  opts.skip = opts.skip || [];
-		  if(!(opts.skip instanceof Array))
-			opts.skip = [opts.skip];
+			opts.skip = opts.skip || [];
+			if(!(opts.skip instanceof Array))
+				opts.skip = [opts.skip];
 
-		  //if(n.nodeType == 1)
-		  //	n = n.childNodes[o];
+			//if(n.nodeType == 1)
+			//	n = n.childNodes[o];
 
-		  if(n.nodeType == 1 && n.childNodes.length)
-		  {
-			n = n.childNodes[o] || n;
-			o = getChildPositionInParent(n);
-		  }
+			if(n.nodeType == 3 && o < n.length)
+				return n;
 
-		  if(n.nodeType == 3 && o < n.length)
-			return n;
-
-		  n = nextNode(n);
-		  while(!done)
-			for(i = 0; !done && i < opts.skip.length; i++)
+			n = nextNode(n);
+			for(i = 0; n && !done && i < opts.skip.length; i++)
 			{
-			  if(!n.matchesSelector || !n.matchesSelector(opts.skip[i]))
-				done = true;
-			  else
-			  {
-				n = nextNode(n);
-				i = -1;
-			  }
+				if(!n.matchesSelector || !n.matchesSelector(opts.skip[i]))
+					done = true;
+				else
+				{
+					n = nextNode(n);
+					i = -1;
+				}
 			}
 
 		  return n;
@@ -1079,8 +1062,9 @@
 		  var r = getSelectionRange();
 
 		  opts = opts || {};
-		  opts.atomic = ['.embed-aspect-ratio'];
 		  opts.skipAncestors = true;
+		  opts.atomicCustomElements = true;
+		  // opts.atomic = ['.embed-aspect-ratio'];
 
 		  if(!r || (!r.startOffset && r.startOffset != 0)  || r.startOffset != r.endOffset)
 			return null;
@@ -1200,7 +1184,7 @@
 			else
 			{
 				pos = getLastCaretPosition(container);
-				if(pos.container == first && pos.offset == firstOffset)
+				if(pos.container == first && pos.offset == firstOffset && (!first.nextSibling && !(first.nextSibling == first.parentNode.lastChild && first.nextSibling.tagName == 'BR'))) // last condition prevents ignoring elements that can't have children implied by getLastCaretPosition
 					caretAt.containerEnd = true;
 				else
 					caretAt.containerMiddle = true;
@@ -1338,7 +1322,7 @@
 
 						offset = 0;
 						if(t.parentNode == this.$.editor && !t.nextSibling)
-							lastNode.parentNode.appendChild(target = newEmptyParagraph());
+							t.parentNode.appendChild(target = newEmptyParagraph());
 						else
 						{
 							pos = getLastCaretPosition(lastNode);
@@ -1349,7 +1333,6 @@
 								target = pos.container;
 								offset = pos.offset;
 							}
-
 						}
 
 						return setCaretAt(target, offset);
@@ -1375,42 +1358,18 @@
 			return range;
 		},
 
-			rangeSelectElement : function(node)
-		{
-			var sel = document.getSelection();
-			var range = document.createRange();
-			this.$.editor.focus();
-			range.setStartBefore(node);
-			range.setEndAfter(node);
-			sel.removeAllRanges();
-			sel.addRange(range);
-		},
-
 		// to use instead of execCommand('insertHTML') - modified from code by Tim Down
 		insertHTMLCmd : function (html) {
 			//this.selectionRestore();
 
 			var ef = html.match(/\<p[^\>]+\>/) ? ["p"] : [];
-			//var ef = html.match(/\<div[^\>]+\>/) ? ["p", "div"] : [];
+			var r, after;
 
-			//this.async(function() {
-				var r, after;
+			this.ensureCursorLocationIsValid({ extraForbiddenElements : ef });
+			this.pasteHtmlWithParagraphs(html);
 
-				this.ensureCursorLocationIsValid({ extraForbiddenElements : ef });
-				r = this.pasteHtmlAtCaret(html);
-
-				//setCaretAt(r.endContainer, r.endOffset);
-
-				if(r.endContainer.nodeType == 1)
-					after = r.endContainer[r.endOffset]
-				else
-					after = r.endContainer;
-
-				// moveCaretAfterOrWrap(after, after, this.$.editor);
-
-				this.ensureCursorLocationIsValid();
-				this._updateValue()
-			//});
+			this.ensureCursorLocationIsValid();
+			this._updateValue()
 		},
 
 
@@ -1502,8 +1461,6 @@
 		{
 			var that = this, cmdDef = cmdDefOrName, actualCmd, val, ext,test,result;
 
-
-
 			if(typeof cmdDef == 'string')
 				cmdDef = (window.ir.textarea.commands.filter(function(c) { return c.cmd == cmdDef }))[0] || { fakeCmd : cmdDef };
 
@@ -1592,8 +1549,15 @@
 
 			range = getSelectionRange();
 
+			console.log('selectionRestore called from: ', arguments.callee.caller.name);
+
 			if(range && this.isOrIsAncestorOf(this.$.editor, range.startContainer))
+			{
+				if(!this.isOrIsAncestorOf(this.$.editor, document.activeElement))
+					this.$.editor.focus();
+
 				return range;
+			}
 
 			range = this._selectionRange
 
@@ -1617,19 +1581,8 @@
 				// if no selection, go to offset 0 of first child, creating one if needed
 				if(!this.$.editor.childNodes.length)
 					setCaretAt(this.$.editor.appendChild(newEmptyParagraph()), 0);
-
-				range = document.createRange();
-
-				range.setStartBefore(this.$.editor.childNodes[0], 0);
-				range.setEndBefore(this.$.editor.childNodes[0], 0);
-
-				range.collapse(true);
-
-				sel = window.getSelection();
-				this.$.editor.focus();
-
-				sel.removeAllRanges();
-				sel.addRange(range);
+				else
+					setCaretAt(this.$.editor.appendChild(this.$.editor.childNodes[0]), 0);				
 			}
 
 			this._selectionRange = range;
@@ -1667,7 +1620,7 @@
 			function inLightDom(opts, range) {
 				return this.ensureCaretIsInLightDom(this.$.editor, opts.reverseDirection)
 			},
-			function notInProxy(opts, range) {
+			/*function notInProxy(opts, range) {
 				var sni = range.startContainer.proxyTarget,
 					eni = range.endContainer.proxyTarget;
 
@@ -1681,7 +1634,7 @@
 
 					return true;
 				}
-			},
+			},*/
 
 			function isInForbiddenElement(opts, range) {
 				var sni, eni,
@@ -1691,7 +1644,7 @@
 					eo = range.endOffset,
 					forbiddenElements, fe, scat, ecat;
 
-				forbiddenElements = ".caption-wrapper,.embed-aspect-ratio,iframe,script".split(',').concat(opts.extraForbiddenElements);
+				forbiddenElements = ".caption-wrapper,iframe,script".split(',').concat(opts.extraForbiddenElements);
 
 				scat = sc;
 				if(sc.nodeType == 3)
@@ -1720,17 +1673,20 @@
 				return sni || eni;
 			},
 
-			function isInCustomElement(opts, range) {
+			/*function isInCustomElement(opts, range) {
 				var sni, eni, sc = range.startContainer, ec = range.endContainer, so = range.startOffset, eo = range.endOffset;
 
 				sni = sc.is || (sc.nodeType == 1 && sc.childNodes[so] && sc.childNodes[so].is); // || so > 1 && (sc.nodeType != 3) && sc.childNodes[so-1] && sc.childNodes[so-1].is;
 				eni = ec.is || (ec.nodeType == 1 && ec.childNodes[eo] && ec.childNodes[eo].is);
 
 				if(sni || eni)
+				{
+					if(sc.nodeType == 1) sc = sc.childNodes[so];
 					opts.reverseDirection ? this.moveCaretBeforeOrWrap(sc, null, this.$.editor) : this.moveCaretAfterOrWrap(sc, null, this.$.editor);
+				}
 
 				return sni || eni;
-			},
+			},*/
 
 			function dangerousDelete(opts, range) { // cursor is on edge of a light element inside custom component and user clicked delete/backspace which will probably destroy the component
 				var ev = opts.originalEvent, tcea, sc, so, scparent, top, np,
@@ -1766,11 +1722,11 @@
 					opts.originalEvent.preventDefault(); // preventDefault returns undefined
 
 				np = this.getElementAfterCaret({skip : 'br'});
-				if(key == 46 && np && np.nodeType == 1 && (np.is || np.matchesSelector('.embed-aspect-ratio')))
+				if(key == 46 && np && np.nodeType == 1 && np.is)
 					opts.originalEvent.preventDefault();
 
 				np = this.getElementBeforeCaret({ atomicCustomElements : true });
-				if(key == 8 && np && np.nodeType == 1 && (np.is || np.matchesSelector('.embed-aspect-ratio')))
+				if(key == 8 && np && np.nodeType == 1 && np.is)
 					opts.originalEvent.preventDefault();
 			},
 
@@ -2036,146 +1992,64 @@
 					// moveCaretAfterOrWrap(slc, elc);
 		},
 
-
+		
 		// params: slc - range start node, elc - range end node
 		// if slc != elc will select from before slc to after elc
 		// otherwise will set caret after slc
 		moveCaretAfterOrWrap : function(slc, elc, top) {
-			var ns, targetNode, so, sp, created,
-				sel = window.getSelection(),
-				range = document.createRange(),
-				t, isLast, p;
-				//sel = window.getSelection(),
-				//range = document.createRange(),
+			var ns, sel = window.getSelection(), range = document.createRange()
+			
+			if(!elc) 
+				elc = slc;
 
-			range = range.cloneRange();
-			//range = range.cloneRange();
-
-			if(!top)
-				throw new Error('No top was provided');
-
-			if(!slc) return
-			if(!elc) elc = slc;
-
-			if(slc == elc)
-			{
-				// note the order of things here is a bit different from the matching moveCaretBeforeOrWrap
-				ns = nextNode(slc, true);
-				while(ns && (ns == slc || ns.parentNode == slc || !isInLightDom(ns, top) ||
-						!(canHaveChildren(ns) || ns.nodeType == 3)) && !(ns.tagName == 'BR' && !(ns.previousChild && isSpecialElement(ns.previouschild))) ) // || !canHaveChildren(ns)
-					ns = nextNode(ns);
-
-				if(ns == top || (isLast = (!ns && slc.parentNode == top)))
-				{
-					setCaretAt(ns, 0);
-					this.pasteHtmlWithParagraphs(newEmptyParagraph());
-
-					if(isLast)
-						slc.parentNode.appendChild(created);
-					else
-						slc.parentNode.insertBefore(created, ns);
-
-					ns = created;
-				}
-				if(!ns)
-					throw new Error("couldn't find a good place to set the cursor")
-
-				if(selfOrLeftmostDescendantIsSpecial(ns))
-				{
-					setCaretAt(ns, 0);
-					this.pasteHtmlWithParagraphs(created = ns = newEmptyParagraph());
-				}
-
-				offset = 0;
-				if(ns.nodeType == 3)
-				{
-					offset = getChildPositionInParent(ns);
-					ns = ns.parentNode
-				}
-				if(isParagraph(ns) && !ns.childNodes.length)
-				{
-					ns.appendChild(document.createElement('br'));
-					created = ns;
-				}
-
-				range = setCaretAt(ns, offset);
-				if(created)
-					removeWhenOutIfEmpty(created);
-			}
-			else
+			if(slc != elc)
 			{
 				range.setStartBefore(slc);
 				range.setEndBefore(slc);
 				sel.removeAllRanges();
 				sel.addRange(range);
+				
+				return range;
 			}
 
-
-			return range;
+			ns = nextNode(slc, false);
+			while(ns && getTopCustomElementAncestor(ns, top) && !(isInLightDom(ns, top) && ns.nodeType == 3))
+				ns = nextNode(ns, false);
+			
+			return setCaretAt(ns, 0);
+			
+			console.log();				
 		},
 
 		moveCaretBeforeOrWrap : function(slc, elc, top) {
-			var sel = window.getSelection(), created, t,
-				range = document.createRange(), zeroWidthDummy,
-				ns, fromNode, pos;
-
-			if(!top)
-				throw new Error('No top was provided');
-
-			range = range.cloneRange();
-
-			if(!slc) return
-			if(!elc) elc = slc;
-
+			var pos, ns, sel = window.getSelection(), range = document.createRange(), isSibling = true;
+			
 			if(slc == elc)
 			{
-				//while(ns && ns != top && ( && ns == slc || ns.parentNode == slc || !isInLightDom(ns, top))) // || !(canHaveChildren(ns) || ns.nodeType == 3))) // the last one needed to not get stuck on img inside custom element // || !(!canHaveChildren(ns) && getTopCustomElementAncestor(ns, top))*/ || (slc.is && fromNode == slc))) // || (slc.is && ns.children[0] == slc))) // !canHaveChildren(ns) ||
-				ns = prevNodeDeep(slc, this.$.editor, { skipAncestors : true });
-
-				while(ns && ns != top && (!isInLightDom(ns, this.$.editor) || selfOrLeftmostDescendantIsSpecial(ns) == slc || (ns.nodeType != 3 && !canHaveChildren(ns) && ns.tagName != 'BR')))
-					ns = prevNodeDeep(fromNode = ns, this.$.editor);
-
-				if(!ns)
-					throw new Error("couldn't find a good place to set the cursor")
-
-				t = selfOrLeftmostDescendantIsSpecial(ns);
-				if(t) // && !(nextNode(ns) == t))
-				{
-					// make the last attempt before inserting a new paragraph before the special element
-					//t = prevNodeDeep(ns, top);
-					//if(!getTopCustomElementAncestor(t, top) && !selfOrLeftmostDescendantIsSpecial(t))
-					//	ns = t;
-					ns = slc;
-				}
-
-				if(ns == top || selfOrLeftmostDescendantIsSpecial(ns))
-				{
-					setCaretAt(ns, 0);
-					this.pasteHtmlWithParagraphs(created = ns = newEmptyParagraph());
-					range = setCaretAt(created, 0);
-					removeWhenOutIfEmpty(created);
-				}
-				else
-				if(ns.nodeType == 3)
-					range = setCaretAt(ns, ns.length);
-				else
-				{
-					pos = getLastCaretPosition(canHaveChildren(ns) ? ns : ns.parentNode);
-					range = setCaretAt(pos.container, pos.offset);
-				}
-
-			}
-			else
-			{
 				range.setStartBefore(slc);
-				range.setEndAfter(elc);
+				range.setEndBefore(slc);
 				sel.removeAllRanges();
 				sel.addRange(range);
+				
+				return range;
 			}
-
-			return range;
+			
+			ns = prevNodeDeep(slc, false);
+			isSibling = Polymer.dom(ns).parentNode == Polymer.dom(slc).parentNode;
+			while(ns && ns != top && getTopCustomElementAncestor(ns, top) && !(isInLightDom(ns, top) && ns.nodeType == 3))
+			{
+				ns = prevNodeDeep(ns, false);
+				if(isSibling)
+					isSibling = Polymer.dom(ns).parentNode == Polymer.dom(slc).parentNode;
+			}
+			
+			pos = getLastCaretPosition(ns);
+			if(!pos)
+				pos = { container : ns, offset : getChildPositionInParent(ns) }
+			
+			return setCaretAt(pos.container, pos.offset);
 		},
-
+		
 		cleanHTML : function() {
 			this.set("value", this.$.editor.innerHTML = HTMLtoXML(this.value));
 			this._updateValue(true);
@@ -2627,7 +2501,7 @@
 		if(!child || child == document.body)
 			return null;
 
-		cn = child.parentNode.childNodes;
+		cn = Polymer.dom(Polymer.dom(child).parentNode).childNodes;
 		for(i=0; cn[i] != child && i < cn.length; i++)
 			;
 
@@ -2709,16 +2583,19 @@
 	};
 
 	function nextNode(node, excludeChildren) {
-		if (!excludeChildren && node && node.hasChildNodes && node.hasChildNodes()) {
+		if(node.is)
+			node = Polymer.dom(node);
+		
+		if(!excludeChildren && node && (Polymer.dom(node).childNodes && Polymer.dom(node).childNodes.length)) {
 			return node.firstChild;
 		} else {
-			while (node && !node.nextSibling) {
-				node = node.parentNode || Polymer.dom(node).parentNode;
+			while (node && node != top && !Polymer.dom(node).nextSibling) {
+				node = Polymer.dom(node).parentNode;
 			}
 			if (!node) {
 				return null;
 			}
-			return node.nextSibling;
+			return Polymer.dom(node).nextSibling;
 		}
 	}
 
@@ -2729,9 +2606,42 @@
 		else
 			return node.parentNode;
 	}
+	
+	function prevNodeDeep(node, top, opts) {
+		var pn;
+		
+		if(!opts) opts = {};
+		//node = node.is ? node : Polymer.dom(node);
+		if(!Polymer.dom(node).previousSibling)
+		{
+			pn = Polymer.dom(node).parentNode;
+			if(!opts.skipAncestors)
+				return pn;
+			else
+			{
+				while(pn && pn != top && !Polymer.dom(pn).previousSibling)
+					pn = Polymer.dom(pn).parentNode;
+				
+				if(!pn || pn == top)
+					return pn;
+				
+				pn = Polymer.dom(pn).previousSibling;
+			}
+		}
+		else			
+			pn = Polymer.dom(node).previousSibling
+		
+		if(pn.nodeType == 3)
+			return pn;
+
+		while(Polymer.dom(pn).lastChild && (!opts.atomicCustomElements || !pn.is))
+			pn = Polymer.dom(pn).lastChild;
+			
+		return pn;
+	}
 
 	// previous sibling in deep sense - will look up the tree until there's a prevousSibling, then will look at the last (rightmost) node in its subtree
-	function prevNodeDeep(node, top, opts) {
+	function aprevNodeDeep(node, top, opts) {
 		var ni, index;
 
 		if(!node)
@@ -2777,11 +2687,27 @@
 
 		return zwd;
 	}
+	
+	var moveCaretBackOrInsertTextNode = function(t) {
+		var r, sn, tn;
+		r = getSelectionRange();
+		if(!r)
+			return;
+		sn = r.startContainer;
+		if(r.startContainer.nodeType == 1)
+			sn = (r.startContainer.is ? Polymer.dom(r.startContainer) : r.startContainer).childNodes[r.startOffset]
+		if(sn.is)
+		{
+			setCaretAt(sn.parentNode.insertBefore(tn = document.createTextNode('\u200B'), sn), 0);
+			removeWhenOutIfEmpty(tn);
+		}
+	}
 
 	var removeWhenOutIfEmpty = (function() {
-		var lastTarget;
+		var lastTarget, targetsRecord = [], found;
+			
 
-		return function(el) {
+		return function(el, top) {
 			var anc, ns, ps;
 
 			if((!el && !lastTarget) || el == lastTarget)
@@ -2792,7 +2718,7 @@
 				return;
 
 			anc = r.startContainer;
-			while(anc && anc != lastTarget)
+			while(anc && anc != top && (found = (targetsRecord.indexOf(anc) == -1)))
 				anc = anc.parentNode;
 
 			if(anc != lastTarget && /^\s*$/.test(lastTarget.textContent))
@@ -2874,7 +2800,7 @@
 			return ni
 		
 		if(node.nodeType == 1 && (offset || offset == 0))
-			node = node.childNodes[offset];
+			node = Polymer.dom(node).childNodes[offset];
 
 		if(!node || (node.nodeType == 1 && !canHaveChildren(node)))
 			if(offset)
@@ -2884,7 +2810,7 @@
 
 		if(node.nodeType == 1)
 		{
-			if(node.childNodes.length)
+			if(Polymer.dom(node).childNodes.length)
 			{
 				lastContainer = node.childNodes[node.childNodes.length-1];
 				while(!(pos = getLastCaretPosition(lastContainer)) && lastContainer.previousSibling)
