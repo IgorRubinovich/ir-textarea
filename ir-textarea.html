@@ -79,10 +79,6 @@ Issues and pull requests are most welcome. Fork it [here](https://github.com/Igo
 		display : block;
 	}
 	
-	ir-gallery, embedded-media {
-		margin-left : 2px;
-	}
-
 	#editor a:link, a:hover, a:active, a:visited {
 		borrder-bottom : 1px dashed darkslateblue;
 		cursor : pointer;
@@ -194,6 +190,7 @@ Issues and pull requests are most welcome. Fork it [here](https://github.com/Igo
 	<div>
 		<paper-tabs selected="{{ viewMode }}">
 			<paper-tab>WYSIWYG</paper-tab>
+			<paper-tab>PREVIEW</paper-tab>
 			<paper-tab>HTML</paper-tab>
 		</paper-tabs>
 	</div>
@@ -265,6 +262,7 @@ Issues and pull requests are most welcome. Fork it [here](https://github.com/Igo
 				<io-menu id="contextMenu" listener="click" options="{}"></io-menu>
 			</div>
 		</div>
+		<div id="preview"></div>
 		<div>
 			<textarea id="htmlTextArea" value="{{ value }}"></textarea>
 		</div>
