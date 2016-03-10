@@ -17,7 +17,7 @@
 				var customEls = that.customElements, targets = [], ce, pe, tnc, created, r, sc, so, ec, eo, delimiter, emptyRe;
 				
 				delimiter = '\u00a0\u00a0';
-				emptyRe = /^\s*$/;
+				emptyRe = /^[\s\u00a0]*$/;
 				
 				for(i = 0; i < customEls.length; i++)
 					if(!Polymer.dom(customEls[i]).parentNode)
@@ -108,12 +108,12 @@
 						else // a whitespace text element before
 						if(ps.nodeType == 3)
 						{
-							if(emptyRe.test(ps.textContent))
+							if(!/\S/.test(ps.textContent))
 							{
 								if(ps.previousSibling && ps.previousSibling.nodeType == 3)
 									ps = mergeNodes(ps.previousSibling, ps, true);
 
-								if(ps.textContent != delimiter && emptyRe.test(ps.textContent))
+								if(ps.textContent != delimiter && !/\S/.test(ps.textContent))
 									ps.textContent = delimiter;
 								
 								ps.isDelimiter = true;
@@ -122,7 +122,7 @@
 								setCaretAt(ps, 1);
 						}
 						
-						if(!created && ps.isDelimiter && !emptyRe.test(ps.textContent)) // remove the padding space if node is not whitespace-only anymore
+						if(!created && ps.isDelimiter && /\S/.test(ps.textContent)) // remove the padding space if node is not whitespace-only anymore
 						{
 							ps.textContent = ps.textContent.replace(/[\u200b\u00a0\s]/g, '')
 							ps.isDelimiter = false;
@@ -141,12 +141,12 @@
 						else
 						if(ns.nodeType == 3)
 						{
-							if(emptyRe.test(ns.textContent))
+							if(!/\S/.test(ns.textContent))
 							{
 								if(ns.nextSibling && ns.nextSibling.nodeType == 3)
 									ns = mergeNodes(ns.nextSibling,ns,true);
 
-								if(ns.textContent != delimiter && emptyRe.test(ns.textContent))
+								if(ns.textContent != delimiter && !/\S/.test(ns.textContent))
 									ns.textContent = delimiter;
 								ns.isDelimiter = true;
 							}
@@ -154,7 +154,7 @@
 								setCaretAt(ns, 1);
 						}
 
-						if(!created && ns.isDelimiter && !emptyRe.test(ns.textContent))
+						if(!created && ns.isDelimiter && /\S/.test(ns.textContent))
 						{
 							ns.textContent = ns.textContent.replace(/[\u200b\u00a0\s]/g, '')
 							ns.isDelimiter = false;
@@ -2595,8 +2595,6 @@
 		range.collapse(startOffset == endOffset);
 		sel.removeAllRanges();
 		sel.addRange(range);
-		
-		console.log('set caret at ', startOffset);
 
 		return range;
 	};
@@ -2831,10 +2829,10 @@
 								x += offsetParent.offsetLeft
 							}
 
+							span.parentNode.removeChild(span);
+
 							// Glue any broken text nodes back together
 							span.parentNode.normalize();
-							
-							span.parentNode.removeChild(span);
 						}
 					}
 				}
