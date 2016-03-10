@@ -184,6 +184,16 @@ Issues and pull requests are most welcome. Fork it [here](https://github.com/Igo
 		position : absolute;
 		right : 5px;
 	}
+	
+	#resizeHandler {
+		position : absolute;
+		width : 25px;
+		height : 25px;
+		border-radius : 25px;
+		background-color : blue;
+		left : 0;
+		top  : 0;
+	}
 
   </style>
   <template>
@@ -258,6 +268,7 @@ Issues and pull requests are most welcome. Fork it [here](https://github.com/Igo
 					<div id="editor" class="post" on-tap="contextMenuShow" on-focus="_focusedEditor" contenteditable>
 						<content></content>
 					</div>
+					<div id="resizeHandler"></div>
 				</div>
 				<io-menu id="contextMenu" listener="click" options="{}"></io-menu>
 			</div>

@@ -172,6 +172,14 @@
 				this.editorMutationObserver.inProgress = false;
 
 			}.bind(this));
+
+			var oconfig = {
+				childList : true,
+				subtree : true,
+				characterData : true
+			}							
+
+			this.editorMutationObserver.observe(this.$.editor, oconfig);
 			
 			this.skipNodes = [];
 			this.__actionData = {};
@@ -555,14 +563,6 @@
 
 			this._initialValue = this.$.editor.innerHTML = this.getCleanValue();
 
-			var oconfig = {
-				childList : true,
-				subtree : true,
-				characterData : true
-			}
-							
-			this.editorMutationObserver.observe(this.$.editor, oconfig);
-			
 			this._updateValue();
 		},
 
@@ -795,23 +795,27 @@
 		},
 
 		resizeTarget : function(target) {
-		  var that = this, resizeHandler, cbr;
+			var that = this, resizeHandler, cbr;
 
-		  if(this.__actionData.resizableTarget)
-			this.resizeTargetStop(true);
+			if(this.__actionData.resizableTarget)
+				this.resizeTargetStop(true);
 
-		  that.__actionData.resizeTarget = target;
+			that.__actionData.resizeTarget = target;
 
-		  document.addEventListener('mouseup', this.resizeTargetStop.bind(this));
-		  document.addEventListener('click', this.resizeTargetStop.bind(this));
-		  
+			document.addEventListener('mouseup', this.resizeTargetStop.bind(this));
+			document.addEventListener('click', this.resizeTargetStop.bind(this));
+
+			cbr = target.getBoundingClientRect();
 			if(target.tagName == 'IMG')
 			{
-				cbr = target.getBoundingClientRect();
 				target._aspect = cbr.height / cbr.width;
 			}
+		  
+			this.$.resizeHandler.style.left = cbr.right;
+			this.$.resizeHandler.style.top = cbr.bottom;
 
-		  var interactable = interact(target)
+			var interactable = 
+			interact(target)
 			.resizable({
 			  edges: { left: true, right: true, bottom: true, top: true }
 			})
@@ -3019,5 +3023,25 @@
 		if(key == 8 && np && np.nodeType == 1 && np.is)
 			ev.preventDefault();
 	}
+
+	
+interact('#resize-handle').on('down', function (event) {
+  var interaction = event.interaction,
+      handle = event.currentTarget;
+
+  interaction.start({
+      name: 'resize',
+      edges: {
+        top   : handle.dataset.top,
+        left  : handle.dataset.left,
+        bottom: handle.dataset.bottom,
+        right : handle.dataset.right,
+      }   
+    },  
+    interact('#resizable-element'),               // target Interactable
+    document.getElementById('resizable-element'));   // target Element
+});
+
+
 })();
 
