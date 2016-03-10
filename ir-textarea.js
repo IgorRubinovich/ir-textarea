@@ -2785,7 +2785,7 @@
 			win = win || window;
 			var doc = win.document, offsetParent;
 			var sel = doc.selection, range, rects, rect;
-			var x = 0, y = 0;
+			var x = 0, y = 0, spanParent;
 			if (sel) {
 				if (sel.type != "Control") {
 					range = sel.createRange();
@@ -2829,10 +2829,10 @@
 								x += offsetParent.offsetLeft
 							}
 
-							span.parentNode.removeChild(span);
+							(spanParent = span.parentNode).removeChild(span);
 
 							// Glue any broken text nodes back together
-							span.parentNode.normalize();
+							spanParent.normalize();
 						}
 					}
 				}
