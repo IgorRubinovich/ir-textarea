@@ -1,5 +1,4 @@
 (function () {
-
   var INLINE_ELEMENTS = {};
   "font,b,big,i,small,tt,abbr,acronym,cite,code,dfn,em,kbd,strong,samp,time,var,a,bdo,br,img,map,object,q,script,span,sub,sup".split(/,/)
     .forEach(function(tag) { INLINE_ELEMENTS[tag.toUpperCase()] = true });
@@ -8,170 +7,13 @@
 		is : 'ir-textarea',
 		ready : function() {
 		  var that = this,
-			commands = this.commands.split(/,/),
-			newButton, cmdDef, icon, ev, handler, altTarget, moveOccured, oconfig, i, observerCycle = 0;
-
-			this.customElements = [];
+			commands = this.commands.split(/,/);
 			
-			this.editorMutationObserver = new MutationObserver(function(mrecs) {
-				var customEls = that.customElements, targets = [], ce, pe, tnc, created, r, sc, so, ec, eo, delimiter, emptyRe;
-				
-				delimiter = '\u00a0\u00a0';
-				emptyRe = /^[\s\u00a0]*$/;
-				
-				for(i = 0; i < customEls.length; i++)
-					if(!Polymer.dom(customEls[i]).parentNode)
-						customEls.splice(i, 1);
-				
-				if(this.editorMutationObserver.inProgress) // redundant? check with firefox
-					return;
-				this.editorMutationObserver.inProgress = true;
-
-				observerCycle++;
-				
-				if(r = getSelectionRange())
-				{
-					if(r.startContainer.nodeType == 3) sc = r.startContainer, so = r.startOffset; else sc = r.startContainer.childNodes[r.startOffset], so = 0;
-					if(r.endContainer.nodeType == 3) ec = r.endContainer, eo = r.startOffset; else ec = r.startContainer.childNodes[r.startOffset], eo = 0;
-				}
-				else
-					r = {}
-				
-				// update this.customElements - list of custom elements
-				mrecs.forEach(function(mr) {
-					var mrt = mr.target;
-					if(!mrt.parentNode)
-						return;
-
-					if(mrt.nodeType == 1 && mrt.classList.contains('__moignore')) // __moignore identifies the span used for cursor position calculation
-						return;
-
-					if(mrt.nodeType == 3)
-					{
-						// process delimiters "detached" from their custom element
-						if(mrt.isDelimiter && !((mrt.previousSibling && mrt.previousSibling.is) || (mrt.nextSibling && mrt.nextSibling.is))) 
-						{
-							mrt.isDelimiter = false;
-							if(/\u00a0/.test(mrt.textContent))
-							{
-								mrt.textContent = mrt.textContent.replace(/\u00a0/, '');
-								if(mrt == sc)
-									setCaretAt(sc, Math.min(so, mrt.textContent.length));
-							}
-						}
-						if(sc == mrt && mrt.isDelimiter && !mrt.isInTransition)
-							setCaretAt(sc, 1);
-						else
-						if(!mrt.textContent.length)
-							mrt.parentNode.removeChild(mrt);
-
-						return;
-					}
-					
-					if(mrt.nodeType != 1)
-						return;
-
-					// ignore if node appears more than once in this record - until we actually analyze the record types
-					if(mrt.observerCycle == observerCycle)
-						return;
-					mrt.observerCycle = observerCycle;
-					//if(targets.indexOf(mrt) > -1)	return; // discared cause it's too slovv
-
-					targets.push(mrt);
-					
-					visitNodes(mrt, function(n) {
-						if(!isInLightDom(n, that.$.editor) || !Polymer.dom(n).parentNode)
-							return;
-						if(n.is && customEls.indexOf(n) == -1)
-						{
-							customEls.push(n);
-							n.setAttribute('contenteditable', false);
-						}
-					});
-				});
-					
-				for(i = 0; i < customEls.length; i++)
-				{
-					ce = customEls[i];
-					pe = Polymer.dom(ce).parentNode;
-					if(pe)
-					{	
-						ps = ce.previousSibling;
-						ns = ce.nextSibling;
-
-						// pad before
-						if(!ps || ps.nodeType != 3) // no text element before
-						{
-							pe.insertBefore(created = document.createTextNode(delimiter), ce);
-							created.isDelimiter = true;
-						}
-						else // a whitespace text element before
-						if(ps.nodeType == 3)
-						{
-							if(!/\S/.test(ps.textContent))
-							{
-								if(ps.previousSibling && ps.previousSibling.nodeType == 3)
-									ps = mergeNodes(ps.previousSibling, ps, true);
-
-								if(ps.textContent != delimiter && !/\S/.test(ps.textContent))
-									ps.textContent = delimiter;
-								
-								ps.isDelimiter = true;
-							}
-							if(sc == ps && ps.isDelimiter && !ps.isInTransition)
-								setCaretAt(ps, 1);
-						}
-						
-						if(!created && ps.isDelimiter && /\S/.test(ps.textContent)) // remove the padding space if node is not whitespace-only anymore
-						{
-							ps.textContent = ps.textContent.replace(/[\u200b\u00a0\s]/g, '')
-							ps.isDelimiter = false;
-							if(sc == ps) 
-								setCaretAt(ps, Math.min(so, ps.textContent.length))
-						}
-
-						created = null;
-						
-						// pad after
-						if(!ns || ns.nodeType != 3)
-						{
-							pe[ns ? 'insertBefore' : 'appendChild'](created = document.createTextNode(delimiter), ns);
-							created.isDelimiter = true;
-						}
-						else
-						if(ns.nodeType == 3)
-						{
-							if(!/\S/.test(ns.textContent))
-							{
-								if(ns.nextSibling && ns.nextSibling.nodeType == 3)
-									ns = mergeNodes(ns.nextSibling,ns,true);
-
-								if(ns.textContent != delimiter && !/\S/.test(ns.textContent))
-									ns.textContent = delimiter;
-								ns.isDelimiter = true;
-							}
-							if(ec == ns && ns.isDelimiter && !ns.isInTransition) 
-								setCaretAt(ns, 1);
-						}
-
-						if(!created && ns.isDelimiter && /\S/.test(ns.textContent))
-						{
-							ns.textContent = ns.textContent.replace(/[\u200b\u00a0\s]/g, '')
-							ns.isDelimiter = false;
-							if(ec == ns) 
-								setCaretAt(ns, Math.min(eo, ns.textContent.length))
-						}
-
-						pe.normalize();
-						
-						ce.setAttribute('contenteditable', false);
-						Array.prototype.forEach.call(Polymer.dom(ce).querySelectorAll('.caption'), function(el) { el.setAttribute('contenteditable', true) }); // auto-editable lightdom children
-					}
-				}	
-
-				this.editorMutationObserver.inProgress = false;
-
-			}.bind(this));
+			
+			// set up and start the observer
+			this.observerCycle = 0;
+			this.customElements = [];
+			this.editorMutationObserver = new MutationObserver(this.editorMutationHandler.bind(this));
 
 			var oconfig = {
 				childList : true,
@@ -180,275 +22,16 @@
 			}							
 
 			this.editorMutationObserver.observe(this.$.editor, oconfig);
-			
-			this.skipNodes = [];
 			this.__actionData = {};
-
-			handler = function userInputHandler(ev) {
-				var noMoreSave, el, toDelete, keyCode = ev.keyCode || ev.which, t, forcedelete, r, done, localRoot, last, n, nn, pn, pos, firstRange, merge, sc, ec, so, eo;
-
-				that.selectionSave();
-				that.selectionRestore(true);
-				
-				// save position on control keys
-				if(((ev.type == 'keyup' || ev.type == 'keydown') && ([33,34,35,36,37,38,39,40].indexOf(keyCode) > -1)) || (ev.type == 'mouseup'))
-					that.customUndo.pushUndo(false, true);
-				else
-				if(ev.keyCode && !ev.ctrlKey && !ev.metaKey && !ev.altKey)
-					that.clearActionData();
-				
-				if (ev.type == 'keydown' && keyCode == 13) { 	// line break/paragraph
-					r = that.selectionRestore();
-					if(ev.shiftKey || // line break
-						getTopCustomElementAncestor(r.startContainer, that.$.editor) ||
-						that.selectAncestor(r.startContainer, 'table', that.$.editor) ||  // need more work to enable paragraphs in tables
-						getTopCustomElementAncestor(r.endContainer, that.$.editor))
-					{
-							r = getSelectionRange();
-							if(r.startContainer.nodeType == 3 && (r.startContainer.length - 1 <= r.startOffset && r.startContainer.textContent.charAt(r.startOffset).match(/^ ?$/) && ((nextNode(r.startContainer) || {}).tagName != "BR")))
-								firstRange = that.pasteHtmlAtCaret('<br>', false, true);
-
-							that.pasteHtmlAtCaret('<br>', false, true);
-
-							r = getSelectionRange();
-							pos = r.startOffset;
-
-							if(firstRange && isSpecialElement(nextNode(r.startContainer)))
-								setCaretAt(firstRange.startContainer, 0);
-							else
-							if(!r.startContainer.childNodes.length)
-							{
-							  n = r.startContainer.parentNode;
-							  pos = getChildPositionInParent(n);
-							}
-							else
-							{
-							  while(pos >= r.startContainer.childNodes.length) pos--;
-							  n = r.startContainer;
-							}
-					}
-					else	// new paragraph
-						that.pasteHtmlWithParagraphs('<span class="paragraph"><br></span>', true);
-
-					//that.ensureCursorLocationIsValid({reverseDirection : true});
-
-					that.frameContent();
-
-					//that.customUndo.pushUndo();
-
-					that._updateValue();
-					that.selectionSave();
-					ev.preventDefault();
-				}
-				
-				if(ev.type == 'mouseup')
-				{
-					r = getSelectionRange();
-					if(r.startContainer.isDelimiter)
-						setCaretAt(r.startContainer, 1);
-				}
-				
-				if(ev.type == 'keydown' || ev.type == 'keyup')
-				{
-					r = getSelectionRange();
-					if(r.startContainer.nodeType == 3) sc = r.startContainer, so = r.startOffset; else sc = r.startContainer.childNodes[r.startOffset], so = 0;
-					if(r.endContainer.nodeType == 3) ec = r.endContainer, eo = r.startOffset; else ec = r.startContainer.childNodes[r.startOffset], eo = 0;
-																
-					if([35,36,37,39].indexOf(keyCode) > -1) // left/right/home/end
-					{
-						if(sc && (keyCode == 36 || keyCode == 37) && sc.isDelimiter) // home and left
-							(sc.isInTransition = (ev.type == 'keydown'))
-								? setCaretAt(Polymer.dom(sc).parentNode, getChildPositionInParent(sc)) : setCaretAt(sc, 1);
-						else
-						if(ec && (keyCode == 35 || keyCode == 39) && ec.isDelimiter && ec.nextSibling) // end and right
-							(ec.isInTransition = (ev.type == 'keydown'))
-								? setCaretAt(Polymer.dom(ec).parentNode, getChildPositionInParent(ec.nextSibling)) : setCaretAt(ec, 1);
-					}
-									
-					if(ev.type == 'keydown' && (keyCode == 8 || keyCode == 46)) // deletes
-					{					
-						if(ev.type == 'keydown' && keyCode == 8 && (sc.previousSibling && sc.previousSibling.is && sc.textContent.length == 1 && so == 1)) // prevent jump when deleting last char in a to-be delimiter
-						{
-							sc.textContent = ' '
-							setCaretAt(sc, 1);
-							ev.preventDefault();
-						}
-						else
-						if(ev.defaultPrevented && (tcea = getTopCustomElementAncestor(sc, that.$.editor)) && tcea != el)
-							;
-						else
-						if(that.__actionData.target)
-						{
-							toDelete = that.__actionData.target;
-							forcedelete = true; //ev.preventDefault();
-						}
-						else
-						if(keyCode == 46 && sc.nextSibling && sc.nextSibling.is && sc.isDelimiter && getSelection().isCollapsed) // del key
-						{
-							forcedelete = toDelete = sc.nextSibling;
-							
-							// firefox won't merge the nodes so we do it "manually"
-							if(/firefox|iceweasel/i.test(navigator.userAgent) && that.get("startContainer.parentNode.nextSibling", r) == el)
-							{
-								if(r.startContainer.parentNode.lastChild.tagName == 'BR')
-									r.startContainer.parentNode.removeChild(r.startContainer.parentNode.lastChild);
-
-								mergeNodes(r.startContainer.parentNode, r.startContainer.parentNode.nextSibling, true);
-
-								ev.preventDefault();
-							}
-						}
-						else
-						if(keyCode == 8 && sc.isDelimiter && sc.previousSibling && sc.previousSibling.is && getSelection().isCollapsed) // backspace key
-						{
-							forcedelete = toDelete = sc.previousSibling;
-
-							// firefox won't merge the nodes so we do it "manually"
-							if(/firefox|iceweasel/i.test(navigator.userAgent) && that.get("startContainer.previousSibling.lastChild", r) == el)
-							{
-								if(r.startContainer.previousSibling.lastChild.tagName == 'BR')
-									r.startContainer.previousSibling.removeChild(r.startContainer.previousSibling.lastChild);
-
-								mergeNodes(r.startContainer.previousSibling, r.startContainer, true);
-
-								ev.preventDefault();
-							}
-						}
-
-						if(toDelete && toDelete.parentNode && toDelete.nodeType == 1 && (forcedelete || !ev.defaultPrevented)) //(ev.defaultPrevented) // should be prevented by ensureCursorLocationIsValid
-						{
-							if(toDelete.parentNode.firstChild == toDelete && toDelete.parentNode.lastChild == toDelete)
-							{
-								toDelete = toDelete.parentNode;
-							}
-
-							if(toDelete.previousSibling && toDelete.nextSibling)
-								merge = { left : toDelete.previousSibling, right : toDelete.nextSibling };
-							else
-							if(!toDelete.nextSibling && toDelete.parentNode != that.$.editor && toDelete.parentNode.nextSibling)
-								merge = { left : toDelete.parentNode, right : toDelete.parentNode.nextSibling };
-							else
-							if(!toDelete.previousSibling && toDelete.parentNode != that.$.editor && toDelete.parentNode.previousSibling)
-								merge = { left : toDelete.parentNode.previousSibling, right : toDelete.parentNode };
-
-							that.deleteTarget(toDelete);
-
-							if(merge)
-								mergeNodes(merge.left, merge.right, true);
-
-							that.ensureCursorLocationIsValid();
-
-							ev.preventDefault();
-
-							that.customUndo.pushUndo();
-						}
-					}
-				}
-
-				altTarget = getTopCustomElementAncestor(ev.target, that.$.editor); // || (ev.target.proxyTarget && ev.target);
-				if(ev.type == 'mousedown' && altTarget && that.__actionData.type != 'drag' &&
-					!(isInLightDom(ev.target) && (ev.target.nodeType == 3 || (ev.target.firstChild && ev.target.firstChild.nodeType == 3))))
-				{
-					that.moveTarget.call(that, altTarget);
-					ev.preventDefault();
-					return;
-				}
-
-				if(ev.type == 'drop' && ev.target && getTopCustomElementAncestor(ev.target, that.$.editor)) // || ev.target.proxyTarget)) // prevent default drop (like text) into custom elements - it breaks them
-					ev.preventDefault();
-
-				that.selectionSave();
-				that._updateValue();
-				
-				getSelectionCoords();
-
-				//that.customUndo.pushUndo();
-			};
-
 
 			"mousedown,mouseup,keydown,keyup,drop".split(',')
 				.forEach(function(evType)
 				{
-					that.$.editor.addEventListener(evType, handler);
-				});
+					that.$.editor.addEventListener(evType, this.userInputHandler.bind(this));
+				}.bind(this));
 				
 			this.$.editor.addEventListener('click', this.contextMenuShow.bind(this), true); // capturing phase
-
-			var pasteHandler = function(e) {
-				var v, d, withParagraphs, i, n, nn;
-				if(typeof clipboardData != 'undefined')
-					v = clipboardData.getData();
-				else
-					v = e.originalEvent ? e.originalEvent.clipboardData.getData('text/html') : ((e.clipboardData.getData('text/html') || '<span class="paragraph">' + e.clipboardData.getData('text/plain').replace(/\n/g, '</span><span class="paragraph">') + "</span>"));
-
-				if(!v)
-					return;
-
-				if(v.match(/<!--StartFragment-->/i))
-				{
-					v = v	.replace(/<!--\[if[^\[]*\[endif\]--\>/gi).replace(/\<style[\s][\S]+<\/style>/ig, '')
-							.replace(/<(meta|link)[^>]>/, '')
-							.match(/<!--StartFragment-->([\s\S]*?)(?=<!--EndFragment-->)/i)[1]
-							.replace(/\<\/?o\:[^>]*\>/g, '')
-							.replace(/<p([\s\S]*?(?=<\/p>))<\/p>/gi, '<span class="paragraph" $1</span>')
-							.replace(/\n/g, '')
-							.replace(/<span[^>]*>\s*<\/span>/g, '')
-							.replace("&nbsp;", " ");
-				}
-				else
-				if(/\r|\n/.test(v))
-					v = '<span class="paragraph">' + v.replace(/\r|\n/, '</span><span class="paragraph">') + "</span>";
-
-
-				d = document.createElement('div');
-				d.innerHTML = v;
-
-				i = 0;
-				while(i < d.childNodes.length)
-				{
-					n = d.childNodes[i];
-
-					if(((n.nodeType == 3 || (n.tagName == 'SPAN' && !n.childNodes.length)) && /^\s*(&nbsp;)*\s*$/.test(n.textContent)))
-						d.removeChild(n);
-					else
-					{
-						if(n.nodeType == 3)
-						{
-							nn = document.createElement('span');
-							nn.innerHTML = n.textContent;
-							d.insertBefore(nn, n);
-							d.removeChild(n);
-							n = nn;
-						}
-
-						if(n.tagName == 'SPAN')
-							if(d.childNodes.length == 1 && n.childNodes.length == 1 && n.childNodes[0].nodeType == 3)
-							{
-								d.insertBefore(n.childNodes[0], n);
-								d.removeChild(n);
-							}
-							else
-								n.classList.add('paragraph');
-
-						i++;
-					}
-				}
-
-				visitNodes(d, function(el) {
-					if(el.nodeType == 1) el.removeAttribute('style') ;
-				}, { noRoot : true });
-
-				// edit out eventual closing br
-				if(d.lastChild && d.lastChild != d.firstChild && d.lastChild.tagName == "BR")
-					d.removeChild(d.lastChild);
-
-				that.pasteHtmlWithParagraphs(d.innerHTML, { removeFormat : false });
-
-				e.preventDefault();
-				return false;
-			};
-
-			that.$.editor.addEventListener('paste', pasteHandler);
+			this.$.editor.addEventListener('paste', this.pasteHandler);
 			// that.$.editor.addEventListener('copy', pasteHandler);
 
 			var defs = {};
@@ -487,9 +70,33 @@
 			this.insertPlugins();
 			setTimeout(function() { this._updateValue(); }.bind(this), 300);
 
-			var that = this, cleanval;
+			var cleanval;
 
-			var tbar = {};
+			this.configureToolbar()
+			
+			Object.keys(this.promptProcessors).forEach(function(pp) {
+				var el = document.getElementById(this.promptProcessors[pp]);
+				if(!el._hasOverlayClosedListener)
+					el.addEventListener('iron-overlay-closed', function() { this.selectionRestore(); }.bind(this));
+
+				el._hasOverlayClosedListener = true;
+			}.bind(this));
+
+			//that.domProxyManager.createProxies()
+
+			if(/^\s*$/.test(this.$.editor.innerHTML))
+			{
+				this.$.editor.innerHTML = "";
+				this.$.editor.appendChild(newEmptyParagraph());
+			}
+
+			this._initialValue = this.$.editor.innerHTML = this.getCleanValue();
+
+			this._updateValue();
+		},
+		
+		configureToolbar : function() {
+			var tbar = {}, that = this;
 			tbar.toolbarOffsetTop = this.offsetTop;
 			tbar.toolbarOffsetHeight = this.offsetHeight;
 			tbar.toolbarOffsetWidth = this.offsetWidth;
@@ -531,39 +138,458 @@
 			});
 
 			mediator.subscribe('showToolbar', function( arg ){
-
 				if(arg){
-					//that.set("toolbarfix",'fixit');
 					that.show();
 				}
 				else{
-					//that.set("toolbarfix",'nofix');
 					that.hide();
 				}
 
-			});
+			})
+		},
+		
+		userInputHandler : function (ev) {
+			var altTarget, noMoreSave, el, toDelete, keyCode = ev.keyCode || ev.which, t, forcedelete, r, done, localRoot, last, n, nn, pn, pos, firstRange, merge, sc, ec, so, eo;
 
-			Object.keys(this.promptProcessors).forEach(function(pp) {
-				var el = document.getElementById(this.promptProcessors[pp]);
-				if(!el._hasOverlayClosedListener)
-					el.addEventListener('iron-overlay-closed', function() { this.selectionRestore(); }.bind(this));
-
-				el._hasOverlayClosedListener = true;
-			}.bind(this));
-
+			this.selectionSave();
+			this.selectionRestore(true);
 			
+			// save position on control keys
+			if(((ev.type == 'keyup' || ev.type == 'keydown') && ([33,34,35,36,37,38,39,40].indexOf(keyCode) > -1)) || (ev.type == 'mouseup'))
+				this.customUndo.pushUndo(false, true);
+			else
+			if(ev.keyCode && !ev.ctrlKey && !ev.metaKey && !ev.altKey)
+				this.clearActionData();
+			
+			if (ev.type == 'keydown' && keyCode == 13) { 	// line break/paragraph
+				r = this.selectionRestore();
+				if(ev.shiftKey || // line break
+					getTopCustomElementAncestor(r.startContainer, this.$.editor) ||
+					this.selectAncestor(r.startContainer, 'table', this.$.editor) ||  // need more work to enable paragraphs in tables
+					getTopCustomElementAncestor(r.endContainer, this.$.editor))
+				{
+						r = getSelectionRange();
+						if(r.startContainer.nodeType == 3 && (r.startContainer.length - 1 <= r.startOffset && r.startContainer.textContent.charAt(r.startOffset).match(/^ ?$/) && ((nextNode(r.startContainer) || {}).tagName != "BR")))
+							firstRange = this.pasteHtmlAtCaret('<br>', false, true);
 
-			//that.domProxyManager.createProxies()
+						this.pasteHtmlAtCaret('<br>', false, true);
 
-			if(/^\s*$/.test(this.$.editor.innerHTML))
+						r = getSelectionRange();
+						pos = r.startOffset;
+
+						if(firstRange && isSpecialElement(nextNode(r.startContainer)))
+							setCaretAt(firstRange.startContainer, 0);
+						else
+						if(!r.startContainer.childNodes.length)
+						{
+						  n = r.startContainer.parentNode;
+						  pos = getChildPositionInParent(n);
+						}
+						else
+						{
+						  while(pos >= r.startContainer.childNodes.length) pos--;
+						  n = r.startContainer;
+						}
+				}
+				else	// new paragraph
+					this.pasteHtmlWithParagraphs('<span class="paragraph"><br></span>', true);
+
+				//this.ensureCursorLocationIsValid({reverseDirection : true});
+
+				this.frameContent();
+
+				//this.customUndo.pushUndo();
+
+				this._updateValue();
+				this.selectionSave();
+				ev.preventDefault();
+			}
+			
+			if(ev.type == 'mouseup')
 			{
-				this.$.editor.innerHTML = "";
-				this.$.editor.appendChild(newEmptyParagraph());
+				r = getSelectionRange();
+				if(r.startContainer.isDelimiter)
+					setCaretAt(r.startContainer, 1);
+			}
+			
+			if(ev.type == 'keydown' || ev.type == 'keyup')
+			{
+				r = getSelectionRange();
+				if(r.startContainer.nodeType == 3) sc = r.startContainer, so = r.startOffset; else sc = r.startContainer.childNodes[r.startOffset], so = 0;
+				if(r.endContainer.nodeType == 3) ec = r.endContainer, eo = r.startOffset; else ec = r.startContainer.childNodes[r.startOffset], eo = 0;
+															
+				if([35,36,37,39].indexOf(keyCode) > -1) // left/right/home/end
+				{
+					if(sc && (keyCode == 36 || keyCode == 37) && sc.isDelimiter) // home and left
+						(sc.isInTransition = (ev.type == 'keydown'))
+							? setCaretAt(Polymer.dom(sc).parentNode, getChildPositionInParent(sc)) : setCaretAt(sc, 1);
+					else
+					if(ec && (keyCode == 35 || keyCode == 39) && ec.isDelimiter && ec.nextSibling) // end and right
+						(ec.isInTransition = (ev.type == 'keydown'))
+							? setCaretAt(Polymer.dom(ec).parentNode, getChildPositionInParent(ec.nextSibling)) : setCaretAt(ec, 1);
+				}
+								
+				if(ev.type == 'keydown' && (keyCode == 8 || keyCode == 46)) // deletes
+				{					
+					if(ev.type == 'keydown' && keyCode == 8 && (sc.previousSibling && sc.previousSibling.is && sc.textContent.length == 1 && so == 1)) // prevent jump when deleting last char in a to-be delimiter
+					{
+						sc.textContent = ' '
+						setCaretAt(sc, 1);
+						ev.preventDefault();
+					}
+					else
+					if(ev.defaultPrevented && (tcea = getTopCustomElementAncestor(sc, this.$.editor)) && tcea != el)
+						;
+					else
+					if(this.__actionData.target)
+					{
+						toDelete = this.__actionData.target;
+						forcedelete = true; //ev.preventDefault();
+					}
+					else
+					if(keyCode == 46 && sc.nextSibling && sc.nextSibling.is && sc.isDelimiter && getSelection().isCollapsed) // del key
+					{
+						forcedelete = toDelete = sc.nextSibling;
+						
+						// firefox won't merge the nodes so we do it "manually"
+						if(/firefox|iceweasel/i.test(navigator.userAgent) && this.get("startContainer.parentNode.nextSibling", r) == el)
+						{
+							if(r.startContainer.parentNode.lastChild.tagName == 'BR')
+								r.startContainer.parentNode.removeChild(r.startContainer.parentNode.lastChild);
+
+							mergeNodes(r.startContainer.parentNode, r.startContainer.parentNode.nextSibling, true);
+
+							ev.preventDefault();
+						}
+					}
+					else
+					if(keyCode == 8 && sc.isDelimiter && sc.previousSibling && sc.previousSibling.is && getSelection().isCollapsed) // backspace key
+					{
+						forcedelete = toDelete = sc.previousSibling;
+
+						// firefox won't merge the nodes so we do it "manually"
+						if(/firefox|iceweasel/i.test(navigator.userAgent) && this.get("startContainer.previousSibling.lastChild", r) == el)
+						{
+							if(r.startContainer.previousSibling.lastChild.tagName == 'BR')
+								r.startContainer.previousSibling.removeChild(r.startContainer.previousSibling.lastChild);
+
+							mergeNodes(r.startContainer.previousSibling, r.startContainer, true);
+
+							ev.preventDefault();
+						}
+					}
+
+					if(toDelete && toDelete.parentNode && toDelete.nodeType == 1 && (forcedelete || !ev.defaultPrevented)) //(ev.defaultPrevented) // should be prevented by ensureCursorLocationIsValid
+					{
+						if(toDelete.parentNode.firstChild == toDelete && toDelete.parentNode.lastChild == toDelete)
+						{
+							toDelete = toDelete.parentNode;
+						}
+
+						if(toDelete.previousSibling && toDelete.nextSibling)
+							merge = { left : toDelete.previousSibling, right : toDelete.nextSibling };
+						else
+						if(!toDelete.nextSibling && toDelete.parentNode != this.$.editor && toDelete.parentNode.nextSibling)
+							merge = { left : toDelete.parentNode, right : toDelete.parentNode.nextSibling };
+						else
+						if(!toDelete.previousSibling && toDelete.parentNode != this.$.editor && toDelete.parentNode.previousSibling)
+							merge = { left : toDelete.parentNode.previousSibling, right : toDelete.parentNode };
+
+						this.deleteTarget(toDelete);
+
+						if(merge)
+							mergeNodes(merge.left, merge.right, true);
+
+						this.ensureCursorLocationIsValid();
+
+						ev.preventDefault();
+
+						this.customUndo.pushUndo();
+					}
+				}
 			}
 
-			this._initialValue = this.$.editor.innerHTML = this.getCleanValue();
+			altTarget = getTopCustomElementAncestor(ev.target, this.$.editor); // || (ev.target.proxyTarget && ev.target);
+			if(ev.type == 'mousedown' && altTarget && this.__actionData.type != 'drag' &&
+				!(isInLightDom(ev.target) && (ev.target.nodeType == 3 || (ev.target.firstChild && ev.target.firstChild.nodeType == 3))))
+			{
+				this.moveTarget.call(this, altTarget);
+				ev.preventDefault();
+				return;
+			}
 
+			if(ev.type == 'drop' && ev.target && getTopCustomElementAncestor(ev.target, this.$.editor)) // || ev.target.proxyTarget)) // prevent default drop (like text) into custom elements - it breaks them
+				ev.preventDefault();
+
+			this.selectionSave();
 			this._updateValue();
+			
+			//getSelectionCoords();
+
+			//that.customUndo.pushUndo();
+		},
+		
+		pasteHandler : function(e) {
+			var v, d, withParagraphs, i, n, nn;
+			if(typeof clipboardData != 'undefined')
+				v = clipboardData.getData();
+			else
+				v = e.originalEvent ? e.originalEvent.clipboardData.getData('text/html') : ((e.clipboardData.getData('text/html') || '<span class="paragraph">' + e.clipboardData.getData('text/plain').replace(/\n/g, '</span><span class="paragraph">') + "</span>"));
+
+			if(!v)
+				return;
+
+			if(v.match(/<!--StartFragment-->/i))
+			{
+				v = v	.replace(/<!--\[if[^\[]*\[endif\]--\>/gi).replace(/\<style[\s][\S]+<\/style>/ig, '')
+						.replace(/<(meta|link)[^>]>/, '')
+						.match(/<!--StartFragment-->([\s\S]*?)(?=<!--EndFragment-->)/i)[1]
+						.replace(/\<\/?o\:[^>]*\>/g, '')
+						.replace(/<p([\s\S]*?(?=<\/p>))<\/p>/gi, '<span class="paragraph" $1</span>')
+						.replace(/\n/g, '')
+						.replace(/<span[^>]*>\s*<\/span>/g, '')
+						.replace("&nbsp;", " ");
+			}
+			else
+			if(/\r|\n/.test(v))
+				v = '<span class="paragraph">' + v.replace(/\r|\n/, '</span><span class="paragraph">') + "</span>";
+
+
+			d = document.createElement('div');
+			d.innerHTML = v;
+
+			i = 0;
+			while(i < d.childNodes.length)
+			{
+				n = d.childNodes[i];
+
+				if(((n.nodeType == 3 || (n.tagName == 'SPAN' && !n.childNodes.length)) && /^\s*(&nbsp;)*\s*$/.test(n.textContent)))
+					d.removeChild(n);
+				else
+				{
+					if(n.nodeType == 3)
+					{
+						nn = document.createElement('span');
+						nn.innerHTML = n.textContent;
+						d.insertBefore(nn, n);
+						d.removeChild(n);
+						n = nn;
+					}
+
+					if(n.tagName == 'SPAN')
+						if(d.childNodes.length == 1 && n.childNodes.length == 1 && n.childNodes[0].nodeType == 3)
+						{
+							d.insertBefore(n.childNodes[0], n);
+							d.removeChild(n);
+						}
+						else
+							n.classList.add('paragraph');
+
+					i++;
+				}
+			}
+
+			visitNodes(d, function(el) {
+				if(el.nodeType == 1) el.removeAttribute('style') ;
+			}, { noRoot : true });
+
+			// edit out eventual closing br
+			if(d.lastChild && d.lastChild != d.firstChild && d.lastChild.tagName == "BR")
+				d.removeChild(d.lastChild);
+
+			that.pasteHtmlWithParagraphs(d.innerHTML, { removeFormat : false });
+
+			e.preventDefault();
+			return false;
+		},
+		
+		editorMutationHandler : function(mrecs) {
+			if(this.editorMutationHandler.paused)
+				return;
+			
+			var totalVisits = 0, ce, pe, tnc, created, r, sc, so, ec, eo, delimiter, emptyRe, 
+				effectiveChanges = [], 
+				customEls = this.customElements;
+			
+			delimiter = '\u00a0\u00a0';
+			emptyRe = /^[\s\u00a0]*$/;
+			
+			for(i = 0; i < customEls.length; i++)
+				if(!Polymer.dom(customEls[i]).parentNode)
+					customEls.splice(i, 1);
+			
+			if(this.editorMutationHandler.inProgress) // redundant? check with firefox
+				return;
+
+			this.editorMutationHandler.inProgress = true;
+
+			this.observerCycle++;
+			
+			if(r = getSelectionRange())
+			{
+				if(r.startContainer.nodeType == 3) sc = r.startContainer, so = r.startOffset; else sc = r.startContainer.childNodes[r.startOffset], so = 0;
+				if(r.endContainer.nodeType == 3) ec = r.endContainer, eo = r.startOffset; else ec = r.startContainer.childNodes[r.startOffset], eo = 0;
+			}
+			else
+				r = {}
+			
+			// update this.customElements - list of custom elements
+			mrecs.forEach(function(mr) {
+				var mrt = mr.target;
+				if(!mrt.parentNode)
+					return;
+
+				// ignore if node appears more than once in this record - until we actually analyze the record types
+				if(mrt.observerCycle == this.observerCycle)
+					return;
+
+				mrt.observerCycle = this.observerCycle;				
+
+				if(mr.type == "childList" && 
+						((mr.addedNodes && mr.addedNodes.length == 1 && mr.addedNodes[0].nodeType == 1 && mr.addedNodes[0].classList.contains('__moignore')) ||
+						(mr.removedNodes && mr.removedNodes.length == 1 && mr.removedNodes[0].nodeType == 1 && mr.removedNodes[0].classList.contains('__moignore'))))
+						// __moignore identifies the span used for cursor position calculation
+					return;
+
+				effectiveChanges.push(mr);
+					
+				if(mrt.nodeType == 3)
+				{
+					// process delimiters "detached" from their custom element
+					if(mrt.isDelimiter && !((mrt.previousSibling && mrt.previousSibling.is) || (mrt.nextSibling && mrt.nextSibling.is))) 
+					{
+						mrt.isDelimiter = false;
+						if(/\u00a0/.test(mrt.textContent))
+						{
+							mrt.textContent = mrt.textContent.replace(/\u00a0/, '');
+							if(mrt == sc)
+								setCaretAt(sc, Math.min(so, mrt.textContent.length));
+						}
+					}
+					if(sc == mrt && mrt.isDelimiter && !mrt.isInTransition)
+						setCaretAt(sc, 1);
+					else
+					if(!mrt.textContent.length)
+						mrt.parentNode.removeChild(mrt);
+
+					if(mrt.textContent.length)
+						effectiveChanges.push(mr);				
+					
+					return;
+				}
+				
+				if(mrt.nodeType != 1)
+					return;
+
+				effectiveChanges.push(mr);				
+
+				if(mr.type == 'childList')
+					visitNodes(mrt, function(n) {
+						totalVisits++;
+						if(!isInLightDom(n, this.$.editor) || !Polymer.dom(n).parentNode)
+							return;
+						if(n.is && customEls.indexOf(n) == -1)
+						{
+							customEls.push(n);
+							n.setAttribute('contenteditable', false);
+						}
+					}.bind(this));
+			}.bind(this));
+			
+			/*console.log('visited: %s nodes', totalVisits);
+			console.table(effectiveChanges.map(function(mrec){ return { 
+																		observerCycle : mrec.target.observerCycle,
+																		type : mrec.type, 
+																		target : mrec.target, 
+																		added : mrec.addedNodes[0], 
+																		removed : mrec.removedNodes[0], 
+																		oldValue : mrec.oldValue,
+																		html : recursiveOuterHTML(mrec.target) 
+																	} }));
+			*/
+			//console.table(effectiveChanges.map(function(mrec){ return [mrec.target, mrec.type, mrec.addedNodes[0], mrec.removedNodes[0]]}));
+			
+			for(i = 0; i < customEls.length; i++)
+			{
+				ce = customEls[i];
+				pe = Polymer.dom(ce).parentNode;
+				if(pe)
+				{	
+					ps = ce.previousSibling;
+					ns = ce.nextSibling;
+
+					// pad before
+					if(!ps || ps.nodeType != 3) // no text element before
+					{
+						pe.insertBefore(created = document.createTextNode(delimiter), ce);
+						created.isDelimiter = true;
+					}
+					else // a whitespace text element before
+					if(ps.nodeType == 3)
+					{
+						if(!/\S/.test(ps.textContent))
+						{
+							if(ps.previousSibling && ps.previousSibling.nodeType == 3)
+								ps = mergeNodes(ps.previousSibling, ps, true);
+
+							if(ps.textContent != delimiter && !/\S/.test(ps.textContent))
+								ps.textContent = delimiter;
+							
+							ps.isDelimiter = true;
+						}
+						if(sc == ps && ps.isDelimiter && !ps.isInTransition)
+							setCaretAt(ps, 1);
+					}
+					
+					if(!created && ps.isDelimiter && /\S/.test(ps.textContent)) // remove the padding space if node is not whitespace-only anymore
+					{
+						ps.textContent = ps.textContent.replace(/[\u200b\u00a0\s]/g, '')
+						ps.isDelimiter = false;
+						if(sc == ps) 
+							setCaretAt(ps, Math.min(so, ps.textContent.length))
+					}
+
+					created = null;
+					
+					// pad after
+					if(!ns || ns.nodeType != 3)
+					{
+						pe[ns ? 'insertBefore' : 'appendChild'](created = document.createTextNode(delimiter), ns);
+						created.isDelimiter = true;
+					}
+					else
+					if(ns.nodeType == 3)
+					{
+						if(!/\S/.test(ns.textContent))
+						{
+							if(ns.nextSibling && ns.nextSibling.nodeType == 3)
+								ns = mergeNodes(ns.nextSibling,ns,true);
+
+							if(ns.textContent != delimiter && !/\S/.test(ns.textContent))
+								ns.textContent = delimiter;
+							ns.isDelimiter = true;
+						}
+						if(ec == ns && ns.isDelimiter && !ns.isInTransition) 
+							setCaretAt(ns, 1);
+					}
+
+					if(!created && ns.isDelimiter && /\S/.test(ns.textContent))
+					{
+						ns.textContent = ns.textContent.replace(/[\u200b\u00a0\s]/g, '')
+						ns.isDelimiter = false;
+						if(ec == ns) 
+							setCaretAt(ns, Math.min(eo, ns.textContent.length))
+					}
+
+					pe.normalize();
+					
+					ce.setAttribute('contenteditable', false);
+					Array.prototype.forEach.call(Polymer.dom(ce).querySelectorAll('.caption'), function(el) { el.setAttribute('contenteditable', true) }); // auto-editable lightdom children
+				}
+			}
+
+			this.editorMutationHandler.inProgress = false;
+
 		},
 
 		contextMenuShow : function(ev) {
@@ -726,7 +752,7 @@
 		  
 		  this.customUndo.pushUndo(false, false);
 		  
-		  this.fire('scroll-into-view', getSelectionCoords());
+		  this.fire('scroll-into-view', this.getSelectionCoords());
 
 		  this.addActionBorder();		  
 		},
@@ -795,7 +821,7 @@
 		},
 
 		resizeTarget : function(target) {
-			var that = this, resizeHandler, cbr;
+			var that = this, resizeHandler, resizeEndHandler, cbr, handlercbr, ep;
 
 			if(this.__actionData.resizableTarget)
 				this.resizeTargetStop(true);
@@ -811,16 +837,14 @@
 				target._aspect = cbr.height / cbr.width;
 			}
 		  
-			this.$.resizeHandler.style.left = cbr.right;
-			this.$.resizeHandler.style.top = cbr.bottom;
-
-			var interactable = 
-			interact(target)
-			.resizable({
-			  edges: { left: true, right: true, bottom: true, top: true }
-			})
-			.on('resizemove', resizeHandler = function (event) {
-				var target = event.target, bcr, stu,
+			handlercbr = this.$.resizeHandler.getBoundingClientRect();
+			ep = getElementPosition(target, that.$.editor);
+			this.$.resizeHandler.style.left = (ep.x + cbr.width - handlercbr.width) + "px";
+			this.$.resizeHandler.style.top = (ep.y + cbr.height - handlercbr.height) + "px";
+			
+			resizeHandler = function (event) {
+				//var target = event.target, 
+				var bcr, stu,
 				computedStyle = target.getBoundingClientRect(),
 
 				x = (parseFloat(target.getAttribute('data-x')) || 0),
@@ -868,10 +892,16 @@
 				stu(bcr.width, bcr.height);
 				
 				that.__actionData.dragTarget = null; // resize takes over drag
+				
+				ep = getElementPosition(target, that.$.editor);
+				that.$.resizeHandler.style.left = (ep.x + ep.width - handlercbr.width) + "px";
+				that.$.resizeHandler.style.top = (ep.y + ep.height - handlercbr.height) + "px";
+
 				// translate when resizing from top or left edges
 				//x += event.deltaRect.left; //y += event.deltaRect.top;
-				})
-			.on('resizeend', function() {
+			}
+			
+			resizeEndHandler = function() {
 			  var t, st, numW, numH;
 
 			  that.__actionData.resizeTarget.removeAttribute('data-x');
@@ -888,7 +918,32 @@
 				//that.clearActionData();
 				that.__actionData.lastAction = "resize";
 			  }
-			});
+			}
+			
+			/*var interactable = 
+			interact(target)
+				.resizable({ edges: { left: true, right: true, bottom: true, top: true } })
+				.on('resizemove', resizeHandler)
+				.on('resizeend', resizeEndHandler);*/
+			interact(this.$.resizeHandler)
+				.on('down', function (event) {
+				  var interaction = event.interaction,
+					  handle = event.currentTarget;
+
+				  interaction.start({
+					  name: 'resize',
+					  edges: {
+						top   : handle.dataset.top,
+						left  : handle.dataset.left,
+						bottom: handle.dataset.bottom,
+						right : handle.dataset.right,
+					  }   
+					},  
+					interact(target),               // target Interactable
+					target);   // target Element
+				})
+				.on('resizemove', resizeHandler)
+				.on('resizeend', resizeEndHandler);
 
 		  if(!target.style.position || target.style.position == 'static')
 		  {
@@ -896,7 +951,7 @@
 			target.style.position = "relative";
 		  }
 
-		  this.__actionData.interactable = interactable;
+		  //this.__actionData.interactable = interactable;
 		},
 
 		moveTarget : function(target, done) {
@@ -1783,7 +1838,14 @@
 				return console.error('too many cursor movements');
 
 			this.selectionSave();
-			this.fire('scroll-into-view', getSelectionCoords());
+			this.fire('scroll-into-view', this.getSelectionCoords());
+		},
+		
+		getSelectionCoords : function() {
+			var c;
+			this.editorMutationHandler.paused = true;
+			c = getSelectionCoords();
+			return c;
 		},
 
 		selectionSelectElement : function(el) {
@@ -1827,10 +1889,6 @@
 			}
 
 			lastBeforeSkip = ed.lastChild;
-			if(this.skipNodes.length) {
-				while(this.skipNodes.indexOf(lastBeforeSkip) > -1)
-					lastBeforeSkip = lastBeforeSkip.previousSibling;
-			}
 
 			if(ed.childNodes.length == 1 || !isEmptyParagraph(lastBeforeSkip))
 			{
@@ -1865,7 +1923,7 @@
 
 				r = getSelectionRange();
 				if(r && this.isOrIsAncestorOf(this.$.editor, r.startContainer))
-					this.fire('scroll-into-view', getSelectionCoords());
+					this.fire('scroll-into-view', this.getSelectionCoords());
 
 				var bottomPadding, topPadding, that = this, editor = this.$.editor;
 
@@ -1904,7 +1962,7 @@
 			var v;
 			this.removeActionBorder();
 
-			v = recursiveInnerHTML(this.$.editor, this.skipNodes)
+			v = recursiveInnerHTML(this.$.editor)
 					.replace(/^(\r\n|\n|\r)/,"")
 					.replace(/(\r\n|\n|\r)/gm," ")
 					.replace(/\<pre\>/gmi,"<span>").replace(/\<\/?pre\>/gmi,"</span>");
@@ -2173,7 +2231,6 @@
 	})
 
 	// custom undo engine
-
 	function CustomUndoEngine(editor, options)  {
 		var undoRecord = [],
 			redoRecord = [],
@@ -2411,9 +2468,7 @@
 
 			classList.forEach(function(cl) { if(isCustomElementName(cl)) nn.classList.remove(cl); });
 			nn.classList.remove('style-scope');
-
-			nn.removeAttribute('conteneditable');
-			
+			nn.removeAttribute('contenteditable');
 			if(!nn.classList.length) nn.removeAttribute("class");
 		}
 
@@ -2744,7 +2799,7 @@
 		offset - in the splitted node,
 		limit - the root of the split.
 	*/
-	splitNode = function(node, offset, limit) {
+	var splitNode = function(node, offset, limit) {
 		var parent = limit.parentNode,
 			parentOffset = getChildPositionInParent(limit),
 			doc = node.ownerDocument, 
@@ -2772,6 +2827,46 @@
 
 		return limit;
 	}
+
+	var getElementPosition = function(element, fromElement) {
+		var top = 0, left = 0, width = 0, height = 0, cs, i;
+			fromElement = fromElement || document.body;
+		
+		if(!element ||  element.nodeType != 1)
+			return null;
+		
+		cs = element.getBoundingClientRect(); // getComputedStyle(element);
+
+		width = numerify(cs.width) + numerify(cs.borderLeftWidth) + numerify(cs.borderRightWidth);
+		height = numerify(cs.height) + numerify(cs.borderTopWidth) + numerify(cs.borderBottomWidth);
+	  
+		top += element.offsetTop || 0;
+		left += element.offsetLeft || 0;
+		element = element.offsetParent;
+		
+		while(element && isChildOf(element, fromElement))
+		{
+			cs = element.getBoundingClientRect(); // getComputedStyle(element);
+			top += element.offsetTop || 0;
+			left += element.offsetLeft || 0;
+			element = element.offsetParent;
+		}
+
+		return {
+			x: left, y: top, width : width, height : height
+		};
+	};
+	
+	function isChildOf(child, ancestor) {
+		while(child != document.body)
+			if(child.parentNode == ancestor)
+				return true;
+			else
+				child = child.parentNode;
+				
+		return false;
+	}
+
 
 	// modified code by Tim Down http://stackoverflow.com/questions/6846230/coordinates-of-selected-text-in-browser-page
 	// returns {x : x, y : y} of the current coordinates
@@ -2981,6 +3076,7 @@
 
 		return ret;
 	}
+
 	
 	function dangerousDelete(ev, range) { // cursor is on edge of a light element inside custom component and user clicked delete/backspace which will probably destroy the component
 		var tcea, sc, so, scparent, top, np,
@@ -3023,24 +3119,17 @@
 		if(key == 8 && np && np.nodeType == 1 && np.is)
 			ev.preventDefault();
 	}
-
 	
-interact('#resize-handle').on('down', function (event) {
-  var interaction = event.interaction,
-      handle = event.currentTarget;
 
-  interaction.start({
-      name: 'resize',
-      edges: {
-        top   : handle.dataset.top,
-        left  : handle.dataset.left,
-        bottom: handle.dataset.bottom,
-        right : handle.dataset.right,
-      }   
-    },  
-    interact('#resizable-element'),               // target Interactable
-    document.getElementById('resizable-element'));   // target Element
-});
+	function numerify(x){
+		if(typeof x == 'undefined' || !x)
+			return 0;
+
+		if(typeof x == 'number')
+			return x;
+			
+		return Number(x.replace ? x.replace(/[^\d\.]/g, '') : x);
+	};
 
 
 })();
