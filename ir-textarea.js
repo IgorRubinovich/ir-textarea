@@ -2356,13 +2356,7 @@
 		{
 			var stateRange = state.range, sn, en, so, eo, smax, emax, oldOuterHtmls = {}, i, pp;
 
-			//editor.innerHTML = options.contentFrame.replace('[content]', state.content);
-
 			state.restore(true); // true means to restore caret state
-			editor.focus();
-			r = document.createRange();
-
-			Polymer.dom.flush();
 
 			if(options.onRestoreState)
 				options.onRestoreState(sn);
@@ -2637,12 +2631,12 @@
 
 		console.log("restore to el: ", sc, " pos: ", this.startPos);
 		
-		if(!(sc.nodeType == 3 && sc.textContent.length < this.startOffset)) return null;
-		if(!(sc.nodeType == 1 && (sc.is ? Polymer.dom(sc) : sc).childNodes.length < this.startOffset)) return null;
+		if(sc.nodeType == 3 && this.startOffset > sc.textContent.length) return null;
+		if(sc.nodeType == 1 && this.startOffset >= (sc.is ? Polymer.dom(sc) : sc).childNodes.length) return null;
 		
-		if(!(ec.nodeType == 3 && ec.textContent.length < this.endOffset)) return null;
-		if(!(ec.nodeType == 1 && (ec.is ? Polymer.dom(ec) : ec).childNodes.length < this.startOffset)) return null;
-			
+		if(ec.nodeType == 3 && this.endOffset > ec.textContent.length) return null;
+		if(ec.nodeType == 1 && this.endOffset >= (ec.is ? Polymer.dom(ec) : ec).childNodes.length) return null;
+					
 		
 		r.setStart(sc, this.startOffset);
 		r.setEnd(ec, this.endOffset);
@@ -2673,6 +2667,8 @@
 		var i = this.rangeHistory.length - 1, r;
 		
 		this.root.innerHTML = this.content;
+		Polymer.dom.flush();
+		
 		while(i >= 0)
 			if(r = this.rangeHistory[i--].restore(doSetCaret))
 				return r;
