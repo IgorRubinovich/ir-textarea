@@ -2412,7 +2412,7 @@
 		if(options.timeout)
 			setInterval(pushUndo, options.timeout);
 
-		pushUndo(true);
+		//pushUndo(true);
 
 		return {
 			pushUndo : pushUndo,
