@@ -146,12 +146,15 @@
 		userInputHandler : function (ev) {
 			var altTarget, noMoreSave, el, toDelete, keyCode = ev.keyCode || ev.which, t, forcedelete, r, done, localRoot, last, n, nn, pn, pos, firstRange, merge, sc, ec, so, eo;
 
+			if((ev.keyCode == 90 || ev.keyCode == 89) && ev.ctrlKey) // undo/redo are handled in their own handler
+				return;
+			
 			this.selectionSave();
 			this.selectionRestore(true);
 			
 			// save position on control keys
-			if(((ev.type == 'keyup' || ev.type == 'keydown') && ([33,34,35,36,37,38,39,40].indexOf(keyCode) > -1)) || (ev.type == 'mouseup'))
-				this.customUndo.pushUndo(false, true);
+			if(((ev.type == 'keyup') && ([33,34,35,36,37,38,39,40].indexOf(keyCode) > -1)) || (ev.type == 'mouseup'))
+				this.customUndo.pushUndo();
 			else
 			if(ev.keyCode && !ev.ctrlKey && !ev.metaKey && !ev.altKey)
 				this.clearActionData();
@@ -193,20 +196,10 @@
 
 				this.frameContent();
 
-				//this.customUndo.pushUndo();
-
-				//this._updateValue();
 				this.selectionSave();
 				ev.preventDefault();
 			}
-			
-			if(ev.type == 'mouseup')
-			{
-				r = getSelectionRange();
-				if(r.startContainer.isDelimiter)
-					setCaretAt(r.startContainer, 1);
-			}
-			
+
 			if(ev.type == 'keydown' || ev.type == 'keyup')
 			{
 				r = getSelectionRange();
@@ -299,7 +292,7 @@
 
 						ev.preventDefault();
 
-						this.customUndo.pushUndo();
+						//this.customUndo.pushUndo();
 					}
 				}
 			}
@@ -317,10 +310,9 @@
 				ev.preventDefault();
 
 			this.selectionSave();
-			//this._updateValue();
 			
+			this._updateValue();			
 			//getSelectionCoords();
-
 			//this.customUndo.pushUndo();
 		},
 		
@@ -450,8 +442,6 @@
 					return
 				}
 				
-				effectiveChanges.push(mr);
-					
 				if(mrt.nodeType == 3)
 				{
 					// process delimiters "detached" from their custom element
@@ -465,14 +455,14 @@
 								setCaretAt(sc, Math.min(so, mrt.textContent.length));
 						}
 					}
-					if(sc == mrt && mrt.isDelimiter && !mrt.isInTransition)
+					if(sc == mrt && mrt.isDelimiter && !mrt.isInTransition && so != 1)
 						setCaretAt(sc, 1);
 					else
 					if(!mrt.textContent.length)
 						mrt.parentNode.removeChild(mrt);
 
 					if(mrt.textContent.length)
-						effectiveChanges.push(mr);
+						effectiveChanges.push(mr.target);
 					
 					return;
 				}
@@ -480,12 +470,15 @@
 				if(mrt.nodeType != 1)
 					return;
 
-				effectiveChanges.push(mr);				
-
+				if(mr.addedNodes.length) 
+					Array.prototype.forEach.call(mr.addedNodes, function(n) { effectiveChanges.push(n) });
+				else
+					effectiveChanges.push(mr.target);
+					
 				if(mr.type == 'childList')
 					visitNodes(mrt, function(n) {
 						totalVisits++;
-						if(!isInLightDom(n, this.$.editor) || !Polymer.dom(n).parentNode)
+						if(n != this.$.editor && !isInLightDom(n, this.$.editor) || !Polymer.dom(n).parentNode)
 							return;
 						if(n.is && customEls.indexOf(n) == -1)
 						{
@@ -501,14 +494,12 @@
 			var cycles = 0,	cycleLabel = new Date().getTime();
 			
 			effectiveChanges.forEach(function(mr) {
-				var t = mr.target, done, cv, cn, ocv, toutline;
-								
+				var t = mr, done, cv, cn, ocv, toutline;
+				
 				if(t.cycleLabel == cycleLabel) return;
 				t.cycleLabel = cycleLabel;
-				
-				if(mr.removedNodes.length)
-				
-				if(!isInLightDom(t, this.$.editor))
+
+				if(t != this.$.editor && !isInLightDom(t, this.$.editor))
 					return;
 					
 				ocv = t._cleanValue;
@@ -517,13 +508,23 @@
 				if(ocv == t)
 					return;
 				
-				done = t == this.$.editor;
+				//done = t == this.$.editor;
 				
 				while(!done)
 				{
-					t = t.parentNode;
-					if(!t || (t.parentNode != Polymer.dom(t).parentNode && !isInLightDom(t, this.$.editor))) // it's not attached
-						return;
+					
+					//	t = t.is ? t.parentNode : t;
+					
+					if(t != this.$.editor) {
+						if(!t || (t.parentNode != Polymer.dom(t).parentNode && (t != this.$.editor && !isInLightDom(t, this.$.editor)))) // it's not attached
+						{
+							if(!isInLightDom(Polymer.dom(t).parentNode, this.$.editor))
+								return;
+							t = Polymer.dom(t).parentNode;
+						}
+						else
+							t = t.parentNode
+					}
 
 					if(t.cycleLabel == cycleLabel) return;
 					t.cycleLabel = cycleLabel;
@@ -566,9 +567,13 @@
 			
 			//console.log("mutation cycles: ", cycles);
 			
+			var parentDelimitersCount = {};
+			
+			
 			for(i = 0; i < customEls.length; i++)
 			{
 				ce = customEls[i];
+								
 				pe = Polymer.dom(ce).parentNode;
 				if(pe)
 				{	
@@ -594,7 +599,7 @@
 							
 							ps.isDelimiter = true;
 						}
-						if(sc == ps && ps.isDelimiter && !ps.isInTransition)
+						if(sc == ps && ps.isDelimiter && !ps.isInTransition && so != 1 && r.collapsed)
 							setCaretAt(ps, 1);
 					}
 					
@@ -627,7 +632,7 @@
 
 							ns.isDelimiter = true;
 						}
-						if(ec == ns && ns.isDelimiter && !ns.isInTransition) 
+						if(ec == ns && ns.isDelimiter && !ns.isInTransition && so != 1 && r.collapsed) 
 							setCaretAt(ns, 1);
 					}
 
@@ -642,8 +647,18 @@
 
 					pe.normalize();
 					
+					//if(ce.parentNode._delimitersCountCycle != this.observerCycle)
+					//{
+					//	ce.parentNode._delimitersCountCycle = this.observerCycle;
+					//	ce.parentNode.delimitersCount = 0;
+					//}
+					
+					//ce.parentNode.delimitersCount += Number(ps.isDelimiter) + Number(ns.isDelimiter);
+					
 					ce.setAttribute('contenteditable', false);
-					Array.prototype.forEach.call(Polymer.dom(ce).querySelectorAll('.caption'), function(el) { el.setAttribute('contenteditable', true) }); // auto-editable lightdom children
+					
+					// auto-editable lightdom children - should come as a property
+					Array.prototype.forEach.call(Polymer.dom(ce).querySelectorAll('.caption'), function(el) { el.setAttribute('contenteditable', true) });
 				}
 			}
 
@@ -1832,6 +1847,8 @@
 				} else if (document.selection && range.select) {
 					range.select();
 				}
+				
+				this.$.editor.focus();
 			}
 			else
 			if(!noForceSelection)
@@ -1844,8 +1861,6 @@
 			}
 
 			this._selectionRange = range;
-
-			this.$.editor.focus();
 
 			return range;
 		},
@@ -1961,38 +1976,29 @@
 		},
 
 		_updateValue : function(force) {
-			if(!this._updateValueSkipped)
-				this._updateValueSkipped = 0;
-
-			//if(!force && (this._updateValueTimeout && this._updateValueSkipped++ < 50))
-			//	return;
-
 			if(this._updateValueTimeout)
 			{
+				this._updateValueTime = new Date().getTime();
+				
 				clearTimeout(this._updateValueTimeout);
 				this._updateValueTimeout = null;
 			}
 
-			this.selectionSave();
+			if(!this._updateValueTime || this._updateValueTime - (new Date().getTime()) > 200)
+			{
+				this.selectionRestore();
+				this.customUndo.pushUndo();
+				this._updateValueTime = new Date().getTime();
+			}
 
-			// this is too much work to execute on every event
-			// so we schedule it once per 400ms as long as there are actions happening
 			this._updateValueTimeout = setTimeout(function() {
 				r = getSelectionRange();
 				if(r && this.isOrIsAncestorOf(this.$.editor, r.startContainer))
 					this.fire('scroll-into-view', this.getSelectionCoords());
-				this.selectionSave();
+
+				this.customUndo.pushUndo();
 			}.bind(this), 200);
-			
-			if(this._updateValueSkipped >= 10)
-			{
-				this._updateValueSkipped = 0;
-				this.customUndo.pushUndo(false, sameContent);
-				console.log('pushing undo')
-			}
-			
-			this._updateValueSkipped >= 0 ? this._updateValueSkipped++ : 0;
-			
+
 			var val, sameContent, d, r;
 			var bottomPadding, topPadding, that = this, editor = this.$.editor;
 			
@@ -2007,17 +2013,9 @@
 			else
 				val = this.value;
 
-			this.frameContent();
-
 			this._updateValueTimeout = null;
 
-			sameContent = val == this.value;
-
 			this.selectionSave();
-			//this.customUndo.pushUndo(false, sameContent);
-
-			if(!force && sameContent)
-				return;
 
 			this.value = val;
 
@@ -2029,8 +2027,6 @@
 				this.fire('unchange');
 
 			this.$.editor.style.minHeight = this.$.editor.scrollHeight + "px";
-				
-			//}.bind(this), 400);
 		},
 
 		getCleanValue : function(from) {
@@ -2314,10 +2310,11 @@
 		var undoRecord = [],
 			redoRecord = [],
 			lastRestoredStateContent,
-			getValue = options.getValue || function() { return editor.innerHTML };
+			getValue = options.getValue || function() { return editor.innerHTML },
+			undoInProgress;
 
 		if(!options) options = {};
-		if(!options.maxUndoItems) options.maxUndoItems = 10;
+		if(!options.maxUndoItems) options.maxUndoItems = 150;
 		if(typeof options.timeout == 'undefined') options.timeout = 15000;
 
 		var undoCommand = function() {
@@ -2336,8 +2333,8 @@
 			if(!lastUndo || (lastUndo.content == currState.content && undoRecord.length > 1))
 				return;
 
-
 			restoreState(lastUndo);
+			
 			lastRestoredStateContent = lastUndo.content;
 		}
 
@@ -2347,25 +2344,31 @@
 			if(lastRedo)
 			{
 				restoreState(lastRedo);
-				pushUndo(true);
+				//pushUndo(true);
+				undoRecord.push(lastRedo);
 				lastRestoredStateContent = lastRedo.content;
 			}
 		}
 
 		var restoreState = function(state)
 		{
-			var stateRange = state.range, sn, en, so, eo, smax, emax, oldOuterHtmls = {}, i, pp;
+			var r;
 
-			state.restore(true); // true means to restore caret state
+			undoInProgress = true;
+			r = state.restore(true); // true means to restore caret state
+			undoInProgress = false;
 
-			if(options.onRestoreState)
-				options.onRestoreState(sn);
+			if(options.onRestoreState && r)
+				options.onRestoreState(r.startContainer);
 		}
 
 		var pushUndo = function(force) { //, onlyUpdateRangeMemo) {
-			var r, sel, startMemo, endMemo, sc, ec, so, eo, t,
+			var r, sel = window.getSelection(), startMemo, endMemo, sc, ec, so, eo, t,
 				innerHTML, onlyUpdateRangeMemo;
 
+			if(undoInProgress)
+				return;
+				
 			innerHTML = getValue();
 			onlyUpdateRangeMemo = false;
 
@@ -2377,15 +2380,16 @@
 			while(undoRecord.length >= options.maxUndoItems)
 				undoRecord.shift();
 
-			sel = window.getSelection();
 			if(sel.rangeCount)
 			{				
 				if(onlyUpdateRangeMemo)
 					undoRecord[undoRecord.length - 1].updateRange();
 				else
+				{
+					console.log("undo: %s, redo: %s, onlyupdateRangeMemo: ", undoRecord.length, redoRecord.length, onlyUpdateRangeMemo);
 					undoRecord.push(new UndoItem(editor, innerHTML));
+				}
 
-				console.log("undo: %s, redo: %s", undoRecord.length, redoRecord.length);
 				
 				//console.log("sc: %s, so: %s, spos: %s, ec: %s, eo: %s, epos: %s, total undo+redo: %s", sc, so, JSON.stringify(startMemo.positionArray), ec, eo, JSON.stringify(endMemo.positionArray), undoRecord.length + redoRecord.length);
 				
@@ -2587,16 +2591,23 @@
 	var RangeMemo = function(root) {
 		var r = getSelectionRange(), 
 			sc = r.startContainer, 
-			ec = r.endContainer;
+			ec = r.endContainer,
+			cps, cpe, lps, lpe, cn;
 		
 		if(sc != root && !isInLightDom(sc, root))
 			sc = getTopCustomElementAncestor(sc, root).nextSibling, sc = 0;
 		if(ec != root && !isInLightDom(ec, root))
 			ec = getTopCustomElementAncestor(ec, root).nextSibling, ec = 0;
 
+		cps = getChildPathFromTop(sc, root);
+		cpe = getChildPathFromTop(ec, root);
+			
+		if(sc.nodeType == 3 && sc.textContent.length == 0)
+			this.startIsEmpty = true;
+		
 		this.root = root;
-		this.startPos = getChildPathFromTop(sc, root);
-		this.endPos = getChildPathFromTop(ec, root);
+		this.startPos = cps;
+		this.endPos = cpe;
 		this.startOffset = r.startOffset;
 		this.endOffset = r.endOffset;
 	}
@@ -2629,21 +2640,22 @@
 		if(!sc || !ec)
 			return null;
 
-		console.log("restore to el: ", sc, " pos: ", this.startPos);
-		
 		if(sc.nodeType == 3 && this.startOffset > sc.textContent.length) return null;
 		if(sc.nodeType == 1 && this.startOffset >= (sc.is ? Polymer.dom(sc) : sc).childNodes.length) return null;
 		
 		if(ec.nodeType == 3 && this.endOffset > ec.textContent.length) return null;
 		if(ec.nodeType == 1 && this.endOffset >= (ec.is ? Polymer.dom(ec) : ec).childNodes.length) return null;
-					
-		
+
+		// console.log("restore to el: ", sc, " pos: ", this.startPos, this.startOffset);
+				
 		r.setStart(sc, this.startOffset);
 		r.setEnd(ec, this.endOffset);
 		if(doSetCaret)
 		{
-			s.removeAllRanges();
-			s.addRange(r);
+			setTimeout(function() {
+				s.removeAllRanges();
+				s.addRange(r);
+			});
 		}
 		
 		return r;
@@ -2658,10 +2670,21 @@
 		
 		this.updateRange();
 	}
+	
 	UndoItem.prototype.updateRange = function() {
 		var rm = new RangeMemo(this.root);
+		
+		// skip accidential 0 positions when rangeHistory already contains some other location.
+		if(rm.startOffset == 0 && rm.startPos.length == 2 && rm.startPos[0] == 0 && rm.startPos[1] == 0 && this.rangeHistory.length) //rm.startPos.length == 1 && rm.startPos[0] == 0 && rm.startOffset == 0 && this.rangeHistory.length)
+			return;
+		
+		if(rm.startIsEmpty && this.rangeHistory.length)
+			return;
+		
 		if(!this.rangeHistory.length || !rm.isEqual(this.rangeHistory[this.rangeHistory.length - 1]))
 			this.rangeHistory.push(rm);
+		
+		//console.log("updated range", rm)
 	}
 	UndoItem.prototype.restore = function(doSetCaret) {
 		var i = this.rangeHistory.length - 1, r;
@@ -2675,16 +2698,18 @@
 	}
 
 	var getChildPositionInParent = function(child, top) {
-		var i, cn, p;
+		var i, cn, p, delimiters = 0;
 		if(!child || child == document.body)
 			return null;
 
 		p = Polymer.dom(child).parentNode;
 		cn = (p.is ? Polymer.dom(p) : p).childNodes;
 		for(i=0; cn[i] != child && i < cn.length; i++)
-			;
+			delimiters += (cn[i] != child && cn[i].isDelimiter) ? 1 : 0;
 
-		return cn[i] == child ? i : null;
+		//console.log("delimiters:", delimiters)
+		
+		return cn[i] == child ? i - delimiters : null;
 	}
 
 	var getChildPathFromTop = function(child, top) {
