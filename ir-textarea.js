@@ -6,10 +6,10 @@
   Polymer({
 		is : 'ir-textarea',
 		ready : function() {
-		  var that = this,
-			commands = this.commands.split(/,/);
+		  var that = this,commands = this.commands.split(/,/);
 			
-			
+			this.changed = true;
+
 			// set up and start the observer
 			this.observerCycle = 0;
 			this.customElements = [];
@@ -18,7 +18,8 @@
 			var oconfig = {
 				childList : true,
 				subtree : true,
-				characterData : true
+				characterData : true,
+				characterDataOldValue : true
 			}							
 
 			this.editorMutationObserver.observe(this.$.editor, oconfig);
@@ -104,27 +105,21 @@
 			tbar.setPosition = function(x){
 
 				if(tbar.scrollTop > tbar.toolbarOffsetTop && (that.$.borderWrapper.clientHeight + tbar.toolbarOffsetTop ) > tbar.scrollTop){
-
-					if(tbar.headerState == 0){
+					if(tbar.headerState == 0)
 						that.set("toolbarstyle",'top:'+tbar.headerHeight+'px');
-					}
-					else if(tbar.headerState == 2){
+					else 
+					if(tbar.headerState == 2)
 						that.set("toolbarstyle",'top:'+tbar.condensedHeaderHeight+'px');
-					}
-					else if(tbar.headerState == 3){
+					else if(tbar.headerState == 3)
 						that.set("toolbarstyle",'top:'+ (tbar.headerHeight) +'px');
-					}
 
-					if(window.innerWidth > 900){
+					if(window.innerWidth > 900)
 						that.set("toolbarfix",'fixit');
-					}
 				}
-				else{
-					if(window.innerWidth > 900){
+				else
+				if(window.innerWidth > 900){
 						that.set("toolbarfix",'nofix');
 						that.set("toolbarstyle",'top:56px');
-					}
-
 				}
 			};
 
@@ -200,7 +195,7 @@
 
 				//this.customUndo.pushUndo();
 
-				this._updateValue();
+				//this._updateValue();
 				this.selectionSave();
 				ev.preventDefault();
 			}
@@ -215,8 +210,8 @@
 			if(ev.type == 'keydown' || ev.type == 'keyup')
 			{
 				r = getSelectionRange();
-				if(r.startContainer.nodeType == 3) sc = r.startContainer, so = r.startOffset; else sc = r.startContainer.childNodes[r.startOffset], so = 0;
-				if(r.endContainer.nodeType == 3) ec = r.endContainer, eo = r.startOffset; else ec = r.startContainer.childNodes[r.startOffset], eo = 0;
+				if(r.startContainer.nodeType == 3 || !r.startContainer.childNodes.length) sc = r.startContainer, so = r.startOffset; else sc = r.startContainer.childNodes[r.startOffset], so = 0;
+				if(r.endContainer.nodeType == 3 || !r.endContainer.childNodes.length) ec = r.endContainer, eo = r.startOffset; else ec = r.startContainer.childNodes[r.startOffset], eo = 0;
 															
 				if([35,36,37,39].indexOf(keyCode) > -1) // left/right/home/end
 				{
@@ -244,7 +239,7 @@
 					if(this.__actionData.target)
 					{
 						toDelete = this.__actionData.target;
-						forcedelete = true; //ev.preventDefault();
+						forcedelete = true;
 					}
 					else
 					if(keyCode == 46 && sc.nextSibling && sc.nextSibling.is && sc.isDelimiter && getSelection().isCollapsed) // del key
@@ -279,7 +274,7 @@
 						}
 					}
 
-					if(toDelete && toDelete.parentNode && toDelete.nodeType == 1 && (forcedelete || !ev.defaultPrevented)) //(ev.defaultPrevented) // should be prevented by ensureCursorLocationIsValid
+					if(toDelete && toDelete.parentNode && toDelete.nodeType == 1 && (forcedelete || !ev.defaultPrevented))
 					{
 						if(toDelete.parentNode.firstChild == toDelete && toDelete.parentNode.lastChild == toDelete)
 						{
@@ -322,11 +317,11 @@
 				ev.preventDefault();
 
 			this.selectionSave();
-			this._updateValue();
+			//this._updateValue();
 			
 			//getSelectionCoords();
 
-			//that.customUndo.pushUndo();
+			//this.customUndo.pushUndo();
 		},
 		
 		pasteHandler : function(e) {
@@ -397,7 +392,7 @@
 			if(d.lastChild && d.lastChild != d.firstChild && d.lastChild.tagName == "BR")
 				d.removeChild(d.lastChild);
 
-			that.pasteHtmlWithParagraphs(d.innerHTML, { removeFormat : false });
+			this.pasteHtmlWithParagraphs(d.innerHTML, { removeFormat : false });
 
 			e.preventDefault();
 			return false;
@@ -407,9 +402,8 @@
 			if(this.editorMutationHandler.paused)
 				return;
 			
-			var totalVisits = 0, ce, pe, tnc, created, r, sc, so, ec, eo, delimiter, emptyRe, 
-				effectiveChanges = [], 
-				customEls = this.customElements;
+			var totalVisits = 0, ce, pe, tnc, created, r, sc, so, ec, eo, delimiter, emptyRe, done, upToDate,
+				effectiveChanges = [], customEls = this.customElements;
 			
 			delimiter = '\u00a0\u00a0';
 			emptyRe = /^[\s\u00a0]*$/;
@@ -427,8 +421,8 @@
 			
 			if(r = getSelectionRange())
 			{
-				if(r.startContainer.nodeType == 3) sc = r.startContainer, so = r.startOffset; else sc = r.startContainer.childNodes[r.startOffset], so = 0;
-				if(r.endContainer.nodeType == 3) ec = r.endContainer, eo = r.startOffset; else ec = r.startContainer.childNodes[r.startOffset], eo = 0;
+				if(r.startContainer.nodeType == 3 || !r.startContainer.childNodes.length) sc = r.startContainer, so = r.startOffset; else sc = r.startContainer.childNodes[r.startOffset], so = 0;
+				if(r.endContainer.nodeType == 3 || !r.endContainer.childNodes.length) ec = r.endContainer, eo = r.startOffset; else ec = r.startContainer.childNodes[r.startOffset], eo = 0;
 			}
 			else
 				r = {}
@@ -450,7 +444,12 @@
 						(mr.removedNodes && mr.removedNodes.length == 1 && mr.removedNodes[0].nodeType == 1 && mr.removedNodes[0].classList.contains('__moignore'))))
 						// __moignore identifies the span used for cursor position calculation
 					return;
-
+				if(mr.target.nochange)
+				{
+					mr.target.nochange = false;
+					return
+				}
+				
 				effectiveChanges.push(mr);
 					
 				if(mrt.nodeType == 3)
@@ -473,7 +472,7 @@
 						mrt.parentNode.removeChild(mrt);
 
 					if(mrt.textContent.length)
-						effectiveChanges.push(mr);				
+						effectiveChanges.push(mr);
 					
 					return;
 				}
@@ -496,18 +495,76 @@
 					}.bind(this));
 			}.bind(this));
 			
-			/*console.log('visited: %s nodes', totalVisits);
-			console.table(effectiveChanges.map(function(mrec){ return { 
-																		observerCycle : mrec.target.observerCycle,
-																		type : mrec.type, 
-																		target : mrec.target, 
-																		added : mrec.addedNodes[0], 
-																		removed : mrec.removedNodes[0], 
-																		oldValue : mrec.oldValue,
-																		html : recursiveOuterHTML(mrec.target) 
-																	} }));
-			*/
-			//console.table(effectiveChanges.map(function(mrec){ return [mrec.target, mrec.type, mrec.addedNodes[0], mrec.removedNodes[0]]}));
+			if(effectiveChanges.length)
+				this.changed = true;
+
+			var cycles = 0,	cycleLabel = new Date().getTime();
+			
+			effectiveChanges.forEach(function(mr) {
+				var t = mr.target, done, cv, cn, ocv, toutline;
+								
+				if(t.cycleLabel == cycleLabel) return;
+				t.cycleLabel = cycleLabel;
+				
+				if(mr.removedNodes.length)
+				
+				if(!isInLightDom(t, this.$.editor))
+					return;
+					
+				ocv = t._cleanValue;
+				t._cleanValue = this.getCleanValue(t);
+				
+				if(ocv == t)
+					return;
+				
+				done = t == this.$.editor;
+				
+				while(!done)
+				{
+					t = t.parentNode;
+					if(!t || (t.parentNode != Polymer.dom(t).parentNode && !isInLightDom(t, this.$.editor))) // it's not attached
+						return;
+
+					if(t.cycleLabel == cycleLabel) return;
+					t.cycleLabel = cycleLabel;
+						
+					if(t == this.$.editor)
+						done = true;
+
+					ocv = t._cleanValue;
+					
+					if(t.nodeType == 3)
+						t._cleanValue = t.textContent;
+					else
+					{
+						cn = (t.is ? Polymer.dom(t) : t).childNodes;
+						cv = "";
+						if(cn)
+							cv = Array.prototype.map.call(cn, function(ch) { 
+								return ch._cleanValue || (ch._cleanValue = this.getCleanValue(ch)) 
+							}.bind(this)).join('');
+						
+						if(t != this.$.editor)
+						{
+							toutline = tagOutline(t);
+							toutline = toutline.split(">");
+							t._cleanValue = toutline[0] + ">" + cv + toutline[1] + ">";
+						}
+						else
+							t._cleanValue = cv;
+					}
+					
+					if(ocv == t._cleanValue)
+						return;
+					
+					cycles++;
+				}
+			}.bind(this))
+			
+			if(cycles > 0)
+				this._updateValue();
+			
+			//console.log("mutation cycles: ", cycles);
 			
 			for(i = 0; i < customEls.length; i++)
 			{
@@ -567,6 +624,7 @@
 
 							if(ns.textContent != delimiter && !/\S/.test(ns.textContent))
 								ns.textContent = delimiter;
+
 							ns.isDelimiter = true;
 						}
 						if(ec == ns && ns.isDelimiter && !ns.isInTransition) 
@@ -575,7 +633,8 @@
 
 					if(!created && ns.isDelimiter && /\S/.test(ns.textContent))
 					{
-						ns.textContent = ns.textContent.replace(/[\u200b\u00a0\s]/g, '')
+						if(/[\u200b\u00a0\s]/.test(ns.textContent))
+							ns.textContent = ns.textContent.replace(/[\u200b\u00a0\s]/g, '')
 						ns.isDelimiter = false;
 						if(ec == ns) 
 							setCaretAt(ns, Math.min(eo, ns.textContent.length))
@@ -1845,6 +1904,8 @@
 			var c;
 			this.editorMutationHandler.paused = true;
 			c = getSelectionCoords();
+			this.editorMutationHandler.paused = false;
+			
 			return c;
 		},
 
@@ -1903,8 +1964,8 @@
 			if(!this._updateValueSkipped)
 				this._updateValueSkipped = 0;
 
-			if(!force && (this._updateValueTimeout && this._updateValueSkipped++ < 50))
-				return;
+			//if(!force && (this._updateValueTimeout && this._updateValueSkipped++ < 50))
+			//	return;
 
 			if(this._updateValueTimeout)
 			{
@@ -1912,74 +1973,92 @@
 				this._updateValueTimeout = null;
 			}
 
-			this._updateValueSkipped = 0;
-
 			this.selectionSave();
 
 			// this is too much work to execute on every event
 			// so we schedule it once per 400ms as long as there are actions happening
 			this._updateValueTimeout = setTimeout(function() {
-				var val, sameContent, d, r;
-
 				r = getSelectionRange();
 				if(r && this.isOrIsAncestorOf(this.$.editor, r.startContainer))
 					this.fire('scroll-into-view', this.getSelectionCoords());
-
-				var bottomPadding, topPadding, that = this, editor = this.$.editor;
-
-				if(this.__actionData.target)
-					this.__actionData.target.style.border = this.__actionData.border;
-
-				val = this.getCleanValue();
-
-				this.frameContent();
-
-				this._updateValueTimeout = null;
-
-				sameContent = val == this.value;
-
 				this.selectionSave();
+			}.bind(this), 200);
+			
+			if(this._updateValueSkipped >= 10)
+			{
+				this._updateValueSkipped = 0;
 				this.customUndo.pushUndo(false, sameContent);
+				console.log('pushing undo')
+			}
+			
+			this._updateValueSkipped >= 0 ? this._updateValueSkipped++ : 0;
+			
+			var val, sameContent, d, r;
+			var bottomPadding, topPadding, that = this, editor = this.$.editor;
+			
+			if(this.__actionData.target)
+				this.__actionData.target.style.border = this.__actionData.border;
 
-				if(!force && sameContent)
-					return;
+			if(this.changed)
+			{
+				val = this.getCleanValue();
+				this.changed = false;
+			}
+			else
+				val = this.value;
 
-				this.value = val;
+			this.frameContent();
 
-				this.textValue = this.$.editor.textContent;
+			this._updateValueTimeout = null;
 
-				if(val != this._initialValue)
-					this.fire('change');
-				else
-					this.fire('unchange');
+			sameContent = val == this.value;
 
-				this.$.editor.style.minHeight = this.$.editor.scrollHeight + "px";
+			this.selectionSave();
+			//this.customUndo.pushUndo(false, sameContent);
+
+			if(!force && sameContent)
+				return;
+
+			this.value = val;
+
+			this.textValue = this.$.editor.textContent;
+
+			if(val != this._initialValue)
+				this.fire('change');
+			else
+				this.fire('unchange');
+
+			this.$.editor.style.minHeight = this.$.editor.scrollHeight + "px";
 				
-			}.bind(this), 400);
+			//}.bind(this), 400);
 		},
 
-		getCleanValue : function() {
+		getCleanValue : function(from) {
 			var v;
 			this.removeActionBorder();
 
-			v = recursiveInnerHTML(this.$.editor)
+			from = from || this.$.editor;
+			
+			if(from == this.$.editor && this.$.editor._cleanValue)
+				return this.$.editor._cleanValue;
+			
+			if(from == this.$.editor)
+				v = recursiveInnerHTML(from)
+			else
+				v = recursiveOuterHTML(from)
+			
+			if(from == this.$.editor)
+			{
+				v = v
 					.replace(/^(\r\n|\n|\r)/,"")
 					.replace(/(\r\n|\n|\r)/gm," ")
 					.replace(/\<pre\>/gmi,"<span>").replace(/\<\/?pre\>/gmi,"</span>");
 
-				if(selfOrLeftmostDescendantIsSpecial(this.$.editor.childNodes[0]))
-					v = v.replace(/^\s*(\<span class="paragraph"\>\<br\>\<\/span\>\s*)/, '')
-
-				v = v.replace(/\s*(\<span class="paragraph"\>\<br\>\<\/span\>\s*)+$/, '')
-					// .replace(/&#8203;/gmi, '') 				// special chars
-					.replace(/\<span\>​<\/span\>/gmi, '') 	// empty spans are useless anyway. or are they?
-					.trim();
-
-			//if(!/\<[^\<]+\>/.test(v))
-			//	v = '<span class="paragraph">' + v + "</span>"
+				v = v.trim();
+			}
 
 			this.addActionBorder();
-
+			
 			return v;
 		},
 
@@ -2238,7 +2317,7 @@
 			getValue = options.getValue || function() { return editor.innerHTML };
 
 		if(!options) options = {};
-		if(!options.maxUndoItems) options.maxUndoItems = 50;
+		if(!options.maxUndoItems) options.maxUndoItems = 10;
 		if(typeof options.timeout == 'undefined') options.timeout = 15000;
 
 		var undoCommand = function() {
@@ -2277,65 +2356,26 @@
 		{
 			var stateRange = state.range, sn, en, so, eo, smax, emax, oldOuterHtmls = {}, i, pp;
 
-			editor.innerHTML = options.contentFrame.replace('[content]', state.content);
+			//editor.innerHTML = options.contentFrame.replace('[content]', state.content);
 
-			for(i = 0; i < options.preserve.length; i++)
-				oldOuterHtmls[recursiveOuterHTML(options.preserve[i])] = options.preserve[i]; // using outerhtml as key
-			
-			visitNodes(editor, function(el) {
-				var ohold, ohnew, oe;
-
-				if(el.is && (oe = oldOuterHtmls[ohnew = recursiveOuterHTML(el)]))
-				{
-					pp = Polymer.dom(el).parentNode;
-					pp.insertBefore(oe, el);
-					oldOuterHtmls[ohnew] = null;
-					pp.removeChild(el);
-				}					
-			});
-			
+			state.restore(true); // true means to restore caret state
+			editor.focus();
 			r = document.createRange();
 
 			Polymer.dom.flush();
 
-			sn = (stateRange && stateRange.startMemo && stateRange.startMemo.restore()) || editor;
-			en = (stateRange && stateRange.endMemo && stateRange.endMemo.restore()) || sn;
-			so = sn ? stateRange.startOffset : 0;
-			eo = sn && en ? stateRange.endOffset : 0;
-
-			smax = sn.nodeType == 1 ? sn.childNodes.length - 1 : sn.length;
-			smax = smax >= 0 ? smax : 0;
-
-			emax = en.nodeType == 1 ? en.childNodes.length - 1 : en.length;
-			emax = emax >= 0 ? emax : 0;
-
-			so = so < smax ? so : smax;
-			eo = eo < emax ? eo : emax;
-
-			r.setStart(sn, so);
-			r.setEnd(en, eo);
-
-			editor.focus();
-
-			sel = document.getSelection();
-
-			sel.removeAllRanges();
-			sel.addRange(r);
 			if(options.onRestoreState)
 				options.onRestoreState(sn);
 		}
 
-		var pushUndo = function(force, onlyUpdateRangeMemo) {
-			var r, sel, startMemo, endMemo, sc, ec, t,
+		var pushUndo = function(force) { //, onlyUpdateRangeMemo) {
+			var r, sel, startMemo, endMemo, sc, ec, so, eo, t,
 				innerHTML, onlyUpdateRangeMemo;
 
-			if(!onlyUpdateRangeMemo || undoRecord.length <= 2)
-			{
-				innerHTML = getValue();
-				onlyUpdateRangeMemo = false;
-			}
+			innerHTML = getValue();
+			onlyUpdateRangeMemo = false;
 
-			if(!onlyUpdateRangeMemo && undoRecord.length > 2 && (undoRecord[undoRecord.length-1].content == innerHTML))
+			if(undoRecord.length > 2 && (undoRecord[undoRecord.length-1].content == innerHTML))
 				onlyUpdateRangeMemo = true;
 
 			lastRestoredStateContent == null;
@@ -2345,31 +2385,16 @@
 
 			sel = window.getSelection();
 			if(sel.rangeCount)
-			{
-				r = sel.getRangeAt(0);
-
-				t = r.startContainer;
-				while(t != editor)
-				{
-					t = t.parentNode;
-					if(!t)
-						return;
-				}
-
-				sc = r.startContainer == editor ? editor : (getTopCustomElementAncestor(r.startContainer, editor) || r.startContainer);
-				ec = r.endContainer  == editor ? editor : (getTopCustomElementAncestor(r.endContainer, editor) || r.endContainer);
-				startMemo = getDomPathMemo(sc, editor);
-				endMemo = getDomPathMemo(ec, editor);
-
+			{				
 				if(onlyUpdateRangeMemo)
-					undoRecord[undoRecord.length - 1].range = { startMemo : startMemo, endMemo : endMemo, startOffset : r.startOffset, endOffset : r.endOffset };
+					undoRecord[undoRecord.length - 1].updateRange();
 				else
-					undoRecord.push({ content : innerHTML, range : { startMemo : startMemo, endMemo : endMemo, startOffset : r.startOffset, endOffset : r.endOffset }});
-			}
-			else
-			{
-				startMemo = endMemo = getDomPathMemo(editor, editor);
-				undoRecord.push({ content : innerHTML, range : { startOffset : 0, endOffset : 0 }});;
+					undoRecord.push(new UndoItem(editor, innerHTML));
+
+				console.log("undo: %s, redo: %s", undoRecord.length, redoRecord.length);
+				
+				//console.log("sc: %s, so: %s, spos: %s, ec: %s, eo: %s, epos: %s, total undo+redo: %s", sc, so, JSON.stringify(startMemo.positionArray), ec, eo, JSON.stringify(endMemo.positionArray), undoRecord.length + redoRecord.length);
+				
 			}
 
 			if(!force && !onlyUpdateRangeMemo && redoRecord.length > 0 && lastRestoredStateContent != innerHTML)
@@ -2560,10 +2585,98 @@
 		this.ancestor = ancestor;
 		this.positionArray = getChildPathFromTop(child, ancestor);
 	}
-
+	
 	DomPathMemo.prototype.restore = function() {
 		return getChildFromPath(this.positionArray, this.ancestor);
 	};
+	
+	var RangeMemo = function(root) {
+		var r = getSelectionRange(), 
+			sc = r.startContainer, 
+			ec = r.endContainer;
+		
+		if(sc != root && !isInLightDom(sc, root))
+			sc = getTopCustomElementAncestor(sc, root).nextSibling, sc = 0;
+		if(ec != root && !isInLightDom(ec, root))
+			ec = getTopCustomElementAncestor(ec, root).nextSibling, ec = 0;
+
+		this.root = root;
+		this.startPos = getChildPathFromTop(sc, root);
+		this.endPos = getChildPathFromTop(ec, root);
+		this.startOffset = r.startOffset;
+		this.endOffset = r.endOffset;
+	}
+	RangeMemo.prototype.isEqual = function(domPathMemo) {
+		var i;
+		
+		if(this.root != domPathMemo.root)
+			return false;
+		
+		if(this.startOffset != domPathMemo.startOffset || this.endOffset != domPathMemo.endOffset) 
+			return false;
+		
+		for(i = 0; i < this.startPos.length; i++)
+			if(this.startPos[i] != domPathMemo.startPos[i])
+				return false;
+
+		for(i = 0; i < this.endPos.length; i++)
+			if(this.endPos[i] != domPathMemo.endPos[i])
+				return false;
+
+		return true;
+	}
+	RangeMemo.prototype.restore = function(doSetCaret)
+	{
+		var s = window.getSelection(), 
+			r = document.createRange(),
+			sc = getChildFromPath(this.startPos, this.root),
+			ec = getChildFromPath(this.endPos, this.root);
+			
+		if(!sc || !ec)
+			return null;
+
+		console.log("restore to el: ", sc, " pos: ", this.startPos);
+		
+		if(!(sc.nodeType == 3 && sc.textContent.length < this.startOffset)) return null;
+		if(!(sc.nodeType == 1 && (sc.is ? Polymer.dom(sc) : sc).childNodes.length < this.startOffset)) return null;
+		
+		if(!(ec.nodeType == 3 && ec.textContent.length < this.endOffset)) return null;
+		if(!(ec.nodeType == 1 && (ec.is ? Polymer.dom(ec) : ec).childNodes.length < this.startOffset)) return null;
+			
+		
+		r.setStart(sc, this.startOffset);
+		r.setEnd(ec, this.endOffset);
+		if(doSetCaret)
+		{
+			s.removeAllRanges();
+			s.addRange(r);
+		}
+		
+		return r;
+	}
+	
+	var UndoItem = function(root, content) {
+		var m = {};
+		
+		this.root = root;
+		this.rangeHistory = [];
+		this.content = content;
+		
+		this.updateRange();
+	}
+	UndoItem.prototype.updateRange = function() {
+		var rm = new RangeMemo(this.root);
+		if(!this.rangeHistory.length || !rm.isEqual(this.rangeHistory[this.rangeHistory.length - 1]))
+			this.rangeHistory.push(rm);
+	}
+	UndoItem.prototype.restore = function(doSetCaret) {
+		var i = this.rangeHistory.length - 1, r;
+		
+		this.root.innerHTML = this.content;
+		while(i >= 0)
+			if(r = this.rangeHistory[i--].restore(doSetCaret))
+				return r;
+	}
 
 	var getChildPositionInParent = function(child, top) {
 		var i, cn, p;
@@ -2587,6 +2700,9 @@
 			return [];
 
 		p = child.parentNode;
+		if(Polymer.dom(child).parentNode != p && !isInLightDom(p, top))
+			p = Polymer.dom(child).parentNode;
+			
 		t = getChildPathFromTop(p, top);
 		if(!t)
 			return null;
@@ -2882,7 +2998,7 @@
 		return function _getSelectionCoords(win)
 		{
 			win = win || window;
-			var doc = win.document, offsetParent;
+			var doc = win.document, offsetParent, oldVal;
 			var sel = doc.selection, range, rects, rect;
 			var x = 0, y = 0, spanParent;
 			if (sel) {
@@ -2932,6 +3048,8 @@
 
 							// Glue any broken text nodes back together
 							spanParent.normalize();
+							
+							spanParent.noChange = true;
 						}
 					}
 				}
@@ -3121,7 +3239,7 @@
 	}
 	
 
-	function numerify(x){
+	var numerify = function (x){
 		if(typeof x == 'undefined' || !x)
 			return 0;
 
@@ -3130,7 +3248,6 @@
 			
 		return Number(x.replace ? x.replace(/[^\d\.]/g, '') : x);
 	};
-
 
 })();
 
