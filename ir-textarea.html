@@ -189,11 +189,15 @@ Issues and pull requests are most welcome. Fork it [here](https://github.com/Igo
 		position : absolute;
 		width : 25px;
 		height : 25px;
-		border-radius : 25px;
+		/*border-radius : 25px;*/
 		background-color : blue;
 		left : 0;
 		top  : 0;
 	}
+
+	  .toolbar-wrapper{
+		  min-height: 100px;
+	  }
 
   </style>
   <template>
@@ -206,7 +210,8 @@ Issues and pull requests are most welcome. Fork it [here](https://github.com/Igo
 	</div>
 	<iron-pages id="pages" selected="{{ viewMode }}">
 		<div>
-			<div class$="{{toolbarfix}}" style$="{{toolbarstyle}}"  id="toolbar">
+			<div class="toolbar-wrapper">
+				<div class$="{{toolbarfix}}" style$="{{toolbarstyle}}"  id="toolbar">
 				<div>
 					<paper-dropdown-menu label="Font" raised>
 						<paper-menu cmd-name="fontName" on-iron-select="clickedPresetCommand" class="dropdown-content" attr-for-selected="value">
@@ -262,6 +267,7 @@ Issues and pull requests are most welcome. Fork it [here](https://github.com/Igo
 				<paper-icon-button raised icon="icons:link" on-tap="createLink" alt="create link"></paper-icon-button>
 				<paper-icon-button raised icon="image:grid-on" on-tap="createTable" alt="create table"></paper-icon-button>
 
+			</div>
 			</div>
 			<div id="borderWrapper">
 				<div id="floatWrapper">

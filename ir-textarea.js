@@ -933,8 +933,8 @@
 
 			ep = getElementPosition(target, that.$.editor);
 
-			this.$.resizeHandler.style.left = (ep.x + cbr.width - handlercbr.width) + "px";
-			this.$.resizeHandler.style.top = (ep.y + cbr.height - handlercbr.height) + "px";
+			this.$.resizeHandler.style.left = (ep.x + cbr.width - 25) + "px";
+			this.$.resizeHandler.style.top = (ep.y + cbr.height - 25) + "px";
 			this.$.resizeHandler.style.display = "block";
 
 			resizeHandler = function (event) {
@@ -990,8 +990,8 @@
 				that.__actionData.dragTarget = null; // resize takes over drag
 
 				ep = getElementPosition(target, that.$.editor);
-				that.$.resizeHandler.style.left = (ep.x + ep.width - handlercbr.width) + "px";
-				that.$.resizeHandler.style.top = (ep.y + ep.height - handlercbr.height) + "px";
+				that.$.resizeHandler.style.left = (ep.x + ep.width - 25) + "px";
+				that.$.resizeHandler.style.top = (ep.y + ep.height - 25) + "px";
 
 				// translate when resizing from top or left edges
 				//x += event.dy; //y += event.deltaRect.top;
@@ -1023,7 +1023,7 @@
 
 			interact('#'+target.id).resizable({
 
-				manualStart: true,
+
 				edges: { left: true, right: true, bottom: true, top: true }
 			})
 				.on('resizemove', resizeHandler)
@@ -2634,10 +2634,10 @@
 		{
 			this.startPos = this.endPos = [];
 			this.startOffset = this.endOffset = 0;
-			
+
 			return;
 		}
-			
+
 		if(sc != root && !isInLightDom(sc, root))
 			sc = getTopCustomElementAncestor(sc, root).nextSibling, so = 0;
 		if(ec != root && !isInLightDom(ec, root))
@@ -2722,10 +2722,10 @@
 		this.content = content;
 
 		this.updateRange();
-		
+
 		if(!this.rangeHistory.length && prevUndoItem)
 			this.rangeHistory = prevUndoItem.rangeHistory(function(rm) { return rm.clone(); });
-		
+
 		if(!this.rangeHistory.length)
 			this.rangeHistory = [ new UndoItem(root) ];
 	}
@@ -2735,7 +2735,7 @@
 
 		if(!rm)
 			return;
-		
+
 		// skip accidential 0 positions when rangeHistory already contains some other location.
 		if(this.rangeHistory.length && (rm.startOffset == 0 && !rm.startPos.length || rm.startIsEmpty))
 			return;
@@ -2745,7 +2745,7 @@
 
 		//console.log("updated range", rm)
 	}
-	
+
 	UndoItem.prototype.restore = function(doSetCaret) {
 		var i = this.rangeHistory.length - 1, r;
 
