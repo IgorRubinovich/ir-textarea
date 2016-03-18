@@ -744,12 +744,6 @@
 				{
 					that.resizeTargetStop.call(that, true); // true means force stop dispite the event target being same as current resize target
 
-					/*if(param.target && param.target.proxyTarget)
-						param.target = param.target.proxyTarget;
-					else
-					if(param.proxyTarget)
-						param = param.proxyTarget;
-					*/
 					if(f)
 						f.call(that, param);
 
@@ -766,6 +760,9 @@
 				cm.options.push({label: 'Resize', icon: 'icons:size', info: '', value : target, action : this.resizeTarget.bind(this)});
 
 			cm.options.push({label: 'Remove media',  icon: 'icons:align', info: '', value : target, action : imageAction(this.deleteTarget.bind(this))});
+			
+			if(target.is && typeof target.setup == 'function')
+				cm.options.push({label: 'Setup...', value : target, action : target.setup.bind(target)});
 
 			flowTarget = target;
 
