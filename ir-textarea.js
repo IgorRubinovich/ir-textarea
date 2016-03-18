@@ -10,19 +10,6 @@
 
 			this.changed = true;
 
-			// set up and start the observer
-			this.observerCycle = 0;
-			this.customElements = [];
-			this.editorMutationObserver = new MutationObserver(this.editorMutationHandler.bind(this));
-
-			var oconfig = {
-				childList : true,
-				subtree : true,
-				characterData : true,
-				characterDataOldValue : true
-			}
-
-			this.editorMutationObserver.observe(this.$.editor, oconfig);
 			this.__actionData = {};
 
 			"mousedown,mouseup,keydown,keyup,drop".split(',')
@@ -69,7 +56,6 @@
 
 		attached: function(){
 			this.insertPlugins();
-			setTimeout(function() { this._updateValue(); }.bind(this), 300);
 
 			var cleanval;
 
@@ -93,9 +79,33 @@
 
 			this._initialValue = this.$.editor.innerHTML = this.getCleanValue();
 
-			this._updateValue();
-		},
+			// set up and start the observer
+			this.observerCycle = 0;
+			this.customElements = [];
+			this.editorMutationObserver = new MutationObserver(this.editorMutationHandler.bind(this));
+			this.editorMutationObserverConfig = {
+				attributes : true,
+				childList : true,
+				subtree : true,
+				characterData : true,
+				characterDataOldValue : true
+			}
 
+			//this._updateValue();
+		},
+		
+		connectEditorObserver : function() 
+		{
+
+			this.editorMutationObserver.observe(this.$.editor, this.editorMutationObserverConfig);
+		},
+		
+		disconnectEditorObserver : function() 
+		{
+
+			this.editorMutationObserver.observe(this.$.editor, this.editorMutationObserverConfig);
+		},
+		
 		configureToolbar : function() {
 			var tbar = {}, that = this;
 			tbar.toolbarOffsetTop = this.offsetTop;
@@ -391,6 +401,8 @@
 		},
 
 		editorMutationHandler : function(mrecs) {
+			this.disconnectEditorObserver();
+			
 			if(this.editorMutationHandler.paused)
 				return;
 
@@ -662,6 +674,7 @@
 			//if(this.SPEED.totalbetweencalls % 100)
 			//console.log("th: %s tb: %s time in handler: %s%", this.SPEED.totalinhandler, this.SPEED.totalbetweencalls, 100 * this.SPEED.totalinhandler / this.SPEED.totalbetweencalls)
 
+			this.connectEditorObserver();
 		},
 
 		contextMenuShow : function(ev) {
@@ -2582,7 +2595,10 @@
 			if(node.is)
 				res = node;
 
-			node = node.parentNode;
+			if(Polymer.dom(node).parentNode != node.parentNode && !isInLightDom(node, top))
+				node = Polymer.dom(node).getOwnerRoot().host;
+			else
+				node = node.parentNode;
 		}
 
 		return (node == top) ? res : null;
@@ -2606,12 +2622,14 @@
 		var r = getSelectionRange(),
 			sc = r.startContainer,
 			ec = r.endContainer,
+			so = r.startOffset,
+			eo = r.endOffset,
 			cps, cpe, lps, lpe, cn;
 
 		if(sc != root && !isInLightDom(sc, root))
-			sc = getTopCustomElementAncestor(sc, root).nextSibling, sc = 0;
+			sc = getTopCustomElementAncestor(sc, root).nextSibling, so = 0;
 		if(ec != root && !isInLightDom(ec, root))
-			ec = getTopCustomElementAncestor(ec, root).nextSibling, ec = 0;
+			ec = getTopCustomElementAncestor(ec, root).nextSibling, eo = 0;
 
 		cps = getChildPathFromTop(sc, root);
 		cpe = getChildPathFromTop(ec, root);
@@ -2622,8 +2640,8 @@
 		this.root = root;
 		this.startPos = cps;
 		this.endPos = cpe;
-		this.startOffset = r.startOffset;
-		this.endOffset = r.endOffset;
+		this.startOffset = so;
+		this.endOffset = eo;
 	}
 	RangeMemo.prototype.isEqual = function(domPathMemo) {
 		var i;
@@ -2796,7 +2814,6 @@
 			endOffset = startOffset;
 		}
 
-		range = range.cloneRange();
 		range.setStart(startTarget, startOffset);
 		range.setEnd(endTarget, endOffset);
 		range.collapse(startOffset == endOffset);
