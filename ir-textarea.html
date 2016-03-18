@@ -29,8 +29,8 @@
 
 <script src="./htmlparser.js"></script>
 
-<script src="../interact/interact.js"></script>
-
+<!--<script src="../interact/interact.js"></script>-->
+<script src="https://rawgit.com/taye/interact.js/unstable/dist/interact.js"></script>
 <!--
 @license
 Copyright (c) 2015 Igor Rubinovich <igor.rubinovich@gmail.com>. All rights reserved.
@@ -78,7 +78,7 @@ Issues and pull requests are most welcome. Fork it [here](https://github.com/Igo
 		width : 100%;
 		display : block;
 	}
-	
+
 	#editor a:link, a:hover, a:active, a:visited {
 		borrder-bottom : 1px dashed darkslateblue;
 		cursor : pointer;
@@ -184,7 +184,7 @@ Issues and pull requests are most welcome. Fork it [here](https://github.com/Igo
 		position : absolute;
 		right : 5px;
 	}
-	
+
 	#resizeHandler {
 		position : absolute;
 		width : 25px;
@@ -268,7 +268,7 @@ Issues and pull requests are most welcome. Fork it [here](https://github.com/Igo
 					<div id="editor" class="post" on-tap="contextMenuShow" on-focus="_focusedEditor" contenteditable>
 						<content></content>
 					</div>
-					<div id="resizeHandler"></div>
+					<div id="resizeHandler" data-right="true" data-bottom="true"></div>
 				</div>
 				<io-menu id="contextMenu" listener="click" options="{}"></io-menu>
 			</div>

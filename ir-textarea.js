@@ -7,7 +7,7 @@
 		is : 'ir-textarea',
 		ready : function() {
 		  var that = this,commands = this.commands.split(/,/);
-			
+
 			this.changed = true;
 
 			// set up and start the observer
@@ -20,7 +20,7 @@
 				subtree : true,
 				characterData : true,
 				characterDataOldValue : true
-			}							
+			}
 
 			this.editorMutationObserver.observe(this.$.editor, oconfig);
 			this.__actionData = {};
@@ -30,7 +30,7 @@
 				{
 					that.$.editor.addEventListener(evType, this.userInputHandler.bind(this));
 				}.bind(this));
-				
+
 			this.$.editor.addEventListener('click', this.contextMenuShow.bind(this), true); // capturing phase
 			this.$.editor.addEventListener('paste', this.pasteHandler.bind(this));
 			// that.$.editor.addEventListener('copy', pasteHandler);
@@ -66,7 +66,7 @@
 																		}.bind(this)
 																	}))
 		},
-		
+
 		attached: function(){
 			this.insertPlugins();
 			setTimeout(function() { this._updateValue(); }.bind(this), 300);
@@ -74,7 +74,7 @@
 			var cleanval;
 
 			this.configureToolbar()
-			
+
 			Object.keys(this.promptProcessors).forEach(function(pp) {
 				var el = document.getElementById(this.promptProcessors[pp]);
 				if(!el._hasOverlayClosedListener)
@@ -95,7 +95,7 @@
 
 			this._updateValue();
 		},
-		
+
 		configureToolbar : function() {
 			var tbar = {}, that = this;
 			tbar.toolbarOffsetTop = this.offsetTop;
@@ -107,7 +107,7 @@
 				if(tbar.scrollTop > tbar.toolbarOffsetTop && (that.$.borderWrapper.clientHeight + tbar.toolbarOffsetTop ) > tbar.scrollTop){
 					if(tbar.headerState == 0)
 						that.set("toolbarstyle",'top:'+tbar.headerHeight+'px');
-					else 
+					else
 					if(tbar.headerState == 2)
 						that.set("toolbarstyle",'top:'+tbar.condensedHeaderHeight+'px');
 					else if(tbar.headerState == 3)
@@ -142,23 +142,23 @@
 
 			})
 		},
-		
+
 		userInputHandler : function (ev) {
 			var altTarget, noMoreSave, el, toDelete, keyCode = ev.keyCode || ev.which, t, forcedelete, r, done, localRoot, last, n, nn, pn, pos, firstRange, merge, sc, ec, so, eo;
 
 			if((ev.keyCode == 90 || ev.keyCode == 89) && ev.ctrlKey) // undo/redo are handled in their own handler
 				return;
-			
+
 			this.selectionSave();
 			this.selectionRestore(true);
-			
+
 			// save position on control keys
 			if(((ev.type == 'keyup') && ([33,34,35,36,37,38,39,40].indexOf(keyCode) > -1)) || (ev.type == 'mouseup'))
 				this.customUndo.pushUndo();
 			else
 			if(ev.keyCode && !ev.ctrlKey && !ev.metaKey && !ev.altKey)
 				this.clearActionData();
-			
+
 			if (ev.type == 'keydown' && keyCode == 13) { 	// line break/paragraph
 				r = this.selectionRestore();
 				if(ev.shiftKey || // line break
@@ -205,7 +205,7 @@
 				r = getSelectionRange();
 				if(r.startContainer.nodeType == 3 || !r.startContainer.childNodes.length) sc = r.startContainer, so = r.startOffset; else sc = r.startContainer.childNodes[r.startOffset], so = 0;
 				if(r.endContainer.nodeType == 3 || !r.endContainer.childNodes.length) ec = r.endContainer, eo = r.startOffset; else ec = r.startContainer.childNodes[r.startOffset], eo = 0;
-															
+
 				if([35,36,37,39].indexOf(keyCode) > -1) // left/right/home/end
 				{
 					if(sc && (keyCode == 36 || keyCode == 37) && sc.isDelimiter) // home and left
@@ -216,9 +216,9 @@
 						(ec.isInTransition = (ev.type == 'keydown'))
 							? setCaretAt(Polymer.dom(ec).parentNode, getChildPositionInParent(ec.nextSibling)) : setCaretAt(ec, 1);
 				}
-								
+
 				if(ev.type == 'keydown' && (keyCode == 8 || keyCode == 46)) // deletes
-				{					
+				{
 					if(ev.type == 'keydown' && keyCode == 8 && (sc.previousSibling && sc.previousSibling.is && sc.textContent.length == 1 && so == 1)) // prevent jump when deleting last char in a to-be delimiter
 					{
 						sc.textContent = ' '
@@ -238,7 +238,7 @@
 					if(keyCode == 46 && sc.nextSibling && sc.nextSibling.is && sc.isDelimiter && getSelection().isCollapsed) // del key
 					{
 						forcedelete = toDelete = sc.nextSibling;
-						
+
 						// firefox won't merge the nodes so we do it "manually"
 						if(/firefox|iceweasel/i.test(navigator.userAgent) && this.get("startContainer.parentNode.nextSibling", r) == el)
 						{
@@ -310,12 +310,12 @@
 				ev.preventDefault();
 
 			this.selectionSave();
-			
-			this._updateValue();			
+
+			this._updateValue();
 			//getSelectionCoords();
 			//this.customUndo.pushUndo();
 		},
-		
+
 		pasteHandler : function(e) {
 			var v, d, withParagraphs, i, n, nn;
 			if(typeof clipboardData != 'undefined')
@@ -389,28 +389,28 @@
 			e.preventDefault();
 			return false;
 		},
-		
-		editorMutationHandler : function(mrecs) {			
+
+		editorMutationHandler : function(mrecs) {
 			if(this.editorMutationHandler.paused)
 				return;
-			
+
 			var totalVisits = 0, ce, pe, tnc, created, r, sc, so, ec, eo, delimiter, emptyRe, done, upToDate,
 				effectiveChanges = [], customEls = this.customElements;
-			
+
 			delimiter = '\u00a0\u00a0';
 			emptyRe = /^[\s\u00a0]*$/;
-			
+
 			for(i = 0; i < customEls.length; i++)
 				if(!Polymer.dom(customEls[i]).parentNode)
 					customEls.splice(i, 1);
-			
+
 			if(this.editorMutationHandler.inProgress) // redundant? check with firefox
 				return;
 
 			this.editorMutationHandler.inProgress = true;
 
 			this.observerCycle++;
-			
+
 			if(r = getSelectionRange())
 			{
 				if(r.startContainer.nodeType == 3 || !r.startContainer.childNodes.length) sc = r.startContainer, so = r.startOffset; else sc = r.startContainer.childNodes[r.startOffset], so = 0;
@@ -418,7 +418,7 @@
 			}
 			else
 				r = {}
-			
+
 			// update this.customElements - list of custom elements
 			mrecs.forEach(function(mr) {
 				var mrt = mr.target;
@@ -429,9 +429,9 @@
 				if(mrt.observerCycle == this.observerCycle)
 					return;
 
-				mrt.observerCycle = this.observerCycle;				
+				mrt.observerCycle = this.observerCycle;
 
-				if(mr.type == "childList" && 
+				if(mr.type == "childList" &&
 						((mr.addedNodes && mr.addedNodes.length == 1 && mr.addedNodes[0].nodeType == 1 && mr.addedNodes[0].classList.contains('__moignore')) ||
 						(mr.removedNodes && mr.removedNodes.length == 1 && mr.removedNodes[0].nodeType == 1 && mr.removedNodes[0].classList.contains('__moignore'))))
 						// __moignore identifies the span used for cursor position calculation
@@ -441,11 +441,11 @@
 					mr.target.nochange = false;
 					return
 				}
-				
+
 				if(mrt.nodeType == 3)
 				{
 					// process delimiters "detached" from their custom element
-					if(mrt.isDelimiter && !((mrt.previousSibling && mrt.previousSibling.is) || (mrt.nextSibling && mrt.nextSibling.is))) 
+					if(mrt.isDelimiter && !((mrt.previousSibling && mrt.previousSibling.is) || (mrt.nextSibling && mrt.nextSibling.is)))
 					{
 						mrt.isDelimiter = false;
 						if(/\u00a0/.test(mrt.textContent))
@@ -463,18 +463,18 @@
 
 					if(mrt.textContent.length)
 						effectiveChanges.push(mr.target);
-					
+
 					return;
 				}
-				
+
 				if(mrt.nodeType != 1)
 					return;
 
-				if(mr.addedNodes.length) 
+				if(mr.addedNodes.length)
 					Array.prototype.forEach.call(mr.addedNodes, function(n) { effectiveChanges.push(n) });
 				else
 					effectiveChanges.push(mr.target);
-					
+
 				if(mr.type == 'childList')
 					visitNodes(mrt, function(n) {
 						totalVisits++;
@@ -487,36 +487,36 @@
 						}
 					}.bind(this));
 			}.bind(this));
-			
+
 			if(effectiveChanges.length)
 				this.changed = true;
 
 			var cycles = 0,	cycleLabel = new Date().getTime();
-			
+
 			effectiveChanges.forEach(function(mr) {
 				var t = mr, done, cv, cn, ocv, toutline, altp;
-				
+
 				if(t.cycleLabel == cycleLabel) return;
 				t.cycleLabel = cycleLabel;
 
 				if(t != this.$.editor && !isInLightDom(t, this.$.editor))
 					return;
-					
+
 				ocv = t._cleanValue;
-				
+
 				if(t != this.$.editor)
 					t._cleanValue = this.getCleanValue(t);
-				
+
 				if(ocv == t)
 					return;
-				
+
 				//done = t == this.$.editor;
-				
+
 				while(!done)
 				{
-					
+
 					//	t = t.is ? t.parentNode : t;
-					
+
 					if(t != this.$.editor) {
 						if(!t || !isInLightDom(t.parentNode, this.$.editor)) // it's not attached
 						{
@@ -531,12 +531,12 @@
 
 					if(t.cycleLabel == cycleLabel) return;
 					t.cycleLabel = cycleLabel;
-						
+
 					if(t == this.$.editor)
 						done = true;
 
 					ocv = t._cleanValue;
-					
+
 					if(t.nodeType == 3)
 						t._cleanValue = t.textContent;
 					else
@@ -544,10 +544,10 @@
 						cn = (t.is ? Polymer.dom(t) : t).childNodes;
 						cv = "";
 						if(cn)
-							cv = Array.prototype.map.call(cn, function(ch) { 
-								return ch._cleanValue || (ch._cleanValue = this.getCleanValue(ch)) 
+							cv = Array.prototype.map.call(cn, function(ch) {
+								return ch._cleanValue || (ch._cleanValue = this.getCleanValue(ch))
 							}.bind(this)).join('');
-						
+
 						if(t != this.$.editor)
 						{
 							toutline = tagOutline(t);
@@ -557,29 +557,29 @@
 						else
 							t._cleanValue = cv;
 					}
-					
+
 					if(ocv == t._cleanValue)
 						return;
-					
+
 					cycles++;
 				}
 			}.bind(this))
-			
+
 			if(cycles > 0)
 				this._updateValue();
-			
+
 			//console.log("mutation cycles: ", cycles);
-			
+
 			var parentDelimitersCount = {};
-			
-			
+
+
 			for(i = 0; i < customEls.length; i++)
 			{
 				ce = customEls[i];
-								
+
 				pe = Polymer.dom(ce).parentNode;
 				if(pe)
-				{	
+				{
 					ps = ce.previousSibling;
 					ns = ce.nextSibling;
 
@@ -599,23 +599,23 @@
 
 							if(ps.textContent != delimiter && !/\S/.test(ps.textContent))
 								ps.textContent = delimiter;
-							
+
 							ps.isDelimiter = true;
 						}
 						if(sc == ps && ps.isDelimiter && !ps.isInTransition && so != 1 && r.collapsed)
 							setCaretAt(ps, 1);
 					}
-					
+
 					if(!created && ps.isDelimiter && /\S/.test(ps.textContent)) // remove the padding space if node is not whitespace-only anymore
 					{
 						ps.textContent = ps.textContent.replace(/[\u200b\u00a0\s]/g, '')
 						ps.isDelimiter = false;
-						if(sc == ps) 
+						if(sc == ps)
 							setCaretAt(ps, Math.min(so, ps.textContent.length))
 					}
 
 					created = null;
-					
+
 					// pad after
 					if(!ns || ns.nodeType != 3)
 					{
@@ -635,7 +635,7 @@
 
 							ns.isDelimiter = true;
 						}
-						if(ec == ns && ns.isDelimiter && !ns.isInTransition && so != 1 && r.collapsed) 
+						if(ec == ns && ns.isDelimiter && !ns.isInTransition && so != 1 && r.collapsed)
 							setCaretAt(ns, 1);
 					}
 
@@ -644,14 +644,14 @@
 						if(/[\u200b\u00a0\s]/.test(ns.textContent))
 							ns.textContent = ns.textContent.replace(/[\u200b\u00a0\s]/g, '')
 						ns.isDelimiter = false;
-						if(ec == ns) 
+						if(ec == ns)
 							setCaretAt(ns, Math.min(eo, ns.textContent.length))
 					}
 
 					pe.normalize();
 
 					ce.setAttribute('contenteditable', false);
-					
+
 					// auto-editable lightdom children - should come as a property
 					Array.prototype.forEach.call(Polymer.dom(ce).querySelectorAll('.caption'), function(el) { el.setAttribute('contenteditable', true) });
 				}
@@ -661,7 +661,7 @@
 
 			//if(this.SPEED.totalbetweencalls % 100)
 			//console.log("th: %s tb: %s time in handler: %s%", this.SPEED.totalinhandler, this.SPEED.totalbetweencalls, 100 * this.SPEED.totalinhandler / this.SPEED.totalbetweencalls)
-			
+
 		},
 
 		contextMenuShow : function(ev) {
@@ -691,7 +691,7 @@
 
 			// check whether target is...
 			if(!target || target == this.$.editor || // interesting
-				!(target.is || target.matchesSelector(actionableTags))) // and actionable /*target.proxyTarget || */ 
+				!(target.is || target.matchesSelector(actionableTags))) // and actionable /*target.proxyTarget || */
 			{
 				this.__actionData.showMenuFor = null;
 				this.clearActionData();
@@ -704,8 +704,8 @@
 
 			// if target is resizable and wasn't set up do set it up for resize
 			if(target.matchesSelector(menuGroups.resizeable) && this.__actionData.resizableTarget != target)
-				//(target.proxyTarget.matchesSelector(menuGroups.resizeable)) /*target.proxyTarget && */ 
-				
+				//(target.proxyTarget.matchesSelector(menuGroups.resizeable)) /*target.proxyTarget && */
+
 				{
 					this.resizeTarget(target);
 
@@ -749,7 +749,7 @@
 
 			cm.options.push({label: '',  icon: 'icons:cancel', info: '', value : target, action : imageAction(null)});
 
-			if(target.matchesSelector(menuGroups.resizeable)) // || (target.proxyTarget.matchesSelector(menuGroups.resizeable))) //target.proxyTarget && 
+			if(target.matchesSelector(menuGroups.resizeable)) // || (target.proxyTarget.matchesSelector(menuGroups.resizeable))) //target.proxyTarget &&
 				cm.options.push({label: 'Resize', icon: 'icons:size', info: '', value : target, action : this.resizeTarget.bind(this)});
 
 			cm.options.push({label: 'Remove media',  icon: 'icons:align', info: '', value : target, action : imageAction(this.deleteTarget.bind(this))});
@@ -818,15 +818,15 @@
 		  target = getTopCustomElementAncestor(target, this.$.editor);
 
 		  setCaretAt(target.nextSibling, 0);
-		  
+
 		  //this.moveCaretAfterOrWrap(target, null, this.$.editor);
 		  this.ensureCursorLocationIsValid();
-		  
+
 		  this.customUndo.pushUndo(false, false);
-		  
+
 		  this.fire('scroll-into-view', this.getSelectionCoords());
 
-		  this.addActionBorder();		  
+		  this.addActionBorder();
 		},
 
 		clearActionData : function() {
@@ -836,7 +836,7 @@
 
 		  if(ad.target)
 			console.log('stopped action:', ad.target);
-		
+
 		  ad.target = ad.lastAction = ad.type = null
 		},
 
@@ -872,11 +872,12 @@
 				Polymer.dom(p).removeChild(deleteTarget);
 			else
 				p.removeChild(deleteTarget);
-			
+
 			this._updateValue();
 		},
 
 		resizeTargetStop : function(ev) {
+
 			if(!(ev === true || ev.target != this.__actionData.resizeTarget))
 				return;
 
@@ -885,7 +886,7 @@
 
 			document.removeEventListener('mouseup', this.resizeTargetStop);
 			document.removeEventListener('click', this.resizeTargetStop);
-			
+
 			if(interactable)
 				interactable.unset();
 
@@ -893,6 +894,7 @@
 		},
 
 		resizeTarget : function(target) {
+			this.addActionBorder();
 			var that = this, resizeHandler, resizeEndHandler, cbr, handlercbr, ep;
 
 			if(this.__actionData.resizableTarget)
@@ -908,14 +910,21 @@
 			{
 				target._aspect = cbr.height / cbr.width;
 			}
-		  
+
+			if(!target.id)
+				target.id = 'resizable-element';
+
 			handlercbr = this.$.resizeHandler.getBoundingClientRect();
+
 			ep = getElementPosition(target, that.$.editor);
+
 			this.$.resizeHandler.style.left = (ep.x + cbr.width - handlercbr.width) + "px";
 			this.$.resizeHandler.style.top = (ep.y + cbr.height - handlercbr.height) + "px";
-			
+			this.$.resizeHandler.style.display = "block";
+
 			resizeHandler = function (event) {
-				//var target = event.target, 
+
+				//var target = event.target,
 				var bcr, stu,
 				computedStyle = target.getBoundingClientRect(),
 
@@ -935,12 +944,12 @@
 
 				w = event.rect.width;
 				h = ratio * w;
-				
+
 				if(target.tagName == 'IMG' && h / ratio > target.width)
 					h = target.width * ratio;
 
 
-				stu = function(w, h) 
+				stu = function(w, h)
 				{
 					// update the element's style
 					target.style.width  = w + 'px';
@@ -955,73 +964,80 @@
 					target.setAttribute("width", w);
 					target.setAttribute("height", h);
 				};
-				
+
 				stu(w, h);
-				
+
 				bcr = target.getBoundingClientRect();
-				
+
 				//if(bcr.width != w || bcr.height !=)
 				stu(bcr.width, bcr.height);
-				
+
 				that.__actionData.dragTarget = null; // resize takes over drag
-				
+
 				ep = getElementPosition(target, that.$.editor);
 				that.$.resizeHandler.style.left = (ep.x + ep.width - handlercbr.width) + "px";
 				that.$.resizeHandler.style.top = (ep.y + ep.height - handlercbr.height) + "px";
 
 				// translate when resizing from top or left edges
-				//x += event.deltaRect.left; //y += event.deltaRect.top;
+				//x += event.dy; //y += event.deltaRect.top;
+				//console.log(x);
 			}
-			
+
 			resizeEndHandler = function() {
 			  var t, st, numW, numH;
 
-			  that.__actionData.resizeTarget.removeAttribute('data-x');
-			  that.__actionData.resizeTarget.removeAttribute('data-y'); 
-			  
-			  if(t = st = that.__actionData.resizeTarget)
-			  {
-				st.style.width = t.style.width
-				st.style.height = t.style.height
-				st.style.webkitTransform = st.style.transform = t.style.transform;
-				if(that.__actionData.resizePosition)
-					t.style.position = that.__actionData.resizePosition;
+				that.__actionData.resizeTarget.removeAttribute('data-x');
+				that.__actionData.resizeTarget.removeAttribute('data-y');
 
-				//that.clearActionData();
-				that.__actionData.lastAction = "resize";
-			  }
+				//that.$.resizeHandler.style.display = "none";
+				if(target.id =='resizable-element') target.id = '';
+
+				if(t = st = that.__actionData.resizeTarget)
+				{
+					st.style.width = t.style.width
+					st.style.height = t.style.height
+					st.style.webkitTransform = st.style.transform = t.style.transform;
+					if(that.__actionData.resizePosition)
+						t.style.position = that.__actionData.resizePosition;
+
+					//that.clearActionData();
+					that.__actionData.lastAction = "resize";
+				}
+
 			}
-			
-			/*var interactable = 
-			interact(target)
-				.resizable({ edges: { left: true, right: true, bottom: true, top: true } })
-				.on('resizemove', resizeHandler)
-				.on('resizeend', resizeEndHandler);*/
-			interact(this.$.resizeHandler)
-				.on('down', function (event) {
-				  var interaction = event.interaction,
-					  handle = event.currentTarget;
 
-				  interaction.start({
-					  name: 'resize',
-					  edges: {
-						top   : handle.dataset.top,
-						left  : handle.dataset.left,
-						bottom: handle.dataset.bottom,
-						right : handle.dataset.right,
-					  }   
-					},  
-					interact(target),               // target Interactable
-					target);   // target Element
-				})
+			interact('#'+target.id).resizable({
+
+				manualStart: true,
+				edges: { left: true, right: true, bottom: true, top: true }
+			})
 				.on('resizemove', resizeHandler)
 				.on('resizeend', resizeEndHandler);
 
-		  if(!target.style.position || target.style.position == 'static')
-		  {
-			this.__actionData.resizePosition = target.style.position;
-			target.style.position = "relative";
-		  }
+			interact('#resizeHandler').on('down', function (event) {
+				var interaction = event.interaction,
+					handle = event.currentTarget;
+
+			target = that.__actionData.resizeTarget;
+
+				interaction.start({
+						name: 'resize',
+						edges: {
+							top   : handle.dataset.top,
+							left  : handle.dataset.left,
+							bottom: handle.dataset.bottom,
+							right : handle.dataset.right
+						}
+					},
+					interact('#'+target.id),               // target Interactable
+					target);   // target Element
+			});
+
+			if(!target.style.position || target.style.position == 'static')
+			{
+				this.__actionData.resizePosition = target.style.position;
+				target.style.position = "relative";
+			}
 
 		  //this.__actionData.interactable = interactable;
 		},
@@ -1335,8 +1351,8 @@
 
 		pasteHtmlWithParagraphs : function (html, opts) // html is either a string or an element that will be inserted as is
 		{
-			var div, paragraph, r, sp, caretAt = {}, firstIsEmptyParagraph, 
-				container, newWrapperParagraph, container, firstToWrap, index, 
+			var div, paragraph, r, sp, caretAt = {}, firstIsEmptyParagraph,
+				container, newWrapperParagraph, container, firstToWrap, index,
 				isNewParagraph, lastInserted, pos, first, last, takeout, tp;
 
 			if(!html)
@@ -1358,7 +1374,7 @@
 
 			r = this.selectionSave();
 			r = this.selectionRestore();
-			
+
 			this.customUndo.pushUndo(false, true);
 
 			// if not, fall back to regular paste
@@ -1533,7 +1549,7 @@
 				sel = window.getSelection();
 				if (sel.getRangeAt && sel.rangeCount) {
 					r = sel.getRangeAt(0);
-					
+
 					sc = r.startContainer;
 					so = r.startOffset;
 					ec = r.startContainer;
@@ -1553,7 +1569,7 @@
 						eo = 0;
 					}
 					r = setCaretAt(sc, so, ec, eo);
-					
+
 					r.deleteContents();
 
 					// Range.createContextualFragment() would be useful here but is
@@ -1845,7 +1861,7 @@
 				} else if (document.selection && range.select) {
 					range.select();
 				}
-				
+
 				this.$.editor.focus();
 			}
 			else
@@ -1855,7 +1871,7 @@
 				if(!this.$.editor.childNodes.length)
 					setCaretAt(this.$.editor.appendChild(newEmptyParagraph()), 0);
 				else
-					setCaretAt(this.$.editor.childNodes[0], 0);				
+					setCaretAt(this.$.editor.childNodes[0], 0);
 			}
 
 			this._selectionRange = range;
@@ -1892,7 +1908,7 @@
 
 		ensureCursorLocationIsValid : function(opts) { // if reverseDirection is true cursor is moving in reverse to typing direction
 			return; // obsolete
-			
+
 			var r, i, sp, sc, ec, so, eo, totalChecks = 0, jumpsOccured = 0;
 
 			opts = opts || {};
@@ -1912,13 +1928,13 @@
 			this.selectionSave();
 			this.fire('scroll-into-view', this.getSelectionCoords());
 		},
-		
+
 		getSelectionCoords : function() {
 			var c;
 			this.editorMutationHandler.paused = true;
 			c = getSelectionCoords();
 			this.editorMutationHandler.paused = false;
-			
+
 			return c;
 		},
 
@@ -1935,7 +1951,7 @@
 		// wraps content in <p><br></p>[content]<p><br></p>
 		frameContent : function() {
 			return;
-			
+
 			var ed = this.$.editor, nn, i, d, lastBeforeSkip, r;
 
 
@@ -1977,7 +1993,7 @@
 			if(this._updateValueTimeout)
 			{
 				this._updateValueTime = new Date().getTime();
-				
+
 				clearTimeout(this._updateValueTimeout);
 				this._updateValueTimeout = null;
 			}
@@ -1999,7 +2015,7 @@
 
 			var val, sameContent, d, r;
 			var bottomPadding, topPadding, that = this, editor = this.$.editor;
-			
+
 			if(this.__actionData.target)
 				this.__actionData.target.style.border = this.__actionData.border;
 
@@ -2032,15 +2048,15 @@
 			this.removeActionBorder();
 
 			from = from || this.$.editor;
-			
+
 			if(from == this.$.editor && this.$.editor._cleanValue)
 				return this.$.editor._cleanValue;
-			
+
 			if(from == this.$.editor)
 				v = recursiveInnerHTML(from)
 			else
 				v = recursiveOuterHTML(from)
-			
+
 			if(from == this.$.editor)
 			{
 				v = v
@@ -2052,7 +2068,7 @@
 			}
 
 			this.addActionBorder();
-			
+
 			return v;
 		},
 
@@ -2100,8 +2116,8 @@
 		// otherwise will set caret after slc
 		moveCaretAfterOrWrap : function(slc, elc, top) {
 			var ns, sel = window.getSelection(), range = document.createRange(), tc;
-			
-			if(!elc) 
+
+			if(!elc)
 				elc = slc;
 
 			if(slc != elc)
@@ -2110,14 +2126,14 @@
 				range.setEndBefore(slc);
 				sel.removeAllRanges();
 				sel.addRange(range);
-				
+
 				return range;
 			}
 
 			ns = nextNode(slc, false);
 			while(ns && ns.parentNode && getTopCustomElementAncestor(ns, top) && !(isInLightDom(ns, top) && ns.nodeType == 3))
 				ns = nextNode(ns, false);
-			
+
 			if(slc.is && ns == slc.nextSibling)
 			{
 				//if(ns.nextSibling.nodeType == 3)
@@ -2129,25 +2145,25 @@
 				}
 				return setCaretAt(ns, /^\u0020/.test(ns.textContent) ? 1 : 0);
 			}
-			
+
 			return setCaretAt(ns, 0);
-			
-			console.log();				
+
+			console.log();
 		},
 
 		moveCaretBeforeOrWrap : function(slc, elc, top) {
 			var pos, ns, sel = window.getSelection(), range = document.createRange(), isSibling = true;
-			
+
 			if(slc == elc)
 			{
 				range.setStartBefore(slc);
 				range.setEndBefore(slc);
 				sel.removeAllRanges();
 				sel.addRange(range);
-				
+
 				return range;
 			}
-			
+
 			ns = prevNodeDeep(slc, false);
 			isSibling = Polymer.dom(ns).parentNode == Polymer.dom(slc).parentNode;
 			while(ns && ns != top && getTopCustomElementAncestor(ns, top) && !(isInLightDom(ns, top) && ns.nodeType == 3))
@@ -2155,20 +2171,20 @@
 				ns = prevNodeDeep(ns, false);
 				if(isSibling)
 					isSibling = Polymer.dom(ns).parentNode == Polymer.dom(slc).parentNode;
-				
+
 				tc = ns.previousSibling;
-				
+
 				if(/\u0020$/.test(tc.textContent))
 					setCaretAt(ns, 1);
 			}
-			
+
 			pos = getLastCaretPosition(ns);
 			if(!pos)
 				pos = { container : ns, offset : getChildPositionInParent(ns) }
-			
+
 			return setCaretAt(pos.container, pos.offset);
 		},
-		
+
 		cleanHTML : function() {
 			this.set("value", this.$.editor.innerHTML = HTMLtoXML(this.value));
 			this._updateValue(true);
@@ -2208,7 +2224,7 @@
 	  hideToolbar: function(){
 		  this.hide();
 	  },
-	  
+
 		viewModeChanged : function() {
 			if(this.viewMode == 1)
 				Polymer.dom(this.$.preview).innerHTML = this.value; //
@@ -2299,7 +2315,7 @@
 	  listeners: {
 		  'neon-animation-finish': '_onAnimationFinish'
 	  },
-	  
+
 
 	})
 
@@ -2332,7 +2348,7 @@
 				return;
 
 			restoreState(lastUndo);
-			
+
 			lastRestoredStateContent = lastUndo.content;
 		}
 
@@ -2366,7 +2382,7 @@
 
 			if(undoInProgress)
 				return;
-				
+
 			innerHTML = getValue();
 			onlyUpdateRangeMemo = false;
 
@@ -2379,7 +2395,7 @@
 				undoRecord.shift();
 
 			if(sel.rangeCount)
-			{				
+			{
 				if(onlyUpdateRangeMemo)
 					undoRecord[undoRecord.length - 1].updateRange();
 				else
@@ -2388,9 +2404,9 @@
 					undoRecord.push(new UndoItem(editor, innerHTML));
 				}
 
-				
+
 				//console.log("sc: %s, so: %s, spos: %s, ec: %s, eo: %s, epos: %s, total undo+redo: %s", sc, so, JSON.stringify(startMemo.positionArray), ec, eo, JSON.stringify(endMemo.positionArray), undoRecord.length + redoRecord.length);
-				
+
 			}
 
 			if(!force && !onlyUpdateRangeMemo && redoRecord.length > 0 && lastRestoredStateContent != innerHTML)
@@ -2475,14 +2491,14 @@
 		n.innerHTML = recursiveInnerHTML(el);
 		return n;
 	}
-	
+
 	var tagOutline = function(el){ // effectively outerHTML - innerHTML
 		var nn = el.cloneNode(false),
 			d = document.createElement('div'),
 			classList;
 
 		if(el.isDelimiter) return '';
-			
+
 		if(nn.classList)
 		{
 			var classList = Array.prototype.map.call(nn.classList, function(n){return n});
@@ -2507,7 +2523,7 @@
 
 		if(node.isDelimiter)
 			return "";
-		
+
 		if(skipNodes && skipNodes.indexOf(node) > -1)
 			return "";
 
@@ -2581,17 +2597,17 @@
 		this.ancestor = ancestor;
 		this.positionArray = getChildPathFromTop(child, ancestor);
 	}
-	
+
 	DomPathMemo.prototype.restore = function() {
 		return getChildFromPath(this.positionArray, this.ancestor);
 	};
-	
+
 	var RangeMemo = function(root) {
-		var r = getSelectionRange(), 
-			sc = r.startContainer, 
+		var r = getSelectionRange(),
+			sc = r.startContainer,
 			ec = r.endContainer,
 			cps, cpe, lps, lpe, cn;
-		
+
 		if(sc != root && !isInLightDom(sc, root))
 			sc = getTopCustomElementAncestor(sc, root).nextSibling, sc = 0;
 		if(ec != root && !isInLightDom(ec, root))
@@ -2599,10 +2615,10 @@
 
 		cps = getChildPathFromTop(sc, root);
 		cpe = getChildPathFromTop(ec, root);
-			
+
 		if(sc.nodeType == 3 && sc.textContent.length == 0)
 			this.startIsEmpty = true;
-		
+
 		this.root = root;
 		this.startPos = cps;
 		this.endPos = cpe;
@@ -2611,13 +2627,13 @@
 	}
 	RangeMemo.prototype.isEqual = function(domPathMemo) {
 		var i;
-		
+
 		if(this.root != domPathMemo.root)
 			return false;
-		
-		if(this.startOffset != domPathMemo.startOffset || this.endOffset != domPathMemo.endOffset) 
+
+		if(this.startOffset != domPathMemo.startOffset || this.endOffset != domPathMemo.endOffset)
 			return false;
-		
+
 		for(i = 0; i < this.startPos.length; i++)
 			if(this.startPos[i] != domPathMemo.startPos[i])
 				return false;
@@ -2630,22 +2646,22 @@
 	}
 	RangeMemo.prototype.restore = function(doSetCaret)
 	{
-		var s = window.getSelection(), 
+		var s = window.getSelection(),
 			r = document.createRange(),
 			sc = getChildFromPath(this.startPos, this.root),
 			ec = getChildFromPath(this.endPos, this.root);
-			
+
 		if(!sc || !ec)
 			return null;
 
 		if(sc.nodeType == 3 && this.startOffset > sc.textContent.length) return null;
 		if(sc.nodeType == 1 && this.startOffset >= (sc.is ? Polymer.dom(sc) : sc).childNodes.length) return null;
-		
+
 		if(ec.nodeType == 3 && this.endOffset > ec.textContent.length) return null;
 		if(ec.nodeType == 1 && this.endOffset >= (ec.is ? Polymer.dom(ec) : ec).childNodes.length) return null;
 
 		// console.log("restore to el: ", sc, " pos: ", this.startPos, this.startOffset);
-				
+
 		r.setStart(sc, this.startOffset);
 		r.setEnd(ec, this.endOffset);
 		if(doSetCaret)
@@ -2655,38 +2671,38 @@
 				s.addRange(r);
 			});
 		}
-		
+
 		return r;
 	}
-	
+
 	var UndoItem = function(root, content) {
 		var m = {};
-		
+
 		this.root = root;
 		this.rangeHistory = [];
 		this.content = content;
-		
+
 		this.updateRange();
 	}
-	
+
 	UndoItem.prototype.updateRange = function() {
 		var rm = new RangeMemo(this.root);
-		
+
 		// skip accidential 0 positions when rangeHistory already contains some other location.
 		if(this.rangeHistory.length && (rm.startOffset == 0 && !rm.startPos.length || rm.startIsEmpty))
 			return;
-		
+
 		if(!this.rangeHistory.length || !rm.isEqual(this.rangeHistory[this.rangeHistory.length - 1]))
 			this.rangeHistory.push(rm);
-		
+
 		//console.log("updated range", rm)
 	}
 	UndoItem.prototype.restore = function(doSetCaret) {
 		var i = this.rangeHistory.length - 1, r;
-		
+
 		this.root.innerHTML = this.content;
 		Polymer.dom.flush();
-		
+
 		while(i >= 0)
 			if(r = this.rangeHistory[i--].restore(doSetCaret))
 				return r;
@@ -2703,7 +2719,7 @@
 			delimiters += (cn[i] != child && cn[i].isDelimiter) ? 1 : 0;
 
 		//console.log("delimiters:", delimiters)
-		
+
 		return cn[i] == child ? i - delimiters : null;
 	}
 
@@ -2718,7 +2734,7 @@
 		p = child.parentNode;
 		if(Polymer.dom(child).parentNode != p && !isInLightDom(p, top))
 			p = Polymer.dom(child).parentNode;
-			
+
 		t = getChildPathFromTop(p, top);
 		if(!t)
 			return null;
@@ -2773,7 +2789,7 @@
 	var setCaretAt = function(startTarget, startOffset, endTarget, endOffset) {
 		var sel = window.getSelection(),
 			range = document.createRange();
-			
+
 		if(!endTarget)
 		{
 			endTarget = startTarget;
@@ -2793,7 +2809,7 @@
 	function nextNode(node, excludeChildren) {
 		if(node.is)
 			node = Polymer.dom(node);
-		
+
 		if(!excludeChildren && node && (Polymer.dom(node).childNodes && Polymer.dom(node).childNodes.length)) {
 			return node.firstChild;
 		} else {
@@ -2814,10 +2830,10 @@
 		else
 			return node.parentNode;
 	}
-	
+
 	function prevNodeDeep(node, top, opts) {
 		var pn;
-		
+
 		if(!opts) opts = {};
 		//node = node.is ? node : Polymer.dom(node);
 		if(!Polymer.dom(node).previousSibling)
@@ -2829,22 +2845,22 @@
 			{
 				while(pn && pn != top && !Polymer.dom(pn).previousSibling)
 					pn = Polymer.dom(pn).parentNode;
-				
+
 				if(!pn || pn == top)
 					return pn;
-				
+
 				pn = Polymer.dom(pn).previousSibling;
 			}
 		}
-		else			
+		else
 			pn = Polymer.dom(node).previousSibling
-		
+
 		if(pn.nodeType == 3)
 			return pn;
 
 		while(Polymer.dom(pn).lastChild && (!opts.atomicCustomElements || !pn.is))
 			pn = Polymer.dom(pn).lastChild;
-			
+
 		return pn;
 	}
 
@@ -2897,7 +2913,7 @@
 
 		if(!node)
 			return ni
-		
+
 		if(node.nodeType == 1 && (offset || offset == 0))
 			node = Polymer.dom(node).childNodes[offset];
 
@@ -2934,17 +2950,17 @@
 	var splitNode = function(node, offset, limit) {
 		var parent = limit.parentNode,
 			parentOffset = getChildPositionInParent(limit),
-			doc = node.ownerDocument, 
+			doc = node.ownerDocument,
 			left,
 			leftRange = doc.createRange();
-		
+
 		leftRange.setStart(parent, parentOffset);
 		leftRange.setEnd(node, offset);
 		left = leftRange.extractContents();
 		parent.insertBefore(left, limit);
 
 		visitNodes(limit.previousSibling, function(el) {  // hard-reattach custom elements lest they lose their powers
-			var h; 
+			var h;
 			if(el.is)
 			{
 				h = document.createElement('div'); // other ways don't cause the element to get reinitialized - the whole element must be completely rewritten
@@ -2953,7 +2969,7 @@
 				el.parentNode.removeChild(el);
 			}
 		});
-		
+
 		left.normalize();
 		limit.normalize();
 
@@ -2963,19 +2979,19 @@
 	var getElementPosition = function(element, fromElement) {
 		var top = 0, left = 0, width = 0, height = 0, cs, i;
 			fromElement = fromElement || document.body;
-		
+
 		if(!element ||  element.nodeType != 1)
 			return null;
-		
+
 		cs = element.getBoundingClientRect(); // getComputedStyle(element);
 
 		width = numerify(cs.width) + numerify(cs.borderLeftWidth) + numerify(cs.borderRightWidth);
 		height = numerify(cs.height) + numerify(cs.borderTopWidth) + numerify(cs.borderBottomWidth);
-	  
+
 		top += element.offsetTop || 0;
 		left += element.offsetLeft || 0;
 		element = element.offsetParent;
-		
+
 		while(element && isChildOf(element, fromElement))
 		{
 			cs = element.getBoundingClientRect(); // getComputedStyle(element);
@@ -2988,14 +3004,14 @@
 			x: left, y: top, width : width, height : height
 		};
 	};
-	
+
 	function isChildOf(child, ancestor) {
 		while(child != document.body)
 			if(child.parentNode == ancestor)
 				return true;
 			else
 				child = child.parentNode;
-				
+
 		return false;
 	}
 
@@ -3045,7 +3061,7 @@
 						//var span = doc.createElement("span");
 						if (span.getClientRects) {
 							//var spanParent = span.parentNode;
-							
+
 							range.insertNode(span);
 							//rect = span.getClientRects()[0];
 							//x = rect.left;
@@ -3064,7 +3080,7 @@
 
 							// Glue any broken text nodes back together
 							spanParent.normalize();
-							
+
 							spanParent.noChange = true;
 						}
 					}
@@ -3102,10 +3118,10 @@
 
 	function visitNodes(root, visitor, opts, meta) {
 		var n = root;
-		
+
 		meta = meta || {};
 		meta.numericPath = meta.numericPath || [];
-		
+
 		if(!opts) opts = {};
 
 		if(!opts.noRoot) visitor(n, meta)
@@ -3113,11 +3129,11 @@
 		  return;
 
 	    opts.noRoot = false;
-		
-		
+
+
 		Array.prototype.forEach.call((n.is ? Polymer.dom(n) : n).childNodes, function(el, i) {
 			meta.numericPath.push(i);
-			visitNodes(el, visitor, opts, meta) 
+			visitNodes(el, visitor, opts, meta)
 			meta.numericPath.pop(i);
 		});
 	}
@@ -3128,18 +3144,18 @@
 
 	function selfOrLeftmostDescendantIsSpecial(el) {
 		var n;
-		
-		if(!el) 
+
+		if(!el)
 			return el;
-		
+
 		if(isSpecialElement(el))
 			return el;
-		
+
 		// skip empty text nodes
 		n = el.firstChild;
 		while(n && (n.nodeType == 3 && !n.textContent))
 			n = n.nextSibling;
-		
+
 		// go recursive
 		if(n)
 			return selfOrLeftmostDescendantIsSpecial(n);
@@ -3211,7 +3227,7 @@
 		return ret;
 	}
 
-	
+
 	function dangerousDelete(ev, range) { // cursor is on edge of a light element inside custom component and user clicked delete/backspace which will probably destroy the component
 		var tcea, sc, so, scparent, top, np,
 			key = ev && (ev.keyCode || ev.which);
@@ -3253,7 +3269,7 @@
 		if(key == 8 && np && np.nodeType == 1 && np.is)
 			ev.preventDefault();
 	}
-	
+
 
 	var numerify = function (x){
 		if(typeof x == 'undefined' || !x)
@@ -3261,7 +3277,7 @@
 
 		if(typeof x == 'number')
 			return x;
-			
+
 		return Number(x.replace ? x.replace(/[^\d\.]/g, '') : x);
 	};
 
