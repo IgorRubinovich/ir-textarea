@@ -32,7 +32,7 @@
 				}.bind(this));
 				
 			this.$.editor.addEventListener('click', this.contextMenuShow.bind(this), true); // capturing phase
-			this.$.editor.addEventListener('paste', this.pasteHandler);
+			this.$.editor.addEventListener('paste', this.pasteHandler.bind(this));
 			// that.$.editor.addEventListener('copy', pasteHandler);
 
 			var defs = {};
@@ -390,7 +390,7 @@
 			return false;
 		},
 		
-		editorMutationHandler : function(mrecs) {
+		editorMutationHandler : function(mrecs) {			
 			if(this.editorMutationHandler.paused)
 				return;
 			
@@ -494,7 +494,7 @@
 			var cycles = 0,	cycleLabel = new Date().getTime();
 			
 			effectiveChanges.forEach(function(mr) {
-				var t = mr, done, cv, cn, ocv, toutline;
+				var t = mr, done, cv, cn, ocv, toutline, altp;
 				
 				if(t.cycleLabel == cycleLabel) return;
 				t.cycleLabel = cycleLabel;
@@ -503,7 +503,9 @@
 					return;
 					
 				ocv = t._cleanValue;
-				t._cleanValue = this.getCleanValue(t);
+				
+				if(t != this.$.editor)
+					t._cleanValue = this.getCleanValue(t);
 				
 				if(ocv == t)
 					return;
@@ -516,11 +518,12 @@
 					//	t = t.is ? t.parentNode : t;
 					
 					if(t != this.$.editor) {
-						if(!t || (t.parentNode != Polymer.dom(t).parentNode && (t != this.$.editor && !isInLightDom(t, this.$.editor)))) // it's not attached
+						if(!t || !isInLightDom(t.parentNode, this.$.editor)) // it's not attached
 						{
-							if(!isInLightDom(Polymer.dom(t).parentNode, this.$.editor))
+							altp = Polymer.dom(t).parentNode;
+							if(altp != this.$.editor && !isInLightDom(altp, this.$.editor))
 								return;
-							t = Polymer.dom(t).parentNode;
+							t = altp;
 						}
 						else
 							t = t.parentNode
@@ -646,15 +649,7 @@
 					}
 
 					pe.normalize();
-					
-					//if(ce.parentNode._delimitersCountCycle != this.observerCycle)
-					//{
-					//	ce.parentNode._delimitersCountCycle = this.observerCycle;
-					//	ce.parentNode.delimitersCount = 0;
-					//}
-					
-					//ce.parentNode.delimitersCount += Number(ps.isDelimiter) + Number(ns.isDelimiter);
-					
+
 					ce.setAttribute('contenteditable', false);
 					
 					// auto-editable lightdom children - should come as a property
@@ -664,6 +659,9 @@
 
 			this.editorMutationHandler.inProgress = false;
 
+			//if(this.SPEED.totalbetweencalls % 100)
+			//console.log("th: %s tb: %s time in handler: %s%", this.SPEED.totalinhandler, this.SPEED.totalbetweencalls, 100 * this.SPEED.totalinhandler / this.SPEED.totalbetweencalls)
+			
 		},
 
 		contextMenuShow : function(ev) {
@@ -1857,7 +1855,7 @@
 				if(!this.$.editor.childNodes.length)
 					setCaretAt(this.$.editor.appendChild(newEmptyParagraph()), 0);
 				else
-					setCaretAt(this.$.editor.appendChild(this.$.editor.childNodes[0]), 0);				
+					setCaretAt(this.$.editor.childNodes[0], 0);				
 			}
 
 			this._selectionRange = range;
@@ -1984,7 +1982,7 @@
 				this._updateValueTimeout = null;
 			}
 
-			if(!this._updateValueTime || this._updateValueTime - (new Date().getTime()) > 200)
+			if(!this._updateValueTime || this._updateValueTime - (new Date().getTime()) > 300)
 			{
 				this.selectionRestore();
 				this.customUndo.pushUndo();
@@ -1997,7 +1995,7 @@
 					this.fire('scroll-into-view', this.getSelectionCoords());
 
 				this.customUndo.pushUndo();
-			}.bind(this), 200);
+			}.bind(this), 300);
 
 			var val, sameContent, d, r;
 			var bottomPadding, topPadding, that = this, editor = this.$.editor;
@@ -2314,7 +2312,7 @@
 			undoInProgress;
 
 		if(!options) options = {};
-		if(!options.maxUndoItems) options.maxUndoItems = 150;
+		if(!options.maxUndoItems) options.maxUndoItems = 50;
 		if(typeof options.timeout == 'undefined') options.timeout = 15000;
 
 		var undoCommand = function() {
@@ -2386,7 +2384,7 @@
 					undoRecord[undoRecord.length - 1].updateRange();
 				else
 				{
-					console.log("undo: %s, redo: %s, onlyupdateRangeMemo: ", undoRecord.length, redoRecord.length, onlyUpdateRangeMemo);
+					//console.log("undo: %s, redo: %s, onlyupdateRangeMemo: ", undoRecord.length, redoRecord.length, onlyUpdateRangeMemo);
 					undoRecord.push(new UndoItem(editor, innerHTML));
 				}
 
@@ -2675,10 +2673,7 @@
 		var rm = new RangeMemo(this.root);
 		
 		// skip accidential 0 positions when rangeHistory already contains some other location.
-		if(rm.startOffset == 0 && rm.startPos.length == 2 && rm.startPos[0] == 0 && rm.startPos[1] == 0 && this.rangeHistory.length) //rm.startPos.length == 1 && rm.startPos[0] == 0 && rm.startOffset == 0 && this.rangeHistory.length)
-			return;
-		
-		if(rm.startIsEmpty && this.rangeHistory.length)
+		if(this.rangeHistory.length && (rm.startOffset == 0 && !rm.startPos.length || rm.startIsEmpty))
 			return;
 		
 		if(!this.rangeHistory.length || !rm.isEqual(this.rangeHistory[this.rangeHistory.length - 1]))
