@@ -93,19 +93,19 @@
 
 			//this._updateValue();
 		},
-		
-		connectEditorObserver : function() 
+
+		connectEditorObserver : function()
 		{
 
 			this.editorMutationObserver.observe(this.$.editor, this.editorMutationObserverConfig);
 		},
-		
-		disconnectEditorObserver : function() 
+
+		disconnectEditorObserver : function()
 		{
 
 			this.editorMutationObserver.observe(this.$.editor, this.editorMutationObserverConfig);
 		},
-		
+
 		configureToolbar : function() {
 			var tbar = {}, that = this;
 			tbar.toolbarOffsetTop = this.offsetTop;
@@ -402,7 +402,7 @@
 
 		editorMutationHandler : function(mrecs) {
 			this.disconnectEditorObserver();
-			
+
 			if(this.editorMutationHandler.paused)
 				return;
 
@@ -760,7 +760,7 @@
 				cm.options.push({label: 'Resize', icon: 'icons:size', info: '', value : target, action : this.resizeTarget.bind(this)});
 
 			cm.options.push({label: 'Remove media',  icon: 'icons:align', info: '', value : target, action : imageAction(this.deleteTarget.bind(this))});
-			
+
 			if(target.is && typeof target.setup == 'function')
 				cm.options.push({label: 'Setup...', value : target, action : target.setup.bind(target)});
 
@@ -847,7 +847,11 @@
 		  if(ad.target)
 			console.log('stopped action:', ad.target);
 
-		  ad.target = ad.lastAction = ad.type = null
+		  ad.target = ad.lastAction = ad.type = null;
+
+
+			if( ad.id =='resizable-element') ad.id = '';
+
 		},
 
 		deleteCmd : function() {
@@ -999,8 +1003,8 @@
 				that.__actionData.resizeTarget.removeAttribute('data-x');
 				that.__actionData.resizeTarget.removeAttribute('data-y');
 
-				//that.$.resizeHandler.style.display = "none";
-				if(target.id =='resizable-element') target.id = '';
+				that.$.resizeHandler.style.display = "none";
+
 
 				if(t = st = that.__actionData.resizeTarget)
 				{
