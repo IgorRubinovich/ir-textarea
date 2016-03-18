@@ -77,8 +77,6 @@
 				this.$.editor.appendChild(newEmptyParagraph());
 			}
 
-			this._initialValue = this.$.editor.innerHTML = this.getCleanValue();
-
 			// set up and start the observer
 			this.observerCycle = 0;
 			this.customElements = [];
@@ -91,19 +89,22 @@
 				characterDataOldValue : true
 			}
 
+			this.connectEditorObserver();
+
+			this._initialValue = this.$.editor.innerHTML = this.getCleanValue();
+
 			//this._updateValue();
 		},
 
 		connectEditorObserver : function()
 		{
-
 			this.editorMutationObserver.observe(this.$.editor, this.editorMutationObserverConfig);
 		},
 
 		disconnectEditorObserver : function()
 		{
 
-			this.editorMutationObserver.observe(this.$.editor, this.editorMutationObserverConfig);
+			this.editorMutationObserver.disconnect();
 		},
 
 		configureToolbar : function() {
@@ -2392,7 +2393,7 @@
 
 		var pushUndo = function(force) { //, onlyUpdateRangeMemo) {
 			var r, sel = window.getSelection(), startMemo, endMemo, sc, ec, so, eo, t,
-				innerHTML, onlyUpdateRangeMemo;
+				innerHTML, onlyUpdateRangeMemo, prevUndo;
 
 			if(undoInProgress)
 				return;
@@ -2408,20 +2409,15 @@
 			while(undoRecord.length >= options.maxUndoItems)
 				undoRecord.shift();
 
-			if(sel.rangeCount)
-			{
-				if(onlyUpdateRangeMemo)
-					undoRecord[undoRecord.length - 1].updateRange();
-				else
-				{
-					//console.log("undo: %s, redo: %s, onlyupdateRangeMemo: ", undoRecord.length, redoRecord.length, onlyUpdateRangeMemo);
-					undoRecord.push(new UndoItem(editor, innerHTML));
-				}
+			prevUndo = undoRecord.length && undoRecord[undoRecord.length - 1];
+			if(prevUndo && onlyUpdateRangeMemo)
+				prevUndo.updateRange();
+			else
+				undoRecord.push(new UndoItem(editor, innerHTML, prevUndo));
 
+			//console.log("sc: %s, so: %s, spos: %s, ec: %s, eo: %s, epos: %s, total undo+redo: %s", sc, so, JSON.stringify(startMemo.positionArray), ec, eo, JSON.stringify(endMemo.positionArray), undoRecord.length + redoRecord.length);
 
-				//console.log("sc: %s, so: %s, spos: %s, ec: %s, eo: %s, epos: %s, total undo+redo: %s", sc, so, JSON.stringify(startMemo.positionArray), ec, eo, JSON.stringify(endMemo.positionArray), undoRecord.length + redoRecord.length);
-
-			}
+			//}
 
 			if(!force && !onlyUpdateRangeMemo && redoRecord.length > 0 && lastRestoredStateContent != innerHTML)
 				redoRecord = [];
@@ -2620,13 +2616,28 @@
 	};
 
 	var RangeMemo = function(root) {
-		var r = getSelectionRange(),
-			sc = r.startContainer,
-			ec = r.endContainer,
-			so = r.startOffset,
-			eo = r.endOffset,
-			cps, cpe, lps, lpe, cn;
+		var r = getSelectionRange(), sc, ec, so,eo,cps, cpe, lps, lpe, cn;
 
+		this.root = root;
+
+		if(r) {
+			sc = r.startContainer;
+			ec = r.endContainer;
+			so = r.startOffset;
+			eo = r.endOffset;
+		}
+
+		if(r && sc.proxyTarget) // same name new animal
+			sc = ec = sc.proxyTarget.nextSibling, so = eo = 0;
+
+		if(!r || !isChildOf(sc, root) || (sc != ec && !isChildOf(sc, root)))
+		{
+			this.startPos = this.endPos = [];
+			this.startOffset = this.endOffset = 0;
+			
+			return;
+		}
+			
 		if(sc != root && !isInLightDom(sc, root))
 			sc = getTopCustomElementAncestor(sc, root).nextSibling, so = 0;
 		if(ec != root && !isInLightDom(ec, root))
@@ -2643,6 +2654,15 @@
 		this.endPos = cpe;
 		this.startOffset = so;
 		this.endOffset = eo;
+	}
+	RangeMemo.prototype.clone = function(rangeMemo) {
+		var c = new RangeMemo();
+		c.root = this.root;
+		c.startPos = this.startPos;
+		c.endPos = this.endPos;
+		c.startOffset = this.startOffset;
+		c.endOffset = this.endOffset;
+		return c;
 	}
 	RangeMemo.prototype.isEqual = function(domPathMemo) {
 		var i;
@@ -2694,7 +2714,7 @@
 		return r;
 	}
 
-	var UndoItem = function(root, content) {
+	var UndoItem = function(root, content, prevUndoItem) {
 		var m = {};
 
 		this.root = root;
@@ -2702,11 +2722,20 @@
 		this.content = content;
 
 		this.updateRange();
+		
+		if(!this.rangeHistory.length && prevUndoItem)
+			this.rangeHistory = prevUndoItem.rangeHistory(function(rm) { return rm.clone(); });
+		
+		if(!this.rangeHistory.length)
+			this.rangeHistory = [ new UndoItem(root) ];
 	}
 
 	UndoItem.prototype.updateRange = function() {
 		var rm = new RangeMemo(this.root);
 
+		if(!rm)
+			return;
+		
 		// skip accidential 0 positions when rangeHistory already contains some other location.
 		if(this.rangeHistory.length && (rm.startOffset == 0 && !rm.startPos.length || rm.startIsEmpty))
 			return;
@@ -2716,6 +2745,7 @@
 
 		//console.log("updated range", rm)
 	}
+	
 	UndoItem.prototype.restore = function(doSetCaret) {
 		var i = this.rangeHistory.length - 1, r;
 
