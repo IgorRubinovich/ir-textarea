@@ -9,7 +9,7 @@
 		  var that = this,commands = this.commands.split(/,/);
 
 			this.changed = true;
-
+			this.modifiedNodes = [];
 			this.__actionData = {};
 
 			"mousedown,mouseup,keydown,keyup,drop".split(',')
@@ -46,6 +46,7 @@
 																		getValue : this.getCleanValue.bind(this),
 																		contentFrame : '[content]', // '[content]<span class="paragraph"><br></span>',
 																		timeout : false,
+																		modifiedNodes : this.modifiedNodes,
 																		onRestoreState : function(el) {
 																			this.selectionSave()
 																			this.ensureCursorLocationIsValid();
@@ -483,8 +484,14 @@
 				if(mrt.nodeType != 1)
 					return;
 
+				if(mr.removedNodes.length)
+					this.modifiedNodes.push(mr.target);
+
 				if(mr.addedNodes.length)
+				{
 					Array.prototype.forEach.call(mr.addedNodes, function(n) { effectiveChanges.push(n) });
+					this.modifiedNodes.push(mr.target);
+				}
 				else
 					effectiveChanges.push(mr.target);
 
@@ -520,6 +527,8 @@
 				if(t != this.$.editor)
 					t._cleanValue = this.getCleanValue(t);
 
+				this.modifiedNodes.push(t);
+				
 				if(ocv == t)
 					return;
 
@@ -2359,7 +2368,8 @@
 
 			lastUndo = undoRecord[undoRecord.length - 1];
 
-			if(!lastUndo || (lastUndo.content == currState.content && undoRecord.length > 1))
+			//if(!lastUndo || (lastUndo.content == currState.content && undoRecord.length > 1))
+			if(!lastUndo || (lastUndo.sameContent(currState) && undoRecord.length > 1))
 				return;
 
 			restoreState(lastUndo);
@@ -2398,10 +2408,16 @@
 			if(undoInProgress)
 				return;
 
+			modifiedNodes = minimizeRootsInSubtreeForest(options.modifiedNodes, editor).filter(function(n) { return !n.isDelimiter });
+			options.modifiedNodes.splice(0, options.modifiedNodes.length);
+			
 			innerHTML = getValue();
 			onlyUpdateRangeMemo = false;
 
-			if(undoRecord.length > 2 && (undoRecord[undoRecord.length-1].content == innerHTML))
+			prevUndo = undoRecord.length && undoRecord[undoRecord.length - 1];
+
+			//if(undoRecord.length > 2 && (undoRecord[undoRecord.length-1].content == innerHTML))
+			if(!modifiedNodes.length || (prevUndo && prevUndo.sameContent(modifiedNodes)))
 				onlyUpdateRangeMemo = true;
 
 			lastRestoredStateContent == null;
@@ -2409,11 +2425,11 @@
 			while(undoRecord.length >= options.maxUndoItems)
 				undoRecord.shift();
 
-			prevUndo = undoRecord.length && undoRecord[undoRecord.length - 1];
+			if(!onlyUpdateRangeMemo) console.log(modifiedNodes);
 			if(prevUndo && onlyUpdateRangeMemo)
 				prevUndo.updateRange();
 			else
-				undoRecord.push(new UndoItem(editor, innerHTML, prevUndo));
+				undoRecord.push(new UndoItem(editor, modifiedNodes, prevUndo));
 
 			//console.log("sc: %s, so: %s, spos: %s, ec: %s, eo: %s, epos: %s, total undo+redo: %s", sc, so, JSON.stringify(startMemo.positionArray), ec, eo, JSON.stringify(endMemo.positionArray), undoRecord.length + redoRecord.length);
 
@@ -2714,12 +2730,33 @@
 		return r;
 	}
 
-	var UndoItem = function(root, content, prevUndoItem) {
+	var UndoItem = function(root, modifiedNodes, prevUndoItem) {
 		var m = {};
 
 		this.root = root;
 		this.rangeHistory = [];
-		this.content = content;
+		// this.content = content;
+		this.modifiedNodes = modifiedNodes.map(function(n) { 
+			var content, v = {};
+
+			/*if(n.nodeType == 3) 
+				content = n.textContent;
+			else
+			if(n == root) 
+				content = recursiveOuterHTML(n);
+			else
+				content = recursiveOuterHTML(n);
+			*/
+			content = n._cleanValue;
+			
+			v.content = content;
+			v.path = getChildPathFromTop(n, root);
+			v.isRoot = n == root;
+			v.nodeType = n.nodeType;
+			v.is = n.is;
+			
+			return v;
+		});
 
 		this.updateRange();
 
@@ -2727,9 +2764,27 @@
 			this.rangeHistory = prevUndoItem.rangeHistory(function(rm) { return rm.clone(); });
 
 		if(!this.rangeHistory.length)
-			this.rangeHistory = [ new UndoItem(root) ];
+			this.rangeHistory = [ new RangeMemo(root) ];
 	}
 
+	UndoItem.prototype.sameContent = function(modifiedNodes) {
+		var i, j, p;
+		if(this.modifiedNodes.length != modifiedNodes.length)
+			return false;
+		for(i = 0; i < modifiedNodes.length; i++)
+		{
+			if(modifiedNodes[i]._cleanValue != this.modifiedNodes[i].content)
+				return false;
+
+			p = getChildPathFromTop(modifiedNodes[i], this.root); // optimization opportunity
+			for(j = 0; j < p.length; j++)
+				if(p[j] != this.modifiedNodes[i].path[j])
+					return false;				
+		}
+		
+		return true;
+	},
+	
 	UndoItem.prototype.updateRange = function() {
 		var rm = new RangeMemo(this.root);
 
@@ -2749,7 +2804,19 @@
 	UndoItem.prototype.restore = function(doSetCaret) {
 		var i = this.rangeHistory.length - 1, r;
 
-		this.root.innerHTML = this.content;
+		//this.root.innerHTML = this.content;
+			
+		this.modifiedNodes.forEach(function(nodememo) { 
+			var n = getChildFromPath(nodememo.path, this.root);
+			if(n.isRoot)
+				n.innerHTML = nodememo.content;
+			else
+			if(n.nodeType == 3)
+				n.textContent = nodememo.content;
+			else
+				n.outerHTML = nodememo.content;
+		}.bind(this));
+
 		Polymer.dom.flush();
 
 		while(i >= 0)
@@ -3316,6 +3383,30 @@
 		np = this.getElementBeforeCaret({ atomicCustomElements : true });
 		if(key == 8 && np && np.nodeType == 1 && np.is)
 			ev.preventDefault();
+	}
+
+	function minimizeRootsInSubtreeForest(nodes, root) { 
+		var i = 0, j = 0, cn, label = new Date().getTime(), result = [];
+		// first paint all target nodes
+		while(i < nodes.length)
+			nodes[i++]._mrfLabel = label;
+
+		i = 0;
+	  // bubble up from each node, if a painted node is encountered the 
+	  while(i < nodes.length)
+	  {
+		  cn = nodes[i].parentNode;
+		  while(cn && cn != root && cn._mrfLabel != label)
+		  {
+			//if(cn.style) cn.style.backgroundColor = "#eee"
+			cn = cn.parentNode;
+		  }
+		  if(cn == root)
+			  result.push(nodes[i]);
+			  
+			i++;
+	  }
+	  return result
 	}
 
 
