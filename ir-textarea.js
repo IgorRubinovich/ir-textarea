@@ -3,6 +3,7 @@
   "font,b,big,i,small,tt,abbr,acronym,cite,code,dfn,em,kbd,strong,samp,time,var,a,bdo,br,img,map,object,q,script,span,sub,sup".split(/,/)
     .forEach(function(tag) { INLINE_ELEMENTS[tag.toUpperCase()] = true });
 
+  console.log('ir-textarea');
   Polymer({
 		is : 'ir-textarea',
 		ready : function() {
@@ -18,6 +19,11 @@
 					that.$.editor.addEventListener(evType, this.userInputHandler.bind(this));
 				}.bind(this));
 
+			/*this.$.editor.addEventListener('click', function(ev) { 
+				if(ev.target.is != 'paper-dialog')
+					console.log('hi setup');
+			}, true); // capturing phase*/
+			
 			this.$.editor.addEventListener('click', this.contextMenuShow.bind(this), true); // capturing phase
 			this.$.editor.addEventListener('paste', this.pasteHandler.bind(this));
 			// that.$.editor.addEventListener('copy', pasteHandler);
@@ -49,7 +55,7 @@
 																		onRestoreState : function(el) {
 																			this.selectionSave()
 																			this.ensureCursorLocationIsValid();
-																			//this.fire('scroll-into-view', el);
+																			this.fire('scroll-into-view', el);
 																		}.bind(this)
 																	}))
 		},
@@ -221,11 +227,11 @@
 				{
 					if(sc && (keyCode == 36 || keyCode == 37) && sc.isDelimiter) // home and left
 						(sc.isInTransition = (ev.type == 'keydown'))
-							? setCaretAt(Polymer.dom(sc).parentNode, getChildPositionInParent(sc)) : setCaretAt(sc, 1);
+							? setCaretAt(Polymer.dom(sc).parentNode, getChildPositionInParent(sc, true)) : setCaretAt(sc, 1);
 					else
 					if(ec && (keyCode == 35 || keyCode == 39) && ec.isDelimiter && ec.nextSibling) // end and right
 						(ec.isInTransition = (ev.type == 'keydown'))
-							? setCaretAt(Polymer.dom(ec).parentNode, getChildPositionInParent(ec.nextSibling)) : setCaretAt(ec, 1);
+							? setCaretAt(Polymer.dom(ec).parentNode, getChildPositionInParent(ec.nextSibling, true)) : setCaretAt(ec, 1);
 				}
 
 				if(ev.type == 'keydown' && (keyCode == 8 || keyCode == 46)) // deletes
@@ -246,33 +252,44 @@
 						forcedelete = true;
 					}
 					else
-					if(keyCode == 46 && sc.nextSibling && sc.nextSibling.is && sc.isDelimiter && getSelection().isCollapsed) // del key
+					if(keyCode == 46) // del key
 					{
-						forcedelete = toDelete = sc.nextSibling;
+						if(!isInLightDom(ec, this.$.editor) && ec.nodeType == 3 && !ec.nextSibling && eo >= ec.textContent.length)
+							return ev.preventDefault();
+						else
+						if(sc.nextSibling && sc.nextSibling.is && sc.isDelimiter && getSelection().isCollapsed)
+							forcedelete = toDelete = sc.nextSibling;
+						else
+							// firefox won't merge the nodes so we do it "manually"
+							//if(/firefox|iceweasel/i.test(navigator.userAgent) && this.get("startContainer.parentNode.nextSibling", r) == el)
+							if(/firefox|iceweasel/i.test(navigator.userAgent) && !ec.nextSibling && ec.nodeType == 3 && eo >= ec.textContent.length && this.get("parentNode.nextSibling.firstChild", ec))
+							{
+								if(ec.parentNode.nextSibling.firstChild.tagName == 'BR')
+									ec.parentNode.nextSibling.removeChild(ec.parentNode.nextSibling.firstChild);
 
-						// firefox won't merge the nodes so we do it "manually"
-						if(/firefox|iceweasel/i.test(navigator.userAgent) && this.get("startContainer.parentNode.nextSibling", r) == el)
-						{
-							if(r.startContainer.parentNode.lastChild.tagName == 'BR')
-								r.startContainer.parentNode.removeChild(r.startContainer.parentNode.lastChild);
+								mergeNodes(ec.parentNode, ec.parentNode.nextSibling);
+								mergeNodes(ec, ec.nextSibling, true);
 
-							mergeNodes(r.startContainer.parentNode, r.startContainer.parentNode.nextSibling, true);
-
-							ev.preventDefault();
-						}
+								ev.preventDefault();
+							}
 					}
 					else
-					if(keyCode == 8 && sc.isDelimiter && sc.previousSibling && sc.previousSibling.is && getSelection().isCollapsed) // backspace key
+					if(keyCode == 8) // backspace key
 					{
-						forcedelete = toDelete = sc.previousSibling;
-
+						if(!isInLightDom(sc, this.$.editor) && !sc.isInLightDom && sc.nodeType == 3 && !sc.previousSibling && so == 0)
+							return ev.preventDefault();
+						else
+						if(sc.isDelimiter && sc.previousSibling && sc.previousSibling.is && getSelection().isCollapsed)
+							forcedelete = toDelete = sc.previousSibling;
+						else
 						// firefox won't merge the nodes so we do it "manually"
-						if(/firefox|iceweasel/i.test(navigator.userAgent) && this.get("startContainer.previousSibling.lastChild", r) == el)
+						if(/firefox|iceweasel/i.test(navigator.userAgent) && !sc.previousSibling && sc.nodeType == 3 && so == 0 && this.get("parentNode.previousSibling.lastChild", sc))
 						{
-							if(r.startContainer.previousSibling.lastChild.tagName == 'BR')
-								r.startContainer.previousSibling.removeChild(r.startContainer.previousSibling.lastChild);
+							if(sc.parentNode.previousSibling.lastChild.tagName == 'BR')
+								sc.previousSibling.removeChild(sc.previousSibling.lastChild);
 
-							mergeNodes(r.startContainer.previousSibling, r.startContainer, true);
+							mergeNodes(sc.parentNode.previousSibling, sc.parentNode);
+							mergeNodes(sc.previousSibling, sc, true);
 
 							ev.preventDefault();
 						}
@@ -694,10 +711,16 @@
 			target = actionTarget = getClosestLightDomTarget(target, this.$.editor);
 
 			parentCustomEl = getTopCustomElementAncestor(target, this.$.editor);
+			
+
+			
 			if(parentCustomEl)
 			{
 				ev.stopPropagation();
 				ev.stopImmediatePropagation();
+
+				if(Polymer.dom(ev).path.filter(function(el) { return el.is == 'paper-dialog' }).length) // a simplish way to allow setup dialogs
+					return;
 			}
 
 			if(this.__actionData.target != target)
@@ -762,8 +785,8 @@
 
 			cm.options.push({label: 'Remove media',  icon: 'icons:align', info: '', value : target, action : imageAction(this.deleteTarget.bind(this))});
 
-			if(target.is && typeof target.setup == 'function')
-				cm.options.push({label: 'Setup...', value : target, action : target.setup.bind(target)});
+			//if(parentCustomEl && typeof parentCustomEl.setup == 'function')
+			//	cm.options.push({label: 'Setup...', value : parentCustomEl, action : parentCustomEl.setup.bind(parentCustomEl)});
 
 			flowTarget = target;
 
@@ -844,7 +867,9 @@
 		  var ad = this.__actionData;
 
 		  this.removeActionBorder();
-
+		  
+		  this.$.resizeHandler.style.display = "none";
+		  
 		  if(ad.target)
 			console.log('stopped action:', ad.target);
 
@@ -936,7 +961,9 @@
 			this.$.resizeHandler.style.left = (ep.x + cbr.width - 25) + "px";
 			this.$.resizeHandler.style.top = (ep.y + cbr.height - 25) + "px";
 			this.$.resizeHandler.style.display = "block";
-
+			
+			this.$.resizeHandler.proxyTarget = target;
+			
 			resizeHandler = function (event) {
 
 				//var target = event.target,
@@ -1006,7 +1033,6 @@
 
 				that.$.resizeHandler.style.display = "none";
 
-
 				if(t = st = that.__actionData.resizeTarget)
 				{
 					st.style.width = t.style.width
@@ -1022,18 +1048,21 @@
 			}
 
 			interact('#'+target.id).resizable({
-
-
 				edges: { left: true, right: true, bottom: true, top: true }
 			})
-				.on('resizemove', resizeHandler)
-				.on('resizeend', resizeEndHandler);
+			.on('resizemove', resizeHandler)
+			.on('resizeend', resizeEndHandler);
 
+			if(target.nextSibling)
+				setCaretAt(target.nextSibling, 0);
+			else
+				setCaretAt(target, 0);
+			
 			interact('#resizeHandler').on('down', function (event) {
 				var interaction = event.interaction,
 					handle = event.currentTarget;
 
-			target = that.__actionData.resizeTarget;
+				target = that.__actionData.resizeTarget;
 
 				interaction.start({
 						name: 'resize',
@@ -1066,7 +1095,7 @@
 		  // calculate drop target and move drag target there
 		  if(done)
 		  {
-			actualTarget = this.__actionData.dragTarget; // /*this.__actionData.dragTarget.proxyTarget ||*/
+			actualTarget = this.__actionData.dragTarget;
 			caretPosData = this.__actionData.caretPosData;
 
 			if(caretPosData && caretPosData.node)
@@ -1082,9 +1111,6 @@
 			  // for now, forbid explicitly to drop into custom elements. (for custom targets only - built-in text drop is still possible! - e.g., it's ok to move text into a caption inside a gallery)
 			  if(tpce)
 				this.moveCaretAfterOrWrap(tpce, null, this.$.editor);
-			  //else
-			  //if(caretPosData.node.proxyTarget)
-			  //	this.moveCaretAfterOrWrap(caretPosData.node.proxyTarget, null, this.$.editor);
 
 			  this.ensureCursorLocationIsValid();
 
@@ -1412,6 +1438,8 @@
 					setCaretAt(pos.container, pos.offset);
 			}
 
+			// analyze where the caret is in paragraph
+						
 			r = getSelectionRange();
 
 			first = r.startContainer;
@@ -1422,7 +1450,7 @@
 				firstOffset = 0;
 			}
 
-			firstIsEmptyParagraph = isEmptyParagraph(first);
+			firstIsEmptyParagraph = canHaveChildren(first) ? isEmptyParagraph(first) : (first.parentNode && isEmptyParagraph(first.parentNode));
 			isNewParagraph = div.childNodes.length == 1 && isEmptyParagraph(div.firstChild);
 
 			if(firstIsEmptyParagraph)
@@ -1459,8 +1487,8 @@
 						firstOffset = getChildPositionInParent(first);
 				}
 
-			// set caretAt
-
+			// wrap bare nodes 
+			
 			container = first;
 			// find first praragraph or non-text, non-inline container. it could have been the editor but we wrapped bare nodes earlier
 			while(!isParagraph(container) && (container.nodeType == 3 || INLINE_ELEMENTS[container.tagName] || isSpecialElement(container)))
@@ -1476,7 +1504,8 @@
 				else
 					caretAt.containerMiddle = true;
 			}
-
+			
+			debugger;
 
 			// paste html and move carret
 			if(caretAt.containerStart)
@@ -1487,10 +1516,11 @@
 				if(!isNewParagraph)
 				{
 					pos = getLastCaretPosition(lastInserted);
-					setCaretAt(pos.container, pos.offset);
-					if(!container.textContent)
-						container.parentNode.removeChild(container);
+					setCaretAt(lastInserted, pos.offset);
+					//if(!container.textContent)
+					//	container.parentNode.removeChild(container);
 				}
+				return;
 			}
 			else
 			if(caretAt.containerEnd)
@@ -1534,7 +1564,7 @@
 
 				first = last.previousSibling;
 
-				if(last.nodeType == 1) {
+				if(last.nodeType == 1 && last.firstChild) {
 					if(last.firstChild.nodeType == 3 && !last.firstChild.textContent)
 						last.removeChild(last.firstChild);
 					if(last.firstChild && last.firstChild.tagName == "BR")
@@ -1924,7 +1954,7 @@
 		ensureCursorLocationIsValid : function(opts) { // if reverseDirection is true cursor is moving in reverse to typing direction
 			return; // obsolete
 
-			var r, i, sp, sc, ec, so, eo, totalChecks = 0, jumpsOccured = 0;
+			/*var r, i, sp, sc, ec, so, eo, totalChecks = 0, jumpsOccured = 0;
 
 			opts = opts || {};
 
@@ -1941,7 +1971,7 @@
 				return console.error('too many cursor movements');
 
 			this.selectionSave();
-			this.fire('scroll-into-view', this.getSelectionCoords());
+			this.fire('scroll-into-view', this.getSelectionCoords());*/
 		},
 
 		getSelectionCoords : function() {
@@ -1965,8 +1995,9 @@
 
 		// wraps content in <p><br></p>[content]<p><br></p>
 		frameContent : function() {
-			return;
-
+			return; // obsolete
+			
+			/*
 			var ed = this.$.editor, nn, i, d, lastBeforeSkip, r;
 
 
@@ -2002,6 +2033,8 @@
 				else
 					ed.insertBefore(newEmptyParagraph(), lastBeforeSkip.nextSibling);
 			}
+			
+			*/
 		},
 
 		_updateValue : function(force) {
@@ -2021,11 +2054,30 @@
 			}
 
 			this._updateValueTimeout = setTimeout(function() {
-				r = getSelectionRange();
-				if(r && this.isOrIsAncestorOf(this.$.editor, r.startContainer))
-					this.fire('scroll-into-view', this.getSelectionCoords());
-
+				var p;
+				
 				this.customUndo.pushUndo();
+				
+				r = getSelectionRange();
+
+				if(!r)
+					return;
+
+				p = r.startContainer;
+				while(p)
+				{
+					if(p.is == 'paper-dialog')
+						return;
+					if(p == this.$.editor)
+					{
+						return this.fire('scroll-into-view', this.getSelectionCoords());
+					}
+					p = p.parentNode;
+				}
+
+				//if(r && this.isOrIsAncestorOf(this.$.editor, r.startContainer))
+				//	this.fire('scroll-into-view', this.getSelectionCoords());
+
 			}.bind(this), 300);
 
 			var val, sameContent, d, r;
@@ -2162,8 +2214,6 @@
 			}
 
 			return setCaretAt(ns, 0);
-
-			console.log();
 		},
 
 		moveCaretBeforeOrWrap : function(slc, elc, top) {
@@ -2630,7 +2680,7 @@
 		if(r && sc.proxyTarget) // same name new animal
 			sc = ec = sc.proxyTarget.nextSibling, so = eo = 0;
 
-		if(!r || !isChildOf(sc, root) || (sc != ec && !isChildOf(sc, root)))
+		if(!r || !isDescendantOf(sc, root) || (sc != ec && !isDescendantOf(ec, root)))
 		{
 			this.startPos = this.endPos = [];
 			this.startOffset = this.endOffset = 0;
@@ -2638,6 +2688,9 @@
 			return;
 		}
 
+		 if(isDescendantOf(sc, root) && isDescendantOf(ec, root))
+			 
+		
 		if(sc != root && !isInLightDom(sc, root))
 			sc = getTopCustomElementAncestor(sc, root).nextSibling, so = 0;
 		if(ec != root && !isInLightDom(ec, root))
@@ -2757,7 +2810,7 @@
 				return r;
 	}
 
-	var getChildPositionInParent = function(child, top) {
+	var getChildPositionInParent = function(child, withDelimiters) {
 		var i, cn, p, delimiters = 0;
 		if(!child || child == document.body)
 			return null;
@@ -2769,7 +2822,7 @@
 
 		//console.log("delimiters:", delimiters)
 
-		return cn[i] == child ? i - delimiters : null;
+		return cn[i] == child ? i - (withDelimiters ? 0 : delimiters) : null;
 	}
 
 	var getChildPathFromTop = function(child, top) {
@@ -3040,7 +3093,7 @@
 		left += element.offsetLeft || 0;
 		element = element.offsetParent;
 
-		while(element && isChildOf(element, fromElement))
+		while(element && isDescendantOf(element, fromElement))
 		{
 			cs = element.getBoundingClientRect(); // getComputedStyle(element);
 			top += element.offsetTop || 0;
@@ -3053,13 +3106,18 @@
 		};
 	};
 
-	function isChildOf(child, ancestor) {
-		while(child != document.body)
-			if(child.parentNode == ancestor)
+	function isDescendantOf(child, ancestor) {
+		var pp;
+
+		while(child && child != document.body)
+		{
+			pp = Polymer.dom(child).parentNode;
+			if(child.parentNode == ancestor || (pp && pp.parentNode == ancestor))
 				return true;
 			else
-				child = child.parentNode;
-
+				child = (child.parentNode == pp ? child.parentNode : (isInLightDom(child, ancestor) ? pp : Polymer.dom(child).getOwnerRoot().host));
+		
+		}
 		return false;
 	}
 
@@ -3239,8 +3297,12 @@
 				left = left.parentNode
 
 			if(right.nodeType == 1) // element - element
+			{
 				while(right.firstChild)
 					left.appendChild(right.removeChild(right.firstChild));
+				
+				right.parentNode.removeChild(right);
+			}
 			else					// element - text
 				left.appendChild(right.parentNode.removeChild(right));
 
