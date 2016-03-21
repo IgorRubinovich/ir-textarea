@@ -112,7 +112,6 @@
 
 		disconnectEditorObserver : function()
 		{
-
 			this.editorMutationObserver.disconnect();
 		},
 
@@ -226,21 +225,29 @@
 				ev.preventDefault();
 			}
 
-			if(ev.type == 'keydown' || ev.type == 'keyup')
+			if(['keydown','keyup','keypress'].indexOf(ev.type) > -1)
 			{
 				r = getSelectionRange();
 				if(r.startContainer.nodeType == 3 || !r.startContainer.childNodes.length) sc = r.startContainer, so = r.startOffset; else sc = r.startContainer.childNodes[r.startOffset], so = 0;
 				if(r.endContainer.nodeType == 3 || !r.endContainer.childNodes.length) ec = r.endContainer, eo = r.startOffset; else ec = r.startContainer.childNodes[r.startOffset], eo = 0;
 
 				if([35,36,37,39].indexOf(keyCode) > -1) // left/right/home/end
-				{
-					if(sc && (keyCode == 36 || keyCode == 37) && sc.isDelimiter) // home and left
-						(sc.isInTransition = (ev.type == 'keydown'))
-							? setCaretAt(Polymer.dom(sc).parentNode, getChildPositionInParent(sc, true)) : setCaretAt(sc, 1);
+				{						
+					if(sc && (keyCode == 36 || keyCode == 37) && (so <= (sc.isDelimiter ? 1 : 0) && sc.nodeType == 3 && sc.previousSibling && sc.previousSibling.is)) // home and left
+					{
+						if(sc.isInTransition = (ev.type == 'keydown'))
+						{
+							setCaretAt(sc.previousSibling.previousSibling, sc.previousSibling.previousSibling.textContent.length);
+							ev.preventDefault();
+						}
+					}
 					else
-					if(ec && (keyCode == 35 || keyCode == 39) && ec.isDelimiter && ec.nextSibling) // end and right, next sibling must be a custom element with a delimiter or a text node as nextSibling
+					if(ec && (keyCode == 35 || keyCode == 39) && (ec.isDelimiter || eo >= ec.length) && ec.nextSibling && ec.nextSibling.is) // end and right, next sibling must be a custom element with a delimiter or a text node as nextSibling
 						if(ec.isInTransition = (ev.type == 'keydown'))
-							setCaretAt(ec.nextSibling.nextSibling, 0);
+						{
+							setCaretAt(ec.nextSibling.nextSibling, (ec.nextSibling.nextSibling.isDelimiter ? 1 : 0));
+							ev.preventDefault();
+						}
 							//? setCaretAt(Polymer.dom(ec).parentNode, getChildPositionInParent(ec.nextSibling.nextSibling, true)) : setCaretAt(ec, 1);
 				}
 
@@ -282,7 +289,7 @@
 						if(!isInLightDom(ec, this.$.editor) && ec.nodeType == 3 && !ec.nextSibling && eo >= ec.textContent.length)
 							return ev.preventDefault();
 						else
-						if(sc.nextSibling && sc.nextSibling.is && sc.isDelimiter && getSelection().isCollapsed)
+						if(sc.nextSibling && sc.nextSibling.is && getSelection().isCollapsed)
 							forcedelete = toDelete = sc.nextSibling;
 						else
 						// firefox won't merge the nodes so we do it "manually"
@@ -315,8 +322,14 @@
 						if(!isInLightDom(sc, this.$.editor) && sc.nodeType == 3 && !sc.previousSibling && so == 0)
 							return ev.preventDefault();
 						else
-						if(sc.isDelimiter && sc.previousSibling && sc.previousSibling.is && getSelection().isCollapsed)
+						if((sc.isDelimiter || (sc.nodeType == 3 && so == 0)) && sc.previousSibling && sc.previousSibling && sc.previousSibling.is && getSelection().isCollapsed)
+						{
+							//if(sc.previousSibling.previousSibling.isDelimiter)
+							//	merge = true;
+
 							forcedelete = toDelete = sc.previousSibling;
+							ev.preventDefault();
+						}
 						else
 						// firefox won't merge the nodes so we do it "manually"
 						if(/firefox|iceweasel/i.test(navigator.userAgent) && sc != this.$.editor && so == 0 && !canHaveChildren(sc) && !sc.previousSibling && sc.parentNode && sc.parentNode.previousSibling)
@@ -353,9 +366,7 @@
 					if(toDelete && toDelete.parentNode && toDelete.nodeType == 1 && (forcedelete || !ev.defaultPrevented))
 					{
 						if(toDelete.parentNode.firstChild == toDelete && toDelete.parentNode.lastChild == toDelete)
-						{
 							toDelete = toDelete.parentNode;
-						}
 
 						if(toDelete.previousSibling && toDelete.nextSibling)
 							merge = { left : toDelete.previousSibling, right : toDelete.nextSibling };
@@ -476,7 +487,7 @@
 		editorMutationHandler : function(mrecs) {
 			this.disconnectEditorObserver();
 
-			if(this.editorMutationHandler.paused)
+			if(this.editorMutationHandler.skip--)
 				return;
 
 			var totalVisits = 0, ce, pe, tnc, created, r, sc, so, ec, eo, delimiter, emptyRe, done, upToDate,
@@ -665,13 +676,15 @@
 				pe = Polymer.dom(ce).parentNode;
 				if(pe)
 				{
+					pe.normalize();
+
 					ps = ce.previousSibling;
 					ns = ce.nextSibling;
 
 					// pad before
 					if(!ps || ps.nodeType != 3) // no text element before
 					{
-						pe.insertBefore(created = document.createTextNode(delimiter), ce);
+						ps = pe.insertBefore(created = document.createTextNode(delimiter), ce);
 						created.isDelimiter = true;
 					}
 					else // a whitespace text element before
@@ -704,7 +717,7 @@
 					// pad after
 					if(!ns || ns.nodeType != 3)
 					{
-						pe[ns ? 'insertBefore' : 'appendChild'](created = document.createTextNode(delimiter), ns);
+						ns = pe[ns ? 'insertBefore' : 'appendChild'](created = document.createTextNode(delimiter), ns);
 						created.isDelimiter = true;
 					}
 					else
@@ -733,8 +746,6 @@
 							setCaretAt(ns, Math.min(eo, ns.textContent.length))
 					}
 
-					pe.normalize();
-
 					ce.setAttribute('contenteditable', false);
 
 					// auto-editable lightdom children - should come as a property
@@ -752,7 +763,7 @@
 
 		contextMenuShow : function(ev) {
 			var cm = this.$.contextMenu, target = ev.target, flowTarget, captionWrapper,
-				mediaEditor = this.$.mediaEditor, that = this, altTarget = ev.target, candidateTarget, parentCustomEl,
+				mediaEditor = this.$.mediaEditor, that = this, altTarget = ev.target, candidateTarget, parentCustomEl, p, i,
 				actionTarget = target,
 				menuGroups = {
 						resizeable : "video,img,iframe,embedded-media",
@@ -767,10 +778,14 @@
 
 			parentCustomEl = getTopCustomElementAncestor(target, this.$.editor);
 
-
-
 			if(parentCustomEl)
 			{
+				
+				p = Polymer.dom(ev).path;
+				for(i = 0; i <= p.length && p[i] != parentCustomEl; i++)
+					if(p[i].is == 'paper-dialog')
+						return;
+
 				ev.stopPropagation();
 				ev.stopImmediatePropagation();
 
@@ -833,15 +848,15 @@
 
 			cm.options = [];
 
-			cm.options.push({label: '',  icon: 'icons:cancel', info: '', value : target, action : imageAction(null)});
+			cm.options.push({label: '',  info: '', value : target, action : imageAction(null)});
 
 			if(target.matchesSelector(menuGroups.resizeable)) // || (target.proxyTarget.matchesSelector(menuGroups.resizeable))) //target.proxyTarget &&
-				cm.options.push({label: 'Resize', icon: 'icons:size', info: '', value : target, action : this.resizeTarget.bind(this)});
+				cm.options.push({label: 'Resize',  info: '', value : target, action : this.resizeTarget.bind(this)});
 
-			cm.options.push({label: 'Remove media',  icon: 'icons:align', info: '', value : target, action : imageAction(this.deleteTarget.bind(this))});
+			cm.options.push({label: 'Remove media', info: '', value : target, action : imageAction(this.deleteTarget.bind(this))});
 
-			//if(parentCustomEl && typeof parentCustomEl.setup == 'function')
-			//	cm.options.push({label: 'Setup...', value : parentCustomEl, action : parentCustomEl.setup.bind(parentCustomEl)});
+			if(parentCustomEl && typeof parentCustomEl.setup == 'function')
+				cm.options.push({label: 'Setup...', value : parentCustomEl, action : parentCustomEl.setup.bind(parentCustomEl)});
 
 			flowTarget = target;
 
@@ -862,13 +877,13 @@
 
 				if(target.matchesSelector('img,.caption-wrapper'))
 				{
-					cm.options.push({label: 'Float', icon: 'icons:align', info: '', options: floatOptions});
+					cm.options.push({label: 'Float', info: '', options: floatOptions});
 					if(captionWrapper)
-						cm.options.push({label: 'Remove caption', icon: 'icons:align', value : target, action : imageAction(mediaEditor.captionRemove.bind(mediaEditor))});
+						cm.options.push({label: 'Remove caption', value : target, action : imageAction(mediaEditor.captionRemove.bind(mediaEditor))});
 					else
-						cm.options.push({label: 'Add caption', icon: 'icons:align', info: '', value : target, action : imageAction(mediaEditor.captionSet.bind(mediaEditor))});
+						cm.options.push({label: 'Add caption', info: '', value : target, action : imageAction(mediaEditor.captionSet.bind(mediaEditor))});
 
-					cm.options.push({label: 'More...',  icon: 'icons:align', info: '', value : target, action : imageAction(mediaEditor.open.bind(mediaEditor))});
+					cm.options.push({label: 'More...', info: '', value : target, action : imageAction(mediaEditor.open.bind(mediaEditor))});
 				}
 			}
 
@@ -2066,9 +2081,11 @@
 
 		getSelectionCoords : function() {
 			var c;
-			this.editorMutationHandler.paused = true;
+
+			//this.editorMutationHandler.skip = 1;
+			//this.disconnectEditorObserver();
 			c = getSelectionCoords();
-			this.editorMutationHandler.paused = false;
+			//this.connectEditorObserver();
 
 			return c;
 		},
@@ -2156,12 +2173,9 @@
 				p = r.startContainer;
 				while(p)
 				{
-					if(p.is == 'paper-dialog')
-						return;
 					if(p == this.$.editor)
-					{
 						return this.fire('scroll-into-view', this.getSelectionCoords());
-					}
+
 					p = p.parentNode;
 				}
 
@@ -3228,7 +3242,7 @@
 		{
 			win = win || window;
 			var doc = win.document, offsetParent, oldVal;
-			var sel = doc.selection, range, rects, rect;
+			var sel = doc.selection, range, rects, rect, delimiters = [];
 			var x = 0, y = 0, spanParent;
 			if (sel) {
 				if (sel.type != "Control") {
@@ -3259,6 +3273,11 @@
 						if (span.getClientRects) {
 							//var spanParent = span.parentNode;
 
+							if(range.startContainer.isDelimiter)
+								delimiters.push(range.startContainer)
+							if(range.endContainer.isDelimiter)
+								delimiters.push(range.endContainer)
+							
 							range.insertNode(span);
 							//rect = span.getClientRects()[0];
 							//x = rect.left;
@@ -3278,6 +3297,8 @@
 							// Glue any broken text nodes back together
 							spanParent.normalize();
 
+							delimiters.forEach(function(d) { d.isDelimiter = true });
+							
 							spanParent.noChange = true;
 						}
 					}
@@ -3377,10 +3398,17 @@
 	};
 
 	function mergeNodes(left, right, setCaretAtMergePoint) {
-		var caretPos, ret;
+		var caretPos, ret, delimiters = 0;
 
 		ret = caretPos = getLastCaretPosition(left);
 
+		delimiters = Number(left.isDelimiter || 0) + Number(right.isDelimiter || 0);
+		if(left.isDelimiter)
+			left.textContent = '';
+		else
+		if(!left.isDelimiter && right.isDelimiter)
+			right.textContent = '';
+		
 		if(left.nodeType == 1) // left <-- right
 		{
 
@@ -3423,8 +3451,8 @@
 		}
 
 		if(setCaretAtMergePoint)
-			setCaretAt(caretPos.container, caretPos.offset);
-
+			setCaretAt(caretPos.container, caretPos.offset - delimiters);
+		
 		return ret;
 	}
 
@@ -3469,8 +3497,8 @@
 		np = this.getElementBeforeCaret({ atomicCustomElements : true });
 		if(key == 8 && np && np.nodeType == 1 && np.is)
 			ev.preventDefault();
-	}
 
+	}
 
 	var numerify = function (x){
 		if(typeof x == 'undefined' || !x)
