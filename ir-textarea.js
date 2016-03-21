@@ -173,9 +173,9 @@
 			this.selectionRestore(true);
 
 			// save position on control keys
-			if(((ev.type == 'keyup') && ([33,34,35,36,37,38,39,40].indexOf(keyCode) > -1)) || (ev.type == 'mouseup'))
+			if(ev.type == 'keyup') //&& ([33,34,35,36,37,38,39,40].indexOf(keyCode) > -1)) || (ev.type == 'mouseup'))
 				this.customUndo.pushUndo();
-			else
+			//else
 			if(ev.keyCode && !ev.ctrlKey && !ev.metaKey && !ev.altKey)
 				this.clearActionData();
 
@@ -254,7 +254,7 @@
 				if(keyCode == 8 || keyCode == 46) // deletes
 				{
 					if(ev.type != 'keydown')
-						return ev.preventDefault()
+						return; // ev.preventDefault()
 
 					t = this.$.editor;
 
@@ -289,7 +289,7 @@
 						if(!isInLightDom(ec, this.$.editor) && ec.nodeType == 3 && !ec.nextSibling && eo >= ec.textContent.length)
 							return ev.preventDefault();
 						else
-						if(sc.nextSibling && sc.nextSibling.is && getSelection().isCollapsed)
+						if(sc.nextSibling && sc.nodeType == 3 && sc.nextSibling.is && so >= sc.textContent.length && getSelection().isCollapsed)
 							forcedelete = toDelete = sc.nextSibling;
 						else
 						// firefox won't merge the nodes so we do it "manually"
@@ -332,6 +332,11 @@
 						}
 						else
 						// firefox won't merge the nodes so we do it "manually"
+						if(/firefox|iceweasel/i.test(navigator.userAgent) && sc != this.$.editor && so == 1 && sc && sc.previousSibling && sc.previousSibling.is)
+						{
+							sc.textContent.replace(/^./, '');
+							setCaretAt(sc, 0);
+						}
 						if(/firefox|iceweasel/i.test(navigator.userAgent) && sc != this.$.editor && so == 0 && !canHaveChildren(sc) && !sc.previousSibling && sc.parentNode && sc.parentNode.previousSibling)
 						{
 							if(this.get("parentNode.previousSibling.lastChild", sc)) // neighbouring paragraphs with text nodes
