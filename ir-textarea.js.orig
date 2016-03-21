@@ -254,8 +254,13 @@
 				if(keyCode == 8 || keyCode == 46) // deletes
 				{
 					if(ev.type != 'keydown')
-						return; // ev.preventDefault()
+<<<<<<< 51ecce218c0a9c65aabcd1072e61174c5cf2d11c
+						return ev.preventDefault()
 
+=======
+						return; // ev.preventDefault()
+						
+>>>>>>> more nav/deletes
 					t = this.$.editor;
 
 					if(sc == this.$.editor)
@@ -292,12 +297,6 @@
 						if(sc.nextSibling && sc.nodeType == 3 && sc.nextSibling.is && so >= sc.textContent.length && getSelection().isCollapsed)
 							forcedelete = toDelete = sc.nextSibling;
 						else
-						// firefox won't delete first char after contenteditable (y u firefox?!)
-						if(/firefox|iceweasel/i.test(navigator.userAgent) && sc != this.$.editor && so == 0 && sc && sc.previousSibling && sc.previousSibling.is)
-						{
-							sc.textContent = sc.textContent.replace(/^./, '');
-							setCaretAt(sc, 0);
-						}
 						// firefox won't merge the nodes so we do it "manually"
 						//if(/firefox|iceweasel/i.test(navigator.userAgent) && this.get("startContainer.parentNode.nextSibling", r) == el)
 						if(/firefox|iceweasel/i.test(navigator.userAgent) && sc != this.$.editor && so == 0 && sc.nodeType == 3 && !sc.textContent.length && !sc.nextSibling)
@@ -337,13 +336,12 @@
 							ev.preventDefault();
 						}
 						else
-						// firefox won't delete first char after contenteditable (y u firefox?!)
+						// firefox won't merge the nodes so we do it "manually"
 						if(/firefox|iceweasel/i.test(navigator.userAgent) && sc != this.$.editor && so == 1 && sc && sc.previousSibling && sc.previousSibling.is)
 						{
-							sc.textContent = sc.textContent.replace(/^./, '');
+							sc.textContent.replace(/^./, '');
 							setCaretAt(sc, 0);
 						}
-						// firefox won't merge the nodes so we do it "manually"
 						if(/firefox|iceweasel/i.test(navigator.userAgent) && sc != this.$.editor && so == 0 && !canHaveChildren(sc) && !sc.previousSibling && sc.parentNode && sc.parentNode.previousSibling)
 						{
 							if(this.get("parentNode.previousSibling.lastChild", sc)) // neighbouring paragraphs with text nodes
