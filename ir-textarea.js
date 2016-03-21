@@ -19,14 +19,14 @@
 					that.$.editor.addEventListener(evType, this.userInputHandler.bind(this));
 				}.bind(this));
 
-			/*this.$.editor.addEventListener('click', function(ev) { 
+			/*this.$.editor.addEventListener('click', function(ev) {
 				if(ev.target.is != 'paper-dialog')
 					console.log('hi setup');
 			}, true); // capturing phase*/
-			
+
 			this.$.resizeHandler.addEventListener('mousedown', function(ev) { ev.preventDefault(); }); // capturing phase
 			this.$.resizeHandler.addEventListener('mousemove', function(ev) { ev.preventDefault(); }); // capturing phase
-			
+
 			this.$.editor.addEventListener('click', this.contextMenuShow.bind(this), true); // capturing phase
 			this.$.editor.addEventListener('paste', this.pasteHandler.bind(this));
 			// that.$.editor.addEventListener('copy', pasteHandler);
@@ -164,7 +164,7 @@
 		},
 
 		userInputHandler : function (ev) {
-			var altTarget, noMoreSave, el, toDelete, keyCode = ev.keyCode || ev.which, t, 
+			var altTarget, noMoreSave, el, toDelete, keyCode = ev.keyCode || ev.which, t,
 				forcedelete, r, done, localRoot, last, n, nn, pn, pos, firstRange, merge, sc, ec, so, eo, toMerge;
 
 			if((ev.keyCode == 90 || ev.keyCode == 89) && ev.ctrlKey) // undo/redo are handled in their own handler
@@ -183,7 +183,7 @@
 			if (ev.type == 'keyup' && keyCode == 13) { 	// line break/paragraph
 				return ev.preventDefault();
 			}
-			
+
 			if (ev.type == 'keydown' && keyCode == 13) { 	// line break/paragraph
 				r = this.selectionRestore();
 				if(ev.shiftKey || // line break
@@ -192,7 +192,7 @@
 					getTopCustomElementAncestor(r.endContainer, this.$.editor))
 				{
 						r = getSelectionRange();
-						
+
 						if(r.startContainer.nodeType == 3 && (r.startContainer.length - 1 <= r.startOffset && r.startContainer.textContent.charAt(r.startOffset).match(/^ ?$/) && ((nextNode(r.startContainer) || {}).tagName != "BR")))
 							firstRange = this.pasteHtmlAtCaret('<br>', false, true);
 
@@ -248,9 +248,9 @@
 				{
 					if(ev.type != 'keydown')
 						return ev.preventDefault()
-						
+
 					t = this.$.editor;
-					
+
 					if(sc == this.$.editor)
 					{
 						r = setCaretAt(sc.childNodes[so], 0);
@@ -260,7 +260,7 @@
 
 					if(!sc)
 						return;
-					
+
 					if(ev.type == 'keydown' && keyCode == 8 && (sc.previousSibling && sc.previousSibling.is && sc.textContent.length == 1 && so == 1)) // prevent jump when deleting last char in a to-be delimiter
 					{
 						sc.textContent = ' '
@@ -292,7 +292,7 @@
 							if(sc.parentNode && sc.parentNode.nextSibling)
 							{
 								setCaretAt(sc.parentNode.nextSibling, 0);
-								sc.parentNode.removeChild(sc);								
+								sc.parentNode.removeChild(sc);
 							}
 						}
 						else
@@ -302,7 +302,7 @@
 								ec.parentNode.nextSibling.removeChild(ec.parentNode.nextSibling.firstChild);
 
 							mergeNodes(ec.parentNode, ec.parentNode.nextSibling, true);
-							
+
 							if(ec.nextSibling && !INLINE_ELEMENTS[ec.tagName])
 								mergeNodes(ec, ec.nextSibling, true);
 
@@ -331,10 +331,10 @@
 								}
 
 								mergeNodes(sc.parentNode.previousSibling, sc.parentNode, true);
-								
+
 								if(sc.previousSibling && !INLINE_ELEMENTS[sc.tagName])
 									mergeNodes(sc.previousSibling, sc, true);
-								
+
 								ev.preventDefault();
 							}
 							else
@@ -766,9 +766,9 @@
 			target = actionTarget = getClosestLightDomTarget(target, this.$.editor);
 
 			parentCustomEl = getTopCustomElementAncestor(target, this.$.editor);
-			
 
-			
+
+
 			if(parentCustomEl)
 			{
 				ev.stopPropagation();
@@ -922,9 +922,9 @@
 		  var ad = this.__actionData;
 
 		  this.removeActionBorder();
-		  
+
 		  this.$.resizeHandler.style.display = "none";
-		  
+
 		  if(ad.target)
 			console.log('stopped action:', ad.target);
 
@@ -979,13 +979,16 @@
 			var interactable = this.__actionData.interactable,
 			target = this.__actionData.resizeTarget;
 
-			document.removeEventListener('mouseup', this.resizeTargetStop);
-			document.removeEventListener('click', this.resizeTargetStop);
 
 			if(interactable)
 				interactable.unset();
 
 			this.clearActionData();
+
+      if( target.id =='resizable-element') target.id = '';
+
+      document.removeEventListener('mouseup', this.resizeTargetStop);
+      document.removeEventListener('click', this.resizeTargetStop);
 		},
 
 		resizeTarget : function(target) {
@@ -1016,9 +1019,9 @@
 			this.$.resizeHandler.style.left = (ep.x + cbr.width - 25) + "px";
 			this.$.resizeHandler.style.top = (ep.y + cbr.height - 25) + "px";
 			this.$.resizeHandler.style.display = "block";
-			
+
 			this.$.resizeHandler.proxyTarget = target;
-			
+
 			resizeHandler = function (event) {
 
 				//var target = event.target,
@@ -1112,7 +1115,7 @@
 				setCaretAt(target.nextSibling, 0);
 			else
 				setCaretAt(target, 0);
-			
+
 			interact('#resizeHandler').on('down', function (event) {
 				var interaction = event.interaction,
 					handle = event.currentTarget;
@@ -1522,9 +1525,9 @@
 				//if(r.startContainer.nodeType == 3 || !r.startContainer.childNodes.length) sc = r.startContainer, so = r.startOffset; else sc = r.startContainer.childNodes[r.startOffset], so = 0;
 				//if(r.endContainer.nodeType == 3 || !r.endContainer.childNodes.length) ec = r.endContainer, eo = r.startOffset; else ec = r.startContainer.childNodes[r.startOffset], eo = 0;
 			}
-			
-			// analyze where the caret is in paragraph						
-			
+
+			// analyze where the caret is in paragraph
+
 			first = r.startContainer;
 			firstOffset = r.startOffset;
 			if(first.firstChild && (!selfOrLeftmostDescendantIsSpecial(first.childNodes[firstOffset])))
@@ -1570,8 +1573,8 @@
 						firstOffset = getChildPositionInParent(first);
 				}
 
-			// wrap bare nodes 
-			
+			// wrap bare nodes
+
 			container = first;
 			// find first praragraph or non-text, non-inline container. it could have been the editor but we wrapped bare nodes earlier
 			while(!isParagraph(container) && (container.nodeType == 3 || INLINE_ELEMENTS[container.tagName] || isSpecialElement(container)))
@@ -1587,7 +1590,7 @@
 				else
 					caretAt.containerMiddle = true;
 			}
-			
+
 			// paste html and move carret
 			if(caretAt.containerStart)
 			{
@@ -1635,7 +1638,7 @@
 					}
 				}
 
-				if(!selfOrLeftmostDescendantIsSpecial(first)) // first is custom element 
+				if(!selfOrLeftmostDescendantIsSpecial(first)) // first is custom element
 					last = splitNode(first, firstOffset, container);
 				else
 				if(first.parentNode != this.$.editor)
@@ -1653,7 +1656,7 @@
 					if(!last.childNodes.length)
 						last.parentNode.removeChild(last);
 				}
-				
+
 				last = first.nextSibling;
 
 				if(!isNewParagraph || (sp = selfOrLeftmostDescendantIsSpecial(last)) || !last)
@@ -1685,7 +1688,7 @@
 					ec = r.startContainer;
 					eo = r.startOffset;
 
-					
+
 					if(r.startContainer.isDelimiter)
 					{
 						sc.textContent = "";
@@ -2083,7 +2086,7 @@
 		// wraps content in <p><br></p>[content]<p><br></p>
 		frameContent : function() {
 			return; // obsolete
-			
+
 			/*
 			var ed = this.$.editor, nn, i, d, lastBeforeSkip, r;
 
@@ -2120,7 +2123,7 @@
 				else
 					ed.insertBefore(newEmptyParagraph(), lastBeforeSkip.nextSibling);
 			}
-			
+
 			*/
 		},
 
@@ -2142,9 +2145,9 @@
 
 			this._updateValueTimeout = setTimeout(function() {
 				var p;
-				
+
 				this.customUndo.pushUndo();
-				
+
 				r = getSelectionRange();
 
 				if(!r)
@@ -2776,8 +2779,8 @@
 		}
 
 		 if(isDescendantOf(sc, root) && isDescendantOf(ec, root))
-			 
-		
+
+
 		if(sc != root && !isInLightDom(sc, root))
 			sc = getTopCustomElementAncestor(sc, root).nextSibling, so = 0;
 		if(ec != root && !isInLightDom(ec, root))
@@ -3203,7 +3206,7 @@
 				return true;
 			else
 				child = (child.parentNode == pp ? child.parentNode : (isInLightDom(child, ancestor) ? pp : Polymer.dom(child).getOwnerRoot().host));
-		
+
 		}
 		return false;
 	}
@@ -3387,7 +3390,7 @@
 			{
 				while(right.firstChild)
 					left.appendChild(right.removeChild(right.firstChild));
-				
+
 				right.parentNode.removeChild(right);
 			}
 			else					// element - text
