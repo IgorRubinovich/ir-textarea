@@ -254,13 +254,8 @@
 				if(keyCode == 8 || keyCode == 46) // deletes
 				{
 					if(ev.type != 'keydown')
-<<<<<<< 51ecce218c0a9c65aabcd1072e61174c5cf2d11c
-						return ev.preventDefault()
-
-=======
 						return; // ev.preventDefault()
-						
->>>>>>> more nav/deletes
+
 					t = this.$.editor;
 
 					if(sc == this.$.editor)
@@ -294,9 +289,19 @@
 						if(!isInLightDom(ec, this.$.editor) && ec.nodeType == 3 && !ec.nextSibling && eo >= ec.textContent.length)
 							return ev.preventDefault();
 						else
-						if(sc.nextSibling && sc.nodeType == 3 && sc.nextSibling.is && so >= sc.textContent.length && getSelection().isCollapsed)
+<<<<<<< 78b4ed6835352499828cc5530f45f86d55a88206
+						if(sc.nextSibling && sc.nodeType == 3 && sc.nextSibling.is && (sc.isDelimiter || so >= sc.textContent.length) && getSelection().isCollapsed)
+=======
+						if(sc.nextSibling && (sc.nodeType == 3 && sc.nextSibling.is && so >= sc.textContent.length) || (sc.isDelimiter) && getSelection().isCollapsed)
+>>>>>>> some more deletes and delimiters
 							forcedelete = toDelete = sc.nextSibling;
 						else
+						// firefox won't delete first char after contenteditable (y u firefox?!)
+						if(/firefox|iceweasel/i.test(navigator.userAgent) && sc != this.$.editor && so == 0 && sc && sc.previousSibling && sc.previousSibling.is)
+						{
+							sc.textContent = sc.textContent.replace(/^./, '');
+							setCaretAt(sc, 0);
+						}
 						// firefox won't merge the nodes so we do it "manually"
 						//if(/firefox|iceweasel/i.test(navigator.userAgent) && this.get("startContainer.parentNode.nextSibling", r) == el)
 						if(/firefox|iceweasel/i.test(navigator.userAgent) && sc != this.$.editor && so == 0 && sc.nodeType == 3 && !sc.textContent.length && !sc.nextSibling)
@@ -327,7 +332,7 @@
 						if(!isInLightDom(sc, this.$.editor) && sc.nodeType == 3 && !sc.previousSibling && so == 0)
 							return ev.preventDefault();
 						else
-						if((sc.isDelimiter || (sc.nodeType == 3 && so == 0)) && sc.previousSibling && sc.previousSibling && sc.previousSibling.is && getSelection().isCollapsed)
+						if((sc.isDelimiter || (sc.nodeType == 3 && so == 0)) && sc.previousSibling && sc.previousSibling.is && getSelection().isCollapsed)
 						{
 							//if(sc.previousSibling.previousSibling.isDelimiter)
 							//	merge = true;
@@ -336,12 +341,13 @@
 							ev.preventDefault();
 						}
 						else
-						// firefox won't merge the nodes so we do it "manually"
+						// firefox won't delete first char after contenteditable (y u firefox?!)
 						if(/firefox|iceweasel/i.test(navigator.userAgent) && sc != this.$.editor && so == 1 && sc && sc.previousSibling && sc.previousSibling.is)
 						{
-							sc.textContent.replace(/^./, '');
+							sc.textContent = sc.textContent.replace(/^./, '');
 							setCaretAt(sc, 0);
 						}
+						// firefox won't merge the nodes so we do it "manually"
 						if(/firefox|iceweasel/i.test(navigator.userAgent) && sc != this.$.editor && so == 0 && !canHaveChildren(sc) && !sc.previousSibling && sc.parentNode && sc.parentNode.previousSibling)
 						{
 							if(this.get("parentNode.previousSibling.lastChild", sc)) // neighbouring paragraphs with text nodes
@@ -865,9 +871,6 @@
 
 			cm.options.push({label: 'Remove media', info: '', value : target, action : imageAction(this.deleteTarget.bind(this))});
 
-			if(parentCustomEl && typeof parentCustomEl.setup == 'function')
-				cm.options.push({label: 'Setup...', value : parentCustomEl, action : parentCustomEl.setup.bind(parentCustomEl)});
-
 			flowTarget = target;
 
 			// target.is || target.matchesSelector(menuGroups.floatable) || (target.proxyTarget && target.proxyTarget.matchesSelector(menuGroups.floatable))
@@ -896,6 +899,9 @@
 					cm.options.push({label: 'More...', info: '', value : target, action : imageAction(mediaEditor.open.bind(mediaEditor))});
 				}
 			}
+			
+		  if(parentCustomEl && typeof parentCustomEl.setup == 'function')
+			cm.options.push({label: 'Setup...', value : parentCustomEl, action : parentCustomEl.setup.bind(parentCustomEl)});
 
 		  cm._openGroup(ev);
 		},
@@ -2803,14 +2809,17 @@
 			return;
 		}
 
-		 if(isDescendantOf(sc, root) && isDescendantOf(ec, root))
-
+		if(!isDescendantOf(sc, root) || !isDescendantOf(ec, root))
+			return null;
 
 		if(sc != root && !isInLightDom(sc, root))
 			sc = getTopCustomElementAncestor(sc, root).nextSibling, so = 0;
 		if(ec != root && !isInLightDom(ec, root))
 			ec = getTopCustomElementAncestor(ec, root).nextSibling, eo = 0;
 
+		if(sc.isDelimiter) this.startIsDelimiter = true;
+		if(ec.isDelimiter) this.endIsDelimiter = true;
+		
 		cps = getChildPathFromTop(sc, root);
 		cpe = getChildPathFromTop(ec, root);
 
@@ -2823,6 +2832,7 @@
 		this.startOffset = so;
 		this.endOffset = eo;
 	}
+	
 	RangeMemo.prototype.clone = function(rangeMemo) {
 		var c = new RangeMemo();
 		c.root = this.root;
@@ -2830,6 +2840,10 @@
 		c.endPos = this.endPos;
 		c.startOffset = this.startOffset;
 		c.endOffset = this.endOffset;
+		
+		c.startIsDelimiter = this.startIsDelimiter;
+		c.endIsDelimiter = this.endIsDelimiter;
+		
 		return c;
 	}
 	RangeMemo.prototype.isEqual = function(domPathMemo) {
@@ -2868,15 +2882,22 @@
 		if(ec.nodeType == 1 && this.endOffset >= (ec.is ? Polymer.dom(ec) : ec).childNodes.length) return null;
 
 		// console.log("restore to el: ", sc, " pos: ", this.startPos, this.startOffset);
-
+		
 		r.setStart(sc, this.startOffset);
 		r.setEnd(ec, this.endOffset);
+
 		if(doSetCaret)
 		{
-			setTimeout(function() {
+			if(this.startIsDelimiter)
+				setTimeout(function() {
+					s.removeAllRanges();
+					s.addRange(r);
+				});
+			else
+			{
 				s.removeAllRanges();
 				s.addRange(r);
-			});
+			}
 		}
 
 		return r;
@@ -3284,10 +3305,13 @@
 							//var spanParent = span.parentNode;
 
 							if(range.startContainer.isDelimiter)
-								delimiters.push(range.startContainer)
+								delimiters.push(range.startContainer);
 							if(range.endContainer.isDelimiter)
-								delimiters.push(range.endContainer)
-							
+								delimiters.push(range.endContainer);
+
+							if(range.startContainer.isDelimiter)
+								isDelimiter = true;
+
 							range.insertNode(span);
 							//rect = span.getClientRects()[0];
 							//x = rect.left;
@@ -3305,8 +3329,11 @@
 							(spanParent = span.parentNode).removeChild(span);
 
 							// Glue any broken text nodes back together
+
 							spanParent.normalize();
 
+							range.startContainer.isDelimiter = true;
+							
 							delimiters.forEach(function(d) { d.isDelimiter = true });
 							
 							spanParent.noChange = true;

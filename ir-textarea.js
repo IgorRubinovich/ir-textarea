@@ -867,9 +867,6 @@
 
 			cm.options.push({label: 'Remove media', info: '', value : target, action : imageAction(this.deleteTarget.bind(this))});
 
-			if(parentCustomEl && typeof parentCustomEl.setup == 'function')
-				cm.options.push({label: 'Setup...', value : parentCustomEl, action : parentCustomEl.setup.bind(parentCustomEl)});
-
 			flowTarget = target;
 
 			// target.is || target.matchesSelector(menuGroups.floatable) || (target.proxyTarget && target.proxyTarget.matchesSelector(menuGroups.floatable))
@@ -898,6 +895,9 @@
 					cm.options.push({label: 'More...', info: '', value : target, action : imageAction(mediaEditor.open.bind(mediaEditor))});
 				}
 			}
+			
+		  if(parentCustomEl && typeof parentCustomEl.setup == 'function')
+			cm.options.push({label: 'Setup...', value : parentCustomEl, action : parentCustomEl.setup.bind(parentCustomEl)});
 
 		  cm._openGroup(ev);
 		},
@@ -2805,14 +2805,17 @@
 			return;
 		}
 
-		 if(isDescendantOf(sc, root) && isDescendantOf(ec, root))
-
+		if(!isDescendantOf(sc, root) || !isDescendantOf(ec, root))
+			return null;
 
 		if(sc != root && !isInLightDom(sc, root))
 			sc = getTopCustomElementAncestor(sc, root).nextSibling, so = 0;
 		if(ec != root && !isInLightDom(ec, root))
 			ec = getTopCustomElementAncestor(ec, root).nextSibling, eo = 0;
 
+		if(sc.isDelimiter) this.startIsDelimiter = true;
+		if(ec.isDelimiter) this.endIsDelimiter = true;
+		
 		cps = getChildPathFromTop(sc, root);
 		cpe = getChildPathFromTop(ec, root);
 
@@ -2825,6 +2828,7 @@
 		this.startOffset = so;
 		this.endOffset = eo;
 	}
+	
 	RangeMemo.prototype.clone = function(rangeMemo) {
 		var c = new RangeMemo();
 		c.root = this.root;
@@ -2832,6 +2836,10 @@
 		c.endPos = this.endPos;
 		c.startOffset = this.startOffset;
 		c.endOffset = this.endOffset;
+		
+		c.startIsDelimiter = this.startIsDelimiter;
+		c.endIsDelimiter = this.endIsDelimiter;
+		
 		return c;
 	}
 	RangeMemo.prototype.isEqual = function(domPathMemo) {
@@ -2870,15 +2878,22 @@
 		if(ec.nodeType == 1 && this.endOffset >= (ec.is ? Polymer.dom(ec) : ec).childNodes.length) return null;
 
 		// console.log("restore to el: ", sc, " pos: ", this.startPos, this.startOffset);
-
+		
 		r.setStart(sc, this.startOffset);
 		r.setEnd(ec, this.endOffset);
+
 		if(doSetCaret)
 		{
-			setTimeout(function() {
+			if(this.startIsDelimiter)
+				setTimeout(function() {
+					s.removeAllRanges();
+					s.addRange(r);
+				});
+			else
+			{
 				s.removeAllRanges();
 				s.addRange(r);
-			});
+			}
 		}
 
 		return r;
@@ -3286,10 +3301,13 @@
 							//var spanParent = span.parentNode;
 
 							if(range.startContainer.isDelimiter)
-								delimiters.push(range.startContainer)
+								delimiters.push(range.startContainer);
 							if(range.endContainer.isDelimiter)
-								delimiters.push(range.endContainer)
-							
+								delimiters.push(range.endContainer);
+
+							if(range.startContainer.isDelimiter)
+								isDelimiter = true;
+
 							range.insertNode(span);
 							//rect = span.getClientRects()[0];
 							//x = rect.left;
@@ -3307,8 +3325,11 @@
 							(spanParent = span.parentNode).removeChild(span);
 
 							// Glue any broken text nodes back together
+
 							spanParent.normalize();
 
+							range.startContainer.isDelimiter = true;
+							
 							delimiters.forEach(function(d) { d.isDelimiter = true });
 							
 							spanParent.noChange = true;
