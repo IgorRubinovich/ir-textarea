@@ -2202,12 +2202,13 @@
 
 		getCleanValue : function(from) {
 			var v;
-			this.removeActionBorder();
 
 			from = from || this.$.editor;
 
 			if(from == this.$.editor && this.$.editor._cleanValue)
 				return this.$.editor._cleanValue;
+
+			this.removeActionBorder();
 
 			if(from == this.$.editor)
 				v = recursiveInnerHTML(from)
