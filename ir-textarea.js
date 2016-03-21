@@ -289,7 +289,7 @@
 						if(!isInLightDom(ec, this.$.editor) && ec.nodeType == 3 && !ec.nextSibling && eo >= ec.textContent.length)
 							return ev.preventDefault();
 						else
-						if(sc.nextSibling && sc.nodeType == 3 && sc.nextSibling.is && so >= sc.textContent.length && getSelection().isCollapsed)
+						if(sc.nextSibling && sc.nodeType == 3 && sc.nextSibling.is && (sc.isDelimiter || so >= sc.textContent.length) && getSelection().isCollapsed)
 							forcedelete = toDelete = sc.nextSibling;
 						else
 						// firefox won't delete first char after contenteditable (y u firefox?!)
@@ -328,7 +328,7 @@
 						if(!isInLightDom(sc, this.$.editor) && sc.nodeType == 3 && !sc.previousSibling && so == 0)
 							return ev.preventDefault();
 						else
-						if((sc.isDelimiter || (sc.nodeType == 3 && so == 0)) && sc.previousSibling && sc.previousSibling && sc.previousSibling.is && getSelection().isCollapsed)
+						if((sc.isDelimiter || (sc.nodeType == 3 && so == 0)) && sc.previousSibling && sc.previousSibling.is && getSelection().isCollapsed)
 						{
 							//if(sc.previousSibling.previousSibling.isDelimiter)
 							//	merge = true;
