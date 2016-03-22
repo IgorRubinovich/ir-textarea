@@ -2830,6 +2830,14 @@
 		
 		cps = getChildPathFromTop(sc, root);
 		cpe = getChildPathFromTop(ec, root);
+				
+		// non-normalized text nodes will become one after restore. not normalizing here because it's not undo's job
+		for(n = sc.previousNode; n && n.nodeType == 3; n = n.previousNode)
+			cps[cps.length - 1]--;
+		
+		for(n = ec.previousNode; n && n.nodeType == 3; n = n.previousNode)
+			cpe[cpe.length - 1]--;
+		
 
 		if(sc.nodeType == 3 && sc.textContent.length == 0)
 			this.startIsEmpty = true;
