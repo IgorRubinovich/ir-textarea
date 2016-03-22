@@ -53,11 +53,11 @@
 			this.set('customUndo', CustomUndoEngine(this.$.editor, {
 																		preserve : this.customElements,
 																		getValue : this.getCleanValue.bind(this),
-																		contentFrame : '[content]', // '[content]<span class="paragraph"><br></span>',
+																		//contentFrame : '[content]', // '[content]<span class="paragraph"><br></span>',
 																		timeout : false,
 																		onRestoreState : function(el) {
 																			this.selectionSave()
-																			this.ensureCursorLocationIsValid();
+																			//this.ensureCursorLocationIsValid();
 																			this.fire('scroll-into-view', el);
 																		}.bind(this)
 																	}))
@@ -77,8 +77,6 @@
 
 				el._hasOverlayClosedListener = true;
 			}.bind(this));
-
-			//that.domProxyManager.createProxies()
 
 			if(/^\s*$/.test(this.$.editor.innerHTML))
 			{
@@ -101,8 +99,6 @@
 			this.connectEditorObserver();
 
 			this._initialValue = this.$.editor.innerHTML = this.getCleanValue();
-
-			//this._updateValue();
 		},
 
 		connectEditorObserver : function()
@@ -292,7 +288,7 @@
 						if(sc.nextSibling && sc.nodeType == 3 && sc.nextSibling.is && (sc.isDelimiter || so >= sc.textContent.length) && getSelection().isCollapsed)
 							forcedelete = toDelete = sc.nextSibling;
 						else
-						// firefox won't delete first char after contenteditable (y u firefox?!)
+						// firefox won't delete first char after non-contenteditable (y u firefox?!)
 						if(/firefox|iceweasel/i.test(navigator.userAgent) && sc != this.$.editor && so == 0 && sc && sc.previousSibling && sc.previousSibling.is)
 						{
 							sc.textContent = sc.textContent.replace(/^./, '');
@@ -337,7 +333,7 @@
 							ev.preventDefault();
 						}
 						else
-						// firefox won't delete first char after contenteditable (y u firefox?!)
+						// firefox won't delete first char after non-contenteditable (y u firefox?!)
 						if(/firefox|iceweasel/i.test(navigator.userAgent) && sc != this.$.editor && so == 1 && sc && sc.previousSibling && sc.previousSibling.is)
 						{
 							sc.textContent = sc.textContent.replace(/^./, '');
@@ -349,11 +345,7 @@
 							if(this.get("parentNode.previousSibling.lastChild", sc)) // neighbouring paragraphs with text nodes
 							{
 								if(sc.parentNode.previousSibling.lastChild.tagName == 'BR')
-								{
 									sc.parentNode.previousSibling.removeChild(sc.parentNode.previousSibling.lastChild);
-									//if(/^\s*$/.test(sc.parentNode.previousSibling.innerHTML))
-									//	sc.parentNode.parentNode.removeChild(sc.parentNode.previousSibling);
-								}
 
 								mergeNodes(sc.parentNode.previousSibling, sc.parentNode, true);
 
@@ -412,7 +404,7 @@
 				return;
 			}
 
-			if(ev.type == 'drop' && ev.target && getTopCustomElementAncestor(ev.target, this.$.editor)) // || ev.target.proxyTarget)) // prevent default drop (like text) into custom elements - it breaks them
+			if(ev.type == 'drop' && ev.target && getTopCustomElementAncestor(ev.target, this.$.editor)) // prevent default drop (like text) into custom elements
 				ev.preventDefault();
 
 			this.selectionSave();
@@ -541,9 +533,12 @@
 
 				if(mr.type == "childList" &&
 						((mr.addedNodes && mr.addedNodes.length == 1 && mr.addedNodes[0].nodeType == 1 && mr.addedNodes[0].classList.contains('__moignore')) ||
-						(mr.removedNodes && mr.removedNodes.length == 1 && mr.removedNodes[0].nodeType == 1 && mr.removedNodes[0].classList.contains('__moignore'))))
+						(mr.removedNodes && mr.removedNodes.length == 1 && mr.removedNodes[0].nodeType == 1 && mr.removedNodes[0].classList.contains('__moignore'))) ||
 						// __moignore identifies the span used for cursor position calculation
+						(mr.addedNodes && mr.addedNodes.length == 1 && mr.addedNodes[0].isDelimiter && !/\S/.test(mr.addedNodes[0].textContent)) ||
+						(mr.removedNodes && mr.removedNodes.length == 1 && mr.removedNodes[0].isDelimiter && !/\S/.test(mr.removedNodes[0].textContent)))
 					return;
+
 				if(mr.target.nochange)
 				{
 					mr.target.nochange = false;
@@ -596,89 +591,7 @@
 					}.bind(this));
 			}.bind(this));
 
-			if(effectiveChanges.length)
-				this.changed = true;
-
-			var cycles = 0,	cycleLabel = new Date().getTime();
-
-			effectiveChanges.forEach(function(mr) {
-				var t = mr, done, cv, cn, ocv, toutline, altp;
-
-				if(t.cycleLabel == cycleLabel) return;
-				t.cycleLabel = cycleLabel;
-
-				if(t != this.$.editor && !isInLightDom(t, this.$.editor))
-					return;
-
-				ocv = t._cleanValue;
-
-				if(t != this.$.editor)
-					t._cleanValue = this.getCleanValue(t);
-
-				if(ocv == t)
-					return;
-
-				//done = t == this.$.editor;
-
-				while(!done)
-				{
-
-					//	t = t.is ? t.parentNode : t;
-
-					if(t != this.$.editor) {
-						if(!t || !isInLightDom(t.parentNode, this.$.editor)) // it's not attached
-						{
-							altp = Polymer.dom(t).parentNode;
-							if(altp != this.$.editor && !isInLightDom(altp, this.$.editor))
-								return;
-							t = altp;
-						}
-						else
-							t = t.parentNode
-					}
-
-					if(t.cycleLabel == cycleLabel) return;
-					t.cycleLabel = cycleLabel;
-
-					if(t == this.$.editor)
-						done = true;
-
-					ocv = t._cleanValue;
-
-					if(t.nodeType == 3)
-						t._cleanValue = t.textContent;
-					else
-					{
-						cn = (t.is ? Polymer.dom(t) : t).childNodes;
-						cv = "";
-						if(cn)
-							cv = Array.prototype.map.call(cn, function(ch) {
-								return ch._cleanValue || (ch._cleanValue = this.getCleanValue(ch))
-							}.bind(this)).join('');
-
-						if(t != this.$.editor)
-						{
-							toutline = tagOutline(t);
-							toutline = toutline.split(">");
-							t._cleanValue = toutline[0] + ">" + cv + toutline[1] + ">";
-						}
-						else
-							t._cleanValue = cv;
-					}
-
-					if(ocv == t._cleanValue)
-						return;
-
-					cycles++;
-				}
-			}.bind(this))
-
-			if(cycles > 0)
-				this._updateValue();
-
 			//console.log("mutation cycles: ", cycles);
-
-			var parentDelimitersCount = {};
 
 
 			for(i = 0; i < customEls.length; i++)
@@ -765,6 +678,95 @@
 				}
 			}
 
+			
+			if(effectiveChanges.length)
+				this.changed = true;
+
+			var cycles = 0,	cycleLabel = new Date().getTime();
+
+			effectiveChanges.forEach(function(mr) {
+				var t = mr, done, cv, cn, ocv, toutline, altp;
+
+				if(t.isDelimiter && (t.nodeType != 3 || /\S/.test(t.textContent)))
+					t.isDelimiter = false;
+				
+				if(t.cycleLabel == cycleLabel) return;
+				t.cycleLabel = cycleLabel;
+
+				if(t != this.$.editor && !isInLightDom(t, this.$.editor))
+					return;
+
+				ocv = t._cleanValue;
+
+				if(t != this.$.editor)
+					t._cleanValue = this.getCleanValue(t);
+
+				if(ocv == t)
+					return;
+
+				//done = t == this.$.editor;
+
+				while(!done)
+				{
+
+					//	t = t.is ? t.parentNode : t;
+
+					if(t != this.$.editor) {
+						if(!t || !isInLightDom(t.parentNode, this.$.editor)) // it's not attached
+						{
+							altp = Polymer.dom(t).parentNode;
+							if(altp != this.$.editor && !isInLightDom(altp, this.$.editor))
+								return;
+							t = altp;
+						}
+						else
+							t = t.parentNode
+					}
+
+					if(t.cycleLabel == cycleLabel) return;
+					t.cycleLabel = cycleLabel;
+
+					if(t == this.$.editor)
+						done = true;
+
+					ocv = t._cleanValue;
+
+					if(t.nodeType == 3)
+						t._cleanValue = t.textContent;
+					else
+					{
+						cn = (t.is ? Polymer.dom(t) : t).childNodes;
+						cv = "";
+						if(cn.length)
+							cv = Array.prototype.map.call(cn, function(ch) {
+								if(t.isDelimiter && (t.nodeType != 3 || /\S/.test(t.textContent)))
+								{
+									t._cleanValue = '';
+									t.isDelimiter = false;
+								}
+								return ch._cleanValue || (ch._cleanValue = this.getCleanValue(ch))
+							}.bind(this)).join('');
+
+						if(t != this.$.editor)
+						{
+							toutline = tagOutline(t);
+							toutline = toutline.split(">");
+							t._cleanValue = toutline[0] + ">" + cv + toutline[1] + ">";
+						}
+						else
+							t._cleanValue = cv;
+					}
+
+					if(ocv == t._cleanValue)
+						return;
+
+					cycles++;
+				}
+			}.bind(this))
+
+			if(cycles > 0)
+				this._updateValue();
+			
 			this.editorMutationHandler.inProgress = false;
 
 			//if(this.SPEED.totalbetweencalls % 100)
@@ -2172,6 +2174,7 @@
 				this._updateValueTime = new Date().getTime();
 			}
 
+			//this.customUndo.pushUndo();
 			this._updateValueTimeout = setTimeout(function() {
 				var p;
 
@@ -2568,22 +2571,24 @@
 			innerHTML = getValue();
 			onlyUpdateRangeMemo = false;
 
-			if(undoRecord.length > 2 && (undoRecord[undoRecord.length-1].content == innerHTML))
-				onlyUpdateRangeMemo = true;
+			prevUndo = undoRecord.length && undoRecord[undoRecord.length - 1];
 
-			lastRestoredStateContent == null;
+			if(prevUndo && prevUndo.content == innerHTML)
+				onlyUpdateRangeMemo = true;
 
 			while(undoRecord.length >= options.maxUndoItems)
 				undoRecord.shift();
 
-			prevUndo = undoRecord.length && undoRecord[undoRecord.length - 1];
 			if(prevUndo && onlyUpdateRangeMemo)
+			{
 				prevUndo.updateRange();
+				lastRestoredStateContent = null;
+			}
 			else
 				undoRecord.push(new UndoItem(editor, innerHTML, prevUndo));
 
 			//console.log("sc: %s, so: %s, spos: %s, ec: %s, eo: %s, epos: %s, total undo+redo: %s", sc, so, JSON.stringify(startMemo.positionArray), ec, eo, JSON.stringify(endMemo.positionArray), undoRecord.length + redoRecord.length);
-
+			console.log(undoRecord.length, redoRecord.length);
 			//}
 
 			if(!force && !onlyUpdateRangeMemo && redoRecord.length > 0 && lastRestoredStateContent != innerHTML)
@@ -2698,8 +2703,8 @@
 	var recursiveOuterHTML = function(node, skipNodes){
 		var outerHTML, innerHTML, childNodes, res;
 
-		if(node.isDelimiter)
-			return "";
+		if(node.isDelimiter && node.nodeType == 3)
+			return node.textContent.replace(/\s/g, '');
 
 		if(skipNodes && skipNodes.indexOf(node) > -1)
 			return "";
@@ -2783,7 +2788,7 @@
 	};
 
 	var RangeMemo = function(root) {
-		var r = getSelectionRange(), sc, ec, so,eo,cps, cpe, lps, lpe, cn;
+		var r = getSelectionRange(), sc, ec, so,eo,cps, cpe, lps, lpe, cn, n;
 
 		this.root = root;
 
@@ -2813,7 +2818,14 @@
 		if(ec != root && !isInLightDom(ec, root))
 			ec = getTopCustomElementAncestor(ec, root).nextSibling, eo = 0;
 
-		if(sc.isDelimiter) this.startIsDelimiter = true;
+		this.delimitersBeforeStart = 0;
+		for(n = (sc.nodeType == 3 || sc.is) ? sc : sc.childNodes[so]; n; n = n.previousSibling)
+			this.delimitersBeforeStart += n.isDelimiter ? 1 : 0;
+
+		this.delimitersBeforeEnd = 0;
+		for(n = (ec.nodeType == 3 || ec.is) ? ec : ec.childNodes[eo]; n; n = n.previousSibling)
+			this.delimitersBeforeEnd += n.isDelimiter ? 1 : 0;
+		
 		if(ec.isDelimiter) this.endIsDelimiter = true;
 		
 		cps = getChildPathFromTop(sc, root);
@@ -2822,6 +2834,9 @@
 		if(sc.nodeType == 3 && sc.textContent.length == 0)
 			this.startIsEmpty = true;
 
+		this.startIsText == sc.nodeType == 3
+		this.endIsText == ec.nodeType == 3
+		
 		this.root = root;
 		this.startPos = cps;
 		this.endPos = cpe;
@@ -2837,8 +2852,11 @@
 		c.startOffset = this.startOffset;
 		c.endOffset = this.endOffset;
 		
-		c.startIsDelimiter = this.startIsDelimiter;
-		c.endIsDelimiter = this.endIsDelimiter;
+		c.delimitersBeforeStart = this.delimitersBeforeStart;
+		c.delimitersBeforeEnd = this.delimitersBeforeEnd;
+
+		c.startIsText = this.startIsText;
+		c.endIsText = this.endIsText;
 		
 		return c;
 	}
@@ -2865,35 +2883,72 @@
 	{
 		var s = window.getSelection(),
 			r = document.createRange(),
-			sc = getChildFromPath(this.startPos, this.root),
-			ec = getChildFromPath(this.endPos, this.root);
+			sc, ec, n, delimiter;
 
-		if(!sc || !ec)
-			return null;
+		//if(!sc || !ec)
+		//	return null;
 
-		if(sc.nodeType == 3 && this.startOffset > sc.textContent.length) return null;
+		
+		/*if(this.startIsText == 3 && this.startOffset > sc.textContent.length) return null;
 		if(sc.nodeType == 1 && this.startOffset >= (sc.is ? Polymer.dom(sc) : sc).childNodes.length) return null;
 
 		if(ec.nodeType == 3 && this.endOffset > ec.textContent.length) return null;
-		if(ec.nodeType == 1 && this.endOffset >= (ec.is ? Polymer.dom(ec) : ec).childNodes.length) return null;
+		if(ec.nodeType == 1 && this.endOffset >= (ec.is ? Polymer.dom(ec) : ec).childNodes.length) return null;*/
 
 		// console.log("restore to el: ", sc, " pos: ", this.startPos, this.startOffset);
 		
+		sc = getChildFromPath(this.startPos, this.root, 1);
+		ec = getChildFromPath(this.endPos, this.root, 1);
+		
+		if(!sc || !ec)
+			return null;
+		
+		/*if(sc.nodeType == 1)
+			n = sc.is ? Polymer.dom(sc).firstChild : sc.firstChild;
+		else
+			n = sc.parentNode.firstChild;*/
+		n = sc.firstChild;
+		
+		for(; n; n = n.nextSibling)
+			if(n.is)
+			{
+				if(!n.previousSibling || n.previousSibling.nodeType != 3)
+					n.parentNode.insertBefore(delimiter = document.createTextNode('  '), n);
+
+				if(!n.nextSibling)
+					n.parentNode.appendChild(delimiter = document.createTextNode('  '), n);
+				else
+				if(n.nextSibling.nodeType != 3)
+					n.parentNode.insertBefore(delimiter = document.createTextNode('  '), n.nextSibling);
+				
+				if(delimiter) delimiter.isDelimiter;
+				delimiter = null;
+			}
+		
+		console.log('%s delimiters, pos without:', this.delimitersBeforeStart, this.startPos[this.startPos.length-1]);
+
+		this.startPos.push(this.startPos.pop() + this.delimitersBeforeStart);
+		this.endPos.push(this.endPos.pop() + this.delimitersBeforeEnd);
+		
+		sc = getChildFromPath(this.startPos, this.root);
+		ec = getChildFromPath(this.endPos, this.root);
+		
+		if(!sc || !ec)
+			return null;
+		
 		r.setStart(sc, this.startOffset);
 		r.setEnd(ec, this.endOffset);
-
+		
 		if(doSetCaret)
 		{
-			if(this.startIsDelimiter)
+			/*if(this.startIsDelimiter)
 				setTimeout(function() {
 					s.removeAllRanges();
 					s.addRange(r);
-				});
-			else
-			{
-				s.removeAllRanges();
-				s.addRange(r);
-			}
+				});*/
+
+			s.removeAllRanges();
+			s.addRange(r);
 		}
 
 		return r;
@@ -2923,6 +2978,7 @@
 
 		// skip accidential 0 positions when rangeHistory already contains some other location.
 		if(this.rangeHistory.length && (rm.startOffset == 0 && !rm.startPos.length || rm.startIsEmpty))
+//			(r.startPos.length == 1 && r.startPos[0] == 0 ))
 			return;
 
 		if(!this.rangeHistory.length || !rm.isEqual(this.rangeHistory[this.rangeHistory.length - 1]))
@@ -2957,7 +3013,7 @@
 		return cn[i] == child ? i - (withDelimiters ? 0 : delimiters) : null;
 	}
 
-	var getChildPathFromTop = function(child, top) {
+	var getChildPathFromTop = function(child, top, withDelimiters) {
 		var t, p;
 
 		if(!child || (child == document.body && top != document.body) )
@@ -2969,30 +3025,33 @@
 		if(Polymer.dom(child).parentNode != p && !isInLightDom(p, top))
 			p = Polymer.dom(child).parentNode;
 
-		t = getChildPathFromTop(p, top);
+		t = getChildPathFromTop(p, top, withDelimiters);
 		if(!t)
 			return null;
-		t.push(getChildPositionInParent(child));
+		t.push(getChildPositionInParent(child, withDelimiters));
 		return t;
 	}
 
-	var getChildFromPath = function(pathArr, top)
+	var getChildFromPath = function(pathArr, top, descend)
 	{
-		var res = top, i = -1, next;
+		var res = top, i = 0, next;
 
+		descend = descend || 0;
+		
 		if(!pathArr)
 			return null;
 
-		while(i < pathArr.length)
+		while(i < pathArr.length - descend)
 		{
-			i++;
 			if(pathArr[i] || pathArr[i] === 0)
 				next = (res.is ? Polymer.dom(res) : res).childNodes[pathArr[i]];
 
 			if(!next)
-				return res;
+				return null; // res;
 
 			res = next;
+			
+			i++;
 		};
 
 		return res;
