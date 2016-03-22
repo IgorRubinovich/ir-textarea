@@ -1345,7 +1345,7 @@
 			if(!parent)
 			  return;
 
-			while (el.hasChildNodes()) {
+			while (el.childNodes && el.childNodes.length) {
 			  movedChildren.push(el.firstChild);
 			  parent.insertBefore(el.firstChild, el);
 			}
@@ -1358,7 +1358,7 @@
 			var nn = document.createElement(tag),
 			  parent = el.parentNode, ch;
 
-			while (el.hasChildNodes()) {
+			while (el.childNodes && el.childNodes.length) {
 			  ch = el.firstChild;
 			  el.removeChild(ch);
 			  nn.appendChild(ch);
