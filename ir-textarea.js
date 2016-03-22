@@ -169,7 +169,7 @@
 			this.selectionRestore(true);
 
 			// save position on control keys
-			if(ev.type == 'keyup') //&& ([33,34,35,36,37,38,39,40].indexOf(keyCode) > -1)) || (ev.type == 'mouseup'))
+			if((ev.type == 'keyup') && ([33,34,35,36,37,38,39,40].indexOf(keyCode) > -1) || (ev.type == 'mouseup'))
 				this.customUndo.pushUndo();
 			//else
 			if(ev.keyCode && !ev.ctrlKey && !ev.metaKey && !ev.altKey)
@@ -294,7 +294,6 @@
 							sc.textContent = sc.textContent.replace(/^./, '');
 							setCaretAt(sc, 0);
 						}
-						// firefox won't merge the nodes so we do it "manually"
 						//if(/firefox|iceweasel/i.test(navigator.userAgent) && this.get("startContainer.parentNode.nextSibling", r) == el)
 						if(/firefox|iceweasel/i.test(navigator.userAgent) && sc != this.$.editor && so == 0 && sc.nodeType == 3 && !sc.textContent.length && !sc.nextSibling)
 						{
@@ -305,7 +304,8 @@
 							}
 						}
 						else
-						if(/firefox|iceweasel/i.test(navigator.userAgent) && !ec.nextSibling && ec.nodeType == 3 && eo >= ec.textContent.length && this.get("parentNode.nextSibling.firstChild", ec))
+						// firefox won't merge the nodes so we do it "manually" // /firefox|iceweasel/i.test(navigator.userAgent) && 
+						if(!ec.nextSibling && ec.nodeType == 3 && eo >= ec.textContent.length && this.get("parentNode.nextSibling.firstChild", ec))
 						{
 							if(ec.parentNode.nextSibling.firstChild.tagName == 'BR')
 								ec.parentNode.nextSibling.removeChild(ec.parentNode.nextSibling.firstChild);
@@ -339,8 +339,8 @@
 							sc.textContent = sc.textContent.replace(/^./, '');
 							setCaretAt(sc, 0);
 						}
-						// firefox won't merge the nodes so we do it "manually"
-						if(/firefox|iceweasel/i.test(navigator.userAgent) && sc != this.$.editor && so == 0 && !canHaveChildren(sc) && !sc.previousSibling && sc.parentNode && sc.parentNode.previousSibling)
+						// firefox won't merge the nodes so we do it "manually" ///firefox|iceweasel/i.test(navigator.userAgent) && 
+						if(sc != this.$.editor && so == 0 && !canHaveChildren(sc) && !sc.previousSibling && sc.parentNode && sc.parentNode.previousSibling)
 						{
 							if(this.get("parentNode.previousSibling.lastChild", sc)) // neighbouring paragraphs with text nodes
 							{
@@ -706,7 +706,7 @@
 
 				//done = t == this.$.editor;
 
-				while(!done)
+				while(!done) // update parents
 				{
 
 					//	t = t.is ? t.parentNode : t;
@@ -723,8 +723,8 @@
 							t = t.parentNode
 					}
 
-					if(t.cycleLabel == cycleLabel) return;
-					t.cycleLabel = cycleLabel;
+					//if(t.cycleLabel == cycleLabel) return;
+					//t.cycleLabel = cycleLabel;
 
 					if(t == this.$.editor)
 						done = true;
@@ -2819,12 +2819,14 @@
 			ec = getTopCustomElementAncestor(ec, root).nextSibling, eo = 0;
 
 		this.delimitersBeforeStart = 0;
-		for(n = (sc.nodeType == 3 || sc.is) ? sc : sc.childNodes[so]; n; n = n.previousSibling)
-			this.delimitersBeforeStart += n.isDelimiter ? 1 : 0;
+		n = ((sc.nodeType == 3 || sc.is) ? sc : sc.childNodes[so]).previousSibling
+		for(; n; n = n.previousSibling)
+			this.delimitersBeforeStart += n.isDelimiter ? 1 : 0; //&& ((n.nextSibling && n.nextSibling.is) || (n.previousSibling && n.previousSibling.is)) ? 1 : 0;
 
 		this.delimitersBeforeEnd = 0;
-		for(n = (ec.nodeType == 3 || ec.is) ? ec : ec.childNodes[eo]; n; n = n.previousSibling)
-			this.delimitersBeforeEnd += n.isDelimiter ? 1 : 0;
+		n = ((ec.nodeType == 3 || ec.is) ? ec : ec.childNodes[eo]).previousSibling
+		for(; n; n = n.previousSibling)
+			this.delimitersBeforeEnd += n.isDelimiter ? 1 : 0; // && ((n.nextSibling && n.nextSibling.is) || (n.previousSibling && n.previousSibling.is)) ? 1 : 0;
 		
 		if(ec.isDelimiter) this.endIsDelimiter = true;
 		
@@ -2892,29 +2894,13 @@
 		var s = window.getSelection(),
 			r = document.createRange(),
 			sc, ec, n, delimiter;
-
-		//if(!sc || !ec)
-		//	return null;
-
-		
-		/*if(this.startIsText == 3 && this.startOffset > sc.textContent.length) return null;
-		if(sc.nodeType == 1 && this.startOffset >= (sc.is ? Polymer.dom(sc) : sc).childNodes.length) return null;
-
-		if(ec.nodeType == 3 && this.endOffset > ec.textContent.length) return null;
-		if(ec.nodeType == 1 && this.endOffset >= (ec.is ? Polymer.dom(ec) : ec).childNodes.length) return null;*/
-
-		// console.log("restore to el: ", sc, " pos: ", this.startPos, this.startOffset);
 		
 		sc = getChildFromPath(this.startPos, this.root, 1);
 		ec = getChildFromPath(this.endPos, this.root, 1);
 		
 		if(!sc || !ec)
 			return null;
-		
-		/*if(sc.nodeType == 1)
-			n = sc.is ? Polymer.dom(sc).firstChild : sc.firstChild;
-		else
-			n = sc.parentNode.firstChild;*/
+
 		n = sc.firstChild;
 		
 		for(; n; n = n.nextSibling)
@@ -2941,20 +2927,14 @@
 		sc = getChildFromPath(this.startPos, this.root);
 		ec = getChildFromPath(this.endPos, this.root);
 		
-		if(!sc || !ec)
-			return null;
+		if(!sc || !ec || sc.is || ec.is)
+			return null; // there probably was a previous, better range
 		
 		r.setStart(sc, this.startOffset);
 		r.setEnd(ec, this.endOffset);
 		
 		if(doSetCaret)
 		{
-			/*if(this.startIsDelimiter)
-				setTimeout(function() {
-					s.removeAllRanges();
-					s.addRange(r);
-				});*/
-
 			s.removeAllRanges();
 			s.addRange(r);
 		}
@@ -3506,7 +3486,7 @@
 		if(left.isDelimiter)
 			left.textContent = '';
 		else
-		if(!left.isDelimiter && right.isDelimiter)
+		if(!left.isDelimiter && right.isDelimiter && !/\S/.test(right))
 			right.textContent = '';
 		
 		if(left.nodeType == 1) // left <-- right
