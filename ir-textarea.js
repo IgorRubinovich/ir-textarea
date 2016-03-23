@@ -222,22 +222,34 @@
 				if(r.startContainer.nodeType == 3 || !r.startContainer.childNodes.length) sc = r.startContainer, so = r.startOffset; else sc = r.startContainer.childNodes[r.startOffset], so = 0;
 				if(r.endContainer.nodeType == 3 || !r.endContainer.childNodes.length) ec = r.endContainer, eo = r.startOffset; else ec = r.startContainer.childNodes[r.startOffset], eo = 0;
 
-				if([35,36,37,39].indexOf(keyCode) > -1) // left/right/home/end
-				{						
-					if(sc && (keyCode == 36 || keyCode == 37) && (so == 0 || sc.isDelimiter) && sc.nodeType == 3 && sc.previousSibling && sc.previousSibling.is) // home and left
+				if([35,36,37,39].indexOf(keyCode) > -1) // left/right   (/home/end)
+				{
+					// left and home
+					if(sc && (keyCode == 36 || keyCode == 37) && (so == 0 || sc.isDelimiter) && sc.nodeType == 3)
 					{
 						if(sc.isInTransition = (ev.type == 'keydown'))
 						{
-							setCaretAt(sc.previousSibling.previousSibling, sc.previousSibling.previousSibling.textContent.length);
-							ev.preventDefault();
+							//setCaretAt(sc.previousSibling.previousSibling, sc.previousSibling.previousSibling.textContent.length);
+							if(sc.previousSibling && sc.previousSibling.is)
+							{
+								setCaretAt(sc.previousSibling.previousSibling, sc.previousSibling.previousSibling.textContent.length);
+								ev.preventDefault();
+							}
+							else
+								setCaretAt(sc, 0); // let the browser do the job, this happens at paragraph start
 						}
 					}
 					else
-					if(ec && (keyCode == 35 || keyCode == 39) && (ec.isDelimiter || eo >= ec.length) && ec.nextSibling && ec.nextSibling.is) // end and right, next sibling must be a custom element with a delimiter or a text node as nextSibling
+					if(ec && (keyCode == 35 || keyCode == 39) && (ec.isDelimiter || eo >= ec.length) && sc.nodeType == 3) // end and right, next sibling must be a custom element with a delimiter or a text node as nextSibling
 						if(ec.isInTransition = (ev.type == 'keydown'))
 						{
-							setCaretAt(ec.nextSibling.nextSibling, (ec.nextSibling.nextSibling.isDelimiter ? 1 : 0));
-							ev.preventDefault();
+							if(ec.nextSibling && ec.nextSibling.is)
+							{
+								setCaretAt(ec.nextSibling.nextSibling, (ec.nextSibling.nextSibling.isDelimiter ? 1 : 0));
+								ev.preventDefault();
+							}
+							else
+								setCaretAt(ec, ec.textContent.length);
 						}
 							//? setCaretAt(Polymer.dom(ec).parentNode, getChildPositionInParent(ec.nextSibling.nextSibling, true)) : setCaretAt(ec, 1);
 				}
@@ -2905,7 +2917,7 @@
 				delimiter = null;
 			}
 		
-		console.log('%s delimiters, pos without:', this.delimitersBeforeStart, this.startPos[this.startPos.length-1]);
+		// console.log('%s delimiters, pos without:', this.delimitersBeforeStart, this.startPos[this.startPos.length-1]);
 
 		this.startPos.push(this.startPos.pop() + this.delimitersBeforeStart);
 		this.endPos.push(this.endPos.pop() + this.delimitersBeforeEnd);
