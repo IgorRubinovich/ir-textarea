@@ -19,11 +19,6 @@
 					that.$.editor.addEventListener(evType, this.userInputHandler.bind(this));
 				}.bind(this));
 
-			/*this.$.editor.addEventListener('click', function(ev) {
-				if(ev.target.is != 'paper-dialog')
-					console.log('hi setup');
-			}, true); // capturing phase*/
-
 			this.$.resizeHandler.addEventListener('mousedown', function(ev) { ev.preventDefault(); }); // capturing phase
 			this.$.resizeHandler.addEventListener('mousemove', function(ev) { ev.preventDefault(); }); // capturing phase
 
@@ -229,7 +224,7 @@
 
 				if([35,36,37,39].indexOf(keyCode) > -1) // left/right/home/end
 				{						
-					if(sc && (keyCode == 36 || keyCode == 37) && (so <= (sc.isDelimiter ? 1 : 0) && sc.nodeType == 3 && sc.previousSibling && sc.previousSibling.is)) // home and left
+					if(sc && (keyCode == 36 || keyCode == 37) && (so == 0 || sc.isDelimiter) && sc.nodeType == 3 && sc.previousSibling && sc.previousSibling.is) // home and left
 					{
 						if(sc.isInTransition = (ev.type == 'keydown'))
 						{
@@ -305,7 +300,7 @@
 						}
 						else
 						// firefox won't merge the nodes so we do it "manually" // /firefox|iceweasel/i.test(navigator.userAgent) && 
-						if(!ec.nextSibling && ec.nodeType == 3 && eo >= ec.textContent.length && this.get("parentNode.nextSibling.firstChild", ec))
+						if(!ec.nextSibling && ((ec.nodeType == 3 && eo >= ec.textContent.length) || ec.isDelimiter) && this.get("parentNode.nextSibling.firstChild", ec))
 						{
 							if(ec.parentNode.nextSibling.firstChild.tagName == 'BR')
 								ec.parentNode.nextSibling.removeChild(ec.parentNode.nextSibling.firstChild);
@@ -340,7 +335,7 @@
 							setCaretAt(sc, 0);
 						}
 						// firefox won't merge the nodes so we do it "manually" ///firefox|iceweasel/i.test(navigator.userAgent) && 
-						if(sc != this.$.editor && so == 0 && !canHaveChildren(sc) && !sc.previousSibling && sc.parentNode && sc.parentNode.previousSibling)
+						if(sc != this.$.editor && ((so == 0 && !canHaveChildren(sc)) || sc.isDelimiter) && !sc.previousSibling && sc.parentNode && sc.parentNode.previousSibling)
 						{
 							if(this.get("parentNode.previousSibling.lastChild", sc)) // neighbouring paragraphs with text nodes
 							{
@@ -591,8 +586,6 @@
 					}.bind(this));
 			}.bind(this));
 
-			//console.log("mutation cycles: ", cycles);
-
 
 			for(i = 0; i < customEls.length; i++)
 			{
@@ -768,9 +761,6 @@
 				this._updateValue();
 			
 			this.editorMutationHandler.inProgress = false;
-
-			//if(this.SPEED.totalbetweencalls % 100)
-			//console.log("th: %s tb: %s time in handler: %s%", this.SPEED.totalinhandler, this.SPEED.totalbetweencalls, 100 * this.SPEED.totalinhandler / this.SPEED.totalbetweencalls)
 
 			this.connectEditorObserver();
 		},
@@ -2000,8 +1990,6 @@
 
 			range = getSelectionRange();
 
-			// console.log('selectionRestore called from: ', arguments.callee.caller.name);
-
 			if(range && this.isOrIsAncestorOf(this.$.editor, range.startContainer))
 			{
 				if(!this.isOrIsAncestorOf(this.$.editor, document.activeElement))
@@ -2587,9 +2575,7 @@
 			else
 				undoRecord.push(new UndoItem(editor, innerHTML, prevUndo));
 
-			//console.log("sc: %s, so: %s, spos: %s, ec: %s, eo: %s, epos: %s, total undo+redo: %s", sc, so, JSON.stringify(startMemo.positionArray), ec, eo, JSON.stringify(endMemo.positionArray), undoRecord.length + redoRecord.length);
-			console.log(undoRecord.length, redoRecord.length);
-			//}
+			// console.log(undoRecord.length, redoRecord.length);
 
 			if(!force && !onlyUpdateRangeMemo && redoRecord.length > 0 && lastRestoredStateContent != innerHTML)
 				redoRecord = [];
@@ -3478,16 +3464,16 @@
 	};
 
 	function mergeNodes(left, right, setCaretAtMergePoint) {
-		var caretPos, ret, delimiters = 0;
+		var caretPos, ret, delimiters = 0, t;
 
 		ret = caretPos = getLastCaretPosition(left);
 
 		delimiters = Number(left.isDelimiter || 0) + Number(right.isDelimiter || 0);
-		if(left.isDelimiter)
-			left.textContent = '';
+		if(left.isDelimiter && !/\S/.test(left))
+			left.textContent = '  ';
 		else
 		if(!left.isDelimiter && right.isDelimiter && !/\S/.test(right))
-			right.textContent = '';
+			right.textContent = '  ';
 		
 		if(left.nodeType == 1) // left <-- right
 		{
@@ -3498,7 +3484,19 @@
 			if(right.nodeType == 1) // element - element
 			{
 				while(right.firstChild)
-					left.appendChild(right.removeChild(right.firstChild));
+				{
+					if(right.firstChild.is)
+					{
+						// got to do this to force custom elements rendered after merge
+						h = recursiveOuterHTML(right.firstChild);
+						t = document.createElement('div');
+						right.removeChild(right.firstChild);
+						left.appendChild(t); 
+						t.outerHTML = h;
+					}
+					else
+						left.appendChild(right.removeChild(right.firstChild));
+				}
 
 				right.parentNode.removeChild(right);
 			}
