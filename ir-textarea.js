@@ -554,6 +554,27 @@
 
 				if(mrt.nodeType == 3)
 				{
+					// merge delimiters with neighbouring text nodes
+					if(mrt.isDelimiter && mrt.nextSibling && mrt.nextSibling.nodeType == 3)
+					{
+						if(!/\S/.test(mrt.textContent))
+						{
+							if(sc == mrt) setCaretAt(mrt.nextSibling, 0);
+							mrt.parentNode.removeChild(mrt);
+						}
+						else
+							mergeNodes(mrt, mrt.nextSibling);
+					}
+					
+					if(mrt.isDelimiter && mrt.previousSibling && mrt.previousSibling.nodeType == 3)
+						if(!/\S/.test(mrt.textContent))
+						{
+							if(sc == mrt) setCaretAt(mrt.previousSibling, mrt.previousSibling.textContent.length);
+							mrt.parentNode.removeChild(mrt);
+						}
+						else
+							mergeNodes(mrt.previousSibling, mrt);
+					
 					// process delimiters "detached" from their custom element
 					if(mrt.isDelimiter && !((mrt.previousSibling && mrt.previousSibling.is) || (mrt.nextSibling && mrt.nextSibling.is)))
 					{
