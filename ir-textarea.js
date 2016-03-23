@@ -574,7 +574,7 @@
 						}
 						else
 							mergeNodes(mrt.previousSibling, mrt);
-					
+
 					// process delimiters "detached" from their custom element
 					if(mrt.isDelimiter && !((mrt.previousSibling && mrt.previousSibling.is) || (mrt.nextSibling && mrt.nextSibling.is)))
 					{
@@ -585,6 +585,13 @@
 							if(mrt == sc)
 								setCaretAt(sc, Math.min(so, mrt.textContent.length));
 						}
+					}
+					else
+					// clear .isDelimiter of non-empty nodes
+					if(mrt.isDelimiter && /S/.test(mrt.textContent))
+					{
+						mrt.textContent = mrt.textContent.replace(/\u00a0/, '');
+						mrt.isDelimiter = false;
 					}
 					if(sc == mrt && mrt.isDelimiter && !mrt.isInTransition && so != 1)
 						setCaretAt(sc, 1);
@@ -601,6 +608,8 @@
 				if(mrt.nodeType != 1)
 					return;
 
+				mrt.isDelimiter = false;
+				
 				if(mr.addedNodes.length)
 					Array.prototype.forEach.call(mr.addedNodes, function(n) { effectiveChanges.push(n) });
 				else
@@ -609,6 +618,7 @@
 				if(mr.type == 'childList')
 					visitNodes(mrt, function(n) {
 						totalVisits++;
+						if(n.nodeType != 3) n.isDelimiter = false;
 						if(n != this.$.editor && !isInLightDom(n, this.$.editor) || !Polymer.dom(n).parentNode)
 							return;
 						if(n.is && customEls.indexOf(n) == -1)
@@ -2838,12 +2848,15 @@
 			ec = getTopCustomElementAncestor(ec, root).nextSibling, eo = 0;
 
 		this.delimitersBeforeStart = 0;
-		n = ((sc.nodeType == 3 || sc.is) ? sc : sc.childNodes[so]).previousSibling
+		
+		n = (sc.nodeType == 3 || sc.is) ? sc : sc.childNodes[so];
+		n = n ? n.previousSibling : null;
 		for(; n; n = n.previousSibling)
 			this.delimitersBeforeStart += n.isDelimiter ? 1 : 0; //&& ((n.nextSibling && n.nextSibling.is) || (n.previousSibling && n.previousSibling.is)) ? 1 : 0;
 
 		this.delimitersBeforeEnd = 0;
-		n = ((ec.nodeType == 3 || ec.is) ? ec : ec.childNodes[eo]).previousSibling
+		n = (ec.nodeType == 3 || ec.is) ? ec : ec.childNodes[eo]
+		n = n ? n.previousSibling : null;
 		for(; n; n = n.previousSibling)
 			this.delimitersBeforeEnd += n.isDelimiter ? 1 : 0; // && ((n.nextSibling && n.nextSibling.is) || (n.previousSibling && n.previousSibling.is)) ? 1 : 0;
 		
@@ -3394,7 +3407,7 @@
 
 							spanParent.normalize();
 
-							range.startContainer.isDelimiter = true;
+							range.startContainer.isDelimiter = isDelimiter;
 							
 							delimiters.forEach(function(d) { d.isDelimiter = true });
 							
@@ -3501,12 +3514,17 @@
 
 		ret = caretPos = getLastCaretPosition(left);
 
-		delimiters = Number(left.isDelimiter || 0) + Number(right.isDelimiter || 0);
-		if(left.isDelimiter && !/\S/.test(left))
+		if(left.isDelimiter && !/\S/.test(left.textContent))
+		{
 			left.textContent = '  ';
+			delimiters++
+		}
 		else
-		if(!left.isDelimiter && right.isDelimiter && !/\S/.test(right))
+		if(!left.isDelimiter && right.isDelimiter && !/\S/.test(right.textContent))
+		{
 			right.textContent = '  ';
+			delimiters++;
+		}
 		
 		if(left.nodeType == 1) // left <-- right
 		{
