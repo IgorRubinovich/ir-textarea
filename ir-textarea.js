@@ -254,6 +254,11 @@
 							//? setCaretAt(Polymer.dom(ec).parentNode, getChildPositionInParent(ec.nextSibling.nextSibling, true)) : setCaretAt(ec, 1);
 				}
 
+				if((keyCode == 8 || keyCode == 46) && !r.collapsed) // deletes for non-collapsed range
+				{
+					this.deleteOnNonCollapsedRange(ev);
+				}
+				else
 				if(keyCode == 8 || keyCode == 46) // deletes
 				{
 					if(ev.type != 'keydown')
@@ -420,6 +425,43 @@
 			//getSelectionCoords();
 			//this.customUndo.pushUndo();
 		},
+		
+		deleteOnNonCollapsedRange : function(ev) {
+			var r, sc, ec, so, eo, nso, neo, sild, eild, stpce, etpce;
+			r = getSelectionRange();
+			sc = r.startContainer;
+			ec = r.endContainer;
+			nso = so = r.startOffset;
+			neo = eo = r.endOffset;
+			sild = isInLightDom(sc, this.$.editor);
+			eild = isInLightDom(ec, this.$.editor);
+
+			if(!sild || !eild)
+				return ev.preventDefault();
+
+			stpce = getTopCustomElementAncestor(sc, this.$.editor);
+			etpce = getTopCustomElementAncestor(ec, this.$.editor);
+
+			if(stpce != etpce)
+			{
+				this.fire('toast', "Cannot delete");
+				return ev.preventDefault();
+			}
+
+			if(sc.nodeType == 3 && so == 0 && sc.previousSibling && ec.previousSibling.is)
+			{
+				sc.textContent = '  ';
+				nso = 1;
+			}
+			
+			if(ec.nodeType == 3 && eo == sc.length && ec.nextSibling && ec.nextSibling.is)
+			{
+				sc.textContent = '  ';
+				neo = 1
+			}
+			
+			setCaretAt(sc, nso, ec, neo);
+		},
 
 		pasteHandler : function(e) {
 			var v, d, withParagraphs, i, n, nn;
@@ -555,7 +597,7 @@
 				if(mrt.nodeType == 3)
 				{
 					// merge delimiters with neighbouring text nodes
-					if(mrt.isDelimiter && mrt.nextSibling && mrt.nextSibling.nodeType == 3)
+					/*if(mrt.isDelimiter && mrt.nextSibling && mrt.nextSibling.nodeType == 3)
 					{
 						if(!/\S/.test(mrt.textContent))
 						{
@@ -574,6 +616,7 @@
 						}
 						else
 							mergeNodes(mrt.previousSibling, mrt);
+					*/
 
 					// process delimiters "detached" from their custom element
 					if(mrt.isDelimiter && !((mrt.previousSibling && mrt.previousSibling.is) || (mrt.nextSibling && mrt.nextSibling.is)))
@@ -581,20 +624,20 @@
 						mrt.isDelimiter = false;
 						if(/\u00a0/.test(mrt.textContent))
 						{
-							mrt.textContent = mrt.textContent.replace(/\u00a0/, '');
+							mrt.textContent = mrt.textContent.replace(/\u00a0/g, '');
 							if(mrt == sc)
-								setCaretAt(sc, Math.min(so, mrt.textContent.length));
+								setCaretAt(sc, Math.max(so, mrt.textContent.length));
 						}
 					}
 					else
 					// clear .isDelimiter of non-empty nodes
-					if(mrt.isDelimiter && /S/.test(mrt.textContent))
+					if(mrt.isDelimiter && /\S/.test(mrt.textContent))
 					{
-						mrt.textContent = mrt.textContent.replace(/\u00a0/, '');
+						mrt.textContent = mrt.textContent.replace(/\u00a0/g, '');
 						mrt.isDelimiter = false;
+						if(sc == mrt) // && mrt.isDelimiter && !mrt.isInTransition && so != 1)
+							setCaretAt(sc, 1);
 					}
-					if(sc == mrt && mrt.isDelimiter && !mrt.isInTransition && so != 1)
-						setCaretAt(sc, 1);
 					else
 					if(!mrt.textContent.length)
 						mrt.parentNode.removeChild(mrt);
@@ -3349,7 +3392,7 @@
 			win = win || window;
 			var doc = win.document, offsetParent, oldVal;
 			var sel = doc.selection, range, rects, rect, delimiters = [];
-			var x = 0, y = 0, spanParent;
+			var x = 0, y = 0, spanParent, sid, eid;
 			if (sel) {
 				if (sel.type != "Control") {
 					range = sel.createRange();
@@ -3379,13 +3422,8 @@
 						if (span.getClientRects) {
 							//var spanParent = span.parentNode;
 
-							if(range.startContainer.isDelimiter)
-								delimiters.push(range.startContainer);
-							if(range.endContainer.isDelimiter)
-								delimiters.push(range.endContainer);
-
-							if(range.startContainer.isDelimiter)
-								isDelimiter = true;
+							sid = range.startContainer.isDelimiter;
+							eid = range.endContainer.isDelimiter;
 
 							range.insertNode(span);
 							//rect = span.getClientRects()[0];
@@ -3407,9 +3445,8 @@
 
 							spanParent.normalize();
 
-							range.startContainer.isDelimiter = isDelimiter;
-							
-							delimiters.forEach(function(d) { d.isDelimiter = true });
+							range.startContainer.isDelimiter = sid;
+							range.endContainer.isDelimiter = eid;
 							
 							spanParent.noChange = true;
 						}
