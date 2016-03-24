@@ -140,6 +140,9 @@
 				tbar.headerHeight = arg.headerHeight;
 				tbar.transformOffset = arg.transformOffset;;
 				tbar.setPosition();
+				
+				//if(that.actionTarget)
+				//	that.setResizeHandlerPosition();
 			});
 
 			mediator.subscribe('showToolbar', function( arg ){
@@ -1152,7 +1155,7 @@
 
 		resizeTarget : function(target) {
 			this.addActionBorder();
-			var that = this, resizeHandler, resizeEndHandler, cbr, handlercbr, ep;
+			var that = this, resizeHandler, resizeEndHandler, cbr, ep;
 
 			if(this.__actionData.resizableTarget)
 				this.resizeTargetStop(true);
@@ -1171,16 +1174,8 @@
 			if(!target.id)
 				target.id = 'resizable-element';
 
-			handlercbr = this.$.resizeHandler.getBoundingClientRect();
-
-			ep = getElementPosition(target, that.$.editor);
-
-			this.$.resizeHandler.style.left = (ep.x + cbr.width - 25) + "px";
-			this.$.resizeHandler.style.top = (ep.y + cbr.height - 25) + "px";
-			this.$.resizeHandler.style.display = "block";
-
-			this.$.resizeHandler.proxyTarget = target;
-
+			this.setResizeHandlerPosition();
+			
 			resizeHandler = function (event) {
 
 				//var target = event.target,
@@ -1195,7 +1190,7 @@
 				sh = Number(target.style.height.replace(/px/, '') || 0) || computedStyle.height,
 				ratio, w, h;
 
-				if(!target.ratio) // keep the initial ratio on target, as interactible gets regreated on every resize start
+				if(!target.ratio) // keep the initial ratio on target, as interactible gets reсreated on every resize start
 					target.ratio = target._aspect; //sh/sw;;
 
 				//if(target._aspect)
@@ -1233,10 +1228,8 @@
 
 				that.__actionData.dragTarget = null; // resize takes over drag
 
-				ep = getElementPosition(target, that.$.editor);
-				that.$.resizeHandler.style.left = (ep.x + ep.width - 25) + "px";
-				that.$.resizeHandler.style.top = (ep.y + ep.height - 25) + "px";
-
+				that.setResizeHandlerPosition();
+				
 				// translate when resizing from top or left edges
 				//x += event.dy; //y += event.deltaRect.top;
 				//console.log(x);
@@ -1301,6 +1294,27 @@
 			}
 
 		  //this.__actionData.interactable = interactable;
+		},
+		
+		setResizeHandlerPosition : function()
+		{
+			var target, cbr, handlercbr, ep;
+			
+			if(!this.__actionData || !this.__actionData.target)
+				return;
+			
+			target = this.__actionData.target;
+			
+			handlercbr = this.$.resizeHandler.getBoundingClientRect();
+			
+			cbr = cbr = target.getBoundingClientRect();
+			ep = getElementPosition(target, this.$.editor);
+
+			this.$.resizeHandler.style.left = (ep.x + cbr.width - 25) + "px";
+			this.$.resizeHandler.style.top = (ep.y + cbr.height - 25) + "px";
+			this.$.resizeHandler.style.display = "block";
+
+			this.$.resizeHandler.proxyTarget = target;
 		},
 
 		moveTarget : function(target, done) {
