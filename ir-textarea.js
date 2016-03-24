@@ -223,10 +223,10 @@
 				if(r.startContainer.nodeType == 3 || !r.startContainer.childNodes.length) sc = r.startContainer, so = r.startOffset; else sc = r.startContainer.childNodes[r.startOffset], so = 0;
 				if(r.endContainer.nodeType == 3 || !r.endContainer.childNodes.length) ec = r.endContainer, eo = r.startOffset; else ec = r.startContainer.childNodes[r.startOffset], eo = 0;
 
-				if([35,36,37,39].indexOf(keyCode) > -1) // left/right   (/home/end)
+				if([37,39].indexOf(keyCode) > -1) // left/right
 				{
-					// left and home
-					if(sc && (keyCode == 36 || keyCode == 37) && (so == 0 || sc.isDelimiter) && sc.nodeType == 3)
+					// left
+					if(sc && (keyCode == 37) && (so == 0 || sc.isDelimiter) && sc.nodeType == 3)
 					{
 						if(sc.isInTransition = (ev.type == 'keydown'))
 						{
@@ -241,7 +241,7 @@
 						}
 					}
 					else
-					if(ec && (keyCode == 35 || keyCode == 39) && (ec.isDelimiter || eo >= ec.length) && sc.nodeType == 3) // end and right, next sibling must be a custom element with a delimiter or a text node as nextSibling
+					if(ec && (keyCode == 39) && (ec.isDelimiter || eo >= ec.length) && sc.nodeType == 3) // end and right, next sibling must be a custom element with a delimiter or a text node as nextSibling
 						if(ec.isInTransition = (ev.type == 'keydown'))
 						{
 							if(ec.nextSibling && ec.nextSibling.is)
@@ -270,30 +270,6 @@
 					{
 						toDelete = this.__actionData.deleteTarget;
 						forcedelete = true;
-						
-						if(toDelete && toDelete.parentNode && toDelete.nodeType == 1 && (forcedelete || !ev.defaultPrevented))
-						{
-							if(toDelete.parentNode.firstChild == toDelete && toDelete.parentNode.lastChild == toDelete)
-								toDelete = toDelete.parentNode;
-
-							if(toDelete.previousSibling && toDelete.nextSibling)
-								merge = { left : toDelete.previousSibling, right : toDelete.nextSibling };
-							else
-							if(!toDelete.nextSibling && toDelete.parentNode != this.$.editor && toDelete.parentNode.nextSibling)
-								merge = { left : toDelete.parentNode, right : toDelete.parentNode.nextSibling };
-							else
-							if(!toDelete.previousSibling && toDelete.parentNode != this.$.editor && toDelete.parentNode.previousSibling)
-								merge = { left : toDelete.parentNode.previousSibling, right : toDelete.parentNode };
-
-							this.deleteTarget(toDelete);
-
-							if(merge)
-								mergeNodes(merge.left, merge.right, true);
-
-							this.ensureCursorLocationIsValid();
-
-							ev.preventDefault();
-						}
 					}
 					else
 					if(!r.collapsed) // delete a non-collapsed range
@@ -305,9 +281,6 @@
 					}
 					else
 					{
-						if(ev.type != 'keydown')
-							return; // ev.preventDefault()
-
 						t = this.$.editor;
 
 						if(sc == this.$.editor)
@@ -337,7 +310,7 @@
 							else
 							if(sc.nodeType == 3 && sc.textContent.length == 1 && so == 0 && sc.nextSibling.is)
 							{
-								sc.textContent = '  ';
+								sc.textContent = '\u00a0\u00a0';
 								setCaretAt(sc, 1);
 								ev.preventDefault();
 							}
@@ -383,7 +356,7 @@
 							else
 							if(sc.nodeType == 3 && sc.textContent.length == 1 && so == 1 && sc.nextSibling.is)
 							{
-								sc.textContent = '  ';
+								sc.textContent = '\u00a0\u00a0';
 								setCaretAt(sc, 1);
 								ev.preventDefault();
 							}
@@ -429,10 +402,34 @@
 						}
 					}
 					
+					if(toDelete && toDelete.parentNode && toDelete.nodeType == 1 && (forcedelete || !ev.defaultPrevented))
+					{
+						if(toDelete.parentNode.firstChild == toDelete && toDelete.parentNode.lastChild == toDelete)
+							toDelete = toDelete.parentNode;
+
+						if(toDelete.previousSibling && toDelete.nextSibling)
+							merge = { left : toDelete.previousSibling, right : toDelete.nextSibling };
+						else
+						if(!toDelete.nextSibling && toDelete.parentNode != this.$.editor && toDelete.parentNode.nextSibling)
+							merge = { left : toDelete.parentNode, right : toDelete.parentNode.nextSibling };
+						else
+						if(!toDelete.previousSibling && toDelete.parentNode != this.$.editor && toDelete.parentNode.previousSibling)
+							merge = { left : toDelete.parentNode.previousSibling, right : toDelete.parentNode };
+
+						this.deleteTarget(toDelete);
+
+						if(merge)
+							mergeNodes(merge.left, merge.right, true);
+
+						this.ensureCursorLocationIsValid();
+
+						ev.preventDefault();
+					}
+					
 					this.selectionSave();
 					this.selectionRestore();
 					this.clearActionData();
-				}
+				}				
 			}
 
 			altTarget = getTopCustomElementAncestor(ev.target, this.$.editor); // || (ev.target.proxyTarget && ev.target);
@@ -485,7 +482,7 @@
 					return ev.preventDefault();
 				}
 				
-				if(stpce && stpce == etpce)
+				if(stpce && stpce == etpce && (!sild || !eild || sc.parentNode != ec.parentNode))
 					stpce.parentNode.removeChild(stpce);
 			
 				r.deleteContents();				
@@ -514,7 +511,7 @@
 				}
 			}
 
-			//ev.preventDefault();
+			ev.preventDefault();
 		},
 
 		pasteHandler : function(e) {
@@ -634,19 +631,20 @@
 
 				mrt.observerCycle = this.observerCycle;
 
-				if(mr.type == "childList" &&
-						((mr.addedNodes && mr.addedNodes.length == 1 && mr.addedNodes[0].nodeType == 1 && mr.addedNodes[0].classList.contains('__moignore')) ||
-						(mr.removedNodes && mr.removedNodes.length == 1 && mr.removedNodes[0].nodeType == 1 && mr.removedNodes[0].classList.contains('__moignore'))) ||
+				/*if(mr.type == "childList" &&
+						((mr.addedNodes && mr.addedNodes.length == 1 && mr.addedNodes[0].nodeType == 1 && mr.addedNodes[0].classList.contains('__moignore'))))
+						//(mr.removedNodes && mr.removedNodes.length == 1 && mr.removedNodes[0].nodeType == 1 && mr.removedNodes[0].classList.contains('__moignore'))) ||
 						// __moignore identifies the span used for cursor position calculation
-						(mr.addedNodes && mr.addedNodes.length == 1 && mr.addedNodes[0].isDelimiter && !/\S/.test(mr.addedNodes[0].textContent)) ||
-						(mr.removedNodes && mr.removedNodes.length == 1 && mr.removedNodes[0].isDelimiter && !/\S/.test(mr.removedNodes[0].textContent)))
-					return;
+						//(mr.addedNodes && mr.addedNodes.length == 1 && mr.addedNodes[0].isDelimiter && !/\S/.test(mr.addedNodes[0].textContent)) ||
+						//(mr.removedNodes && mr.removedNodes.length == 1 && mr.removedNodes[0].isDelimiter && !/\S/.test(mr.removedNodes[0].textContent)))
+					
+					return console.log('ignoring');*/
 
-				if(mr.target.nochange)
+				/*if(mr.target.nochange)
 				{
 					mr.target.nochange = false;
 					return
-				}
+				}*/
 
 				if(mrt.nodeType == 3)
 				{
@@ -680,7 +678,7 @@
 						{
 							mrt.textContent = mrt.textContent.replace(/\u00a0/g, '');
 							if(mrt == sc)
-								setCaretAt(sc, Math.max(so, mrt.textContent.length));
+								setCaretAt(sc, Math.min(so, mrt.textContent.length));
 						}
 					}
 					else
@@ -901,7 +899,9 @@
 				this._updateValue();
 			
 			this.editorMutationHandler.inProgress = false;
+			
 
+			
 			this.connectEditorObserver();
 		},
 
@@ -2235,10 +2235,8 @@
 		getSelectionCoords : function() {
 			var c;
 
-			//this.editorMutationHandler.skip = 1;
-			//this.disconnectEditorObserver();
+			// don't disconnect editorobserver here as this will break delimiters
 			c = getSelectionCoords();
-			//this.connectEditorObserver();
 
 			return c;
 		},
@@ -2298,45 +2296,38 @@
 		},
 
 		_updateValue : function(force) {
+			var hadChanged = this.changed;
+			
+			if(this.isGettingCoordinates)
+				return;
+			
 			if(this._updateValueTimeout)
-			{
-				this._updateValueTime = new Date().getTime();
-
 				clearTimeout(this._updateValueTimeout);
-				this._updateValueTimeout = null;
-			}
 
-			if(!this._updateValueTime || this._updateValueTime - (new Date().getTime()) > 300)
+			//console.log((new Date().getTime()) - this._updateValueTime)
+			if(!this._updateValueTime || (new Date().getTime()) - this._updateValueTime > 300)
 			{
 				this.selectionRestore();
-				this.customUndo.pushUndo();
+				// this is "regular" undo push invoked by a quick sequence of actions
+				this.customUndo.pushUndo(); 
 				this._updateValueTime = new Date().getTime();
 			}
 
 			//this.customUndo.pushUndo();
 			this._updateValueTimeout = setTimeout(function() {
 				var p;
-
-				this.customUndo.pushUndo();
+				
+				// this is "timeout" undo, following up on last action that otherwise wouldn't be pushed by "regular" undo since it's not followed up by an action soon enough
+				this.customUndo.pushUndo(); 
 
 				r = getSelectionRange();
 
 				if(!r)
 					return;
-
-				p = r.startContainer;
-				while(p)
-				{
-					if(p == this.$.editor)
-						return this.fire('scroll-into-view', this.getSelectionCoords());
-
-					p = p.parentNode;
-				}
-
-				//if(r && this.isOrIsAncestorOf(this.$.editor, r.startContainer))
-				//	this.fire('scroll-into-view', this.getSelectionCoords());
-
-			}.bind(this), 300);
+				
+				if(isDescendantOf(r.startContainer, this.$.editor))
+					return this.fire('scroll-into-view', this.getSelectionCoords());
+			}.bind(this), 200);
 
 			var val, sameContent, d, r;
 			var bottomPadding, topPadding, that = this, editor = this.$.editor;
@@ -2351,8 +2342,6 @@
 			}
 			else
 				val = this.value;
-
-			this._updateValueTimeout = null;
 
 			this.selectionSave();
 
@@ -3047,13 +3036,13 @@
 			if(n.is)
 			{
 				if(!n.previousSibling || n.previousSibling.nodeType != 3)
-					n.parentNode.insertBefore(delimiter = document.createTextNode('  '), n);
+					n.parentNode.insertBefore(delimiter = document.createTextNode('\u00a0\u00a0'), n);
 
 				if(!n.nextSibling)
-					n.parentNode.appendChild(delimiter = document.createTextNode('  '), n);
+					n.parentNode.appendChild(delimiter = document.createTextNode('\u00a0\u00a0'), n);
 				else
 				if(n.nextSibling.nodeType != 3)
-					n.parentNode.insertBefore(delimiter = document.createTextNode('  '), n.nextSibling);
+					n.parentNode.insertBefore(delimiter = document.createTextNode('\u00a0\u00a0'), n.nextSibling);
 				
 				if(delimiter) delimiter.isDelimiter;
 				delimiter = null;
@@ -3508,7 +3497,6 @@
 							(spanParent = span.parentNode).removeChild(span);
 
 							// Glue any broken text nodes back together
-
 							spanParent.normalize();
 
 							range.startContainer.isDelimiter = sid;
@@ -3619,13 +3607,13 @@
 
 		if(left.isDelimiter && !/\S/.test(left.textContent))
 		{
-			left.textContent = '  ';
+			left.textContent = '\u00a0\u00a0';
 			delimiters++
 		}
 		else
 		if(!left.isDelimiter && right.isDelimiter && !/\S/.test(right.textContent))
 		{
-			right.textContent = '  ';
+			right.textContent = '\u00a0\u00a0';
 			delimiters++;
 		}
 		
