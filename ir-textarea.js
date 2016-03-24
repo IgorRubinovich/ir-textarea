@@ -1,3 +1,8 @@
+// ir-textarea
+// A wysiwyg  editor for Polymer 1.0+
+
+// Version: 0.82
+
 (function () {
   var INLINE_ELEMENTS = {};
   "font,b,big,i,small,tt,abbr,acronym,cite,code,dfn,em,kbd,strong,samp,time,var,a,bdo,br,img,map,object,q,script,span,sub,sup".split(/,/)
