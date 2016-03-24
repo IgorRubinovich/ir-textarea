@@ -1,7 +1,7 @@
 {
   "name": "ir-textarea",
   "main": "ir-textarea.html",
-  "version": "0.81",
+  "version": "0.82",
   "authors": [
     "Igor Rubinovich <igor.rubinovih@gmail.com>"
   ],
