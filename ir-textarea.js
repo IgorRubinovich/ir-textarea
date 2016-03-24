@@ -433,34 +433,38 @@
 			ec = r.endContainer;
 			nso = so = r.startOffset;
 			neo = eo = r.endOffset;
-			sild = isInLightDom(sc, this.$.editor);
-			eild = isInLightDom(ec, this.$.editor);
+			sild = sc == this.$.editor || isInLightDom(sc, this.$.editor);
+			eild = ec == this.$.editor || isInLightDom(ec, this.$.editor);
 
 			if(!sild || !eild)
 				return ev.preventDefault();
 
-			stpce = getTopCustomElementAncestor(sc, this.$.editor);
-			etpce = getTopCustomElementAncestor(ec, this.$.editor);
+			stpce = sc != this.$.editor && getTopCustomElementAncestor(sc, this.$.editor);
+			etpce = ec != this.$.editor && getTopCustomElementAncestor(ec, this.$.editor);
 
-			if(stpce != etpce)
+			if((stpce || etpce) && stpce != etpce)
 			{
 				this.fire('toast', "Cannot delete");
 				return ev.preventDefault();
 			}
 
-			if(sc.nodeType == 3 && so == 0 && sc.previousSibling && ec.previousSibling.is)
+			if(sc.nodeType == 3 && so == 0 && sc.previousSibling && sc.previousSibling.is)
 			{
 				sc.textContent = '  ';
 				nso = 1;
 			}
 			
-			if(ec.nodeType == 3 && eo == sc.length && ec.nextSibling && ec.nextSibling.is)
+			if(ec.nodeType == 3 && (eo == sc.length ) && ec.nextSibling && ec.nextSibling.is)
 			{
-				sc.textContent = '  ';
+				ec.textContent = '  ';
 				neo = 1
 			}
 			
-			setCaretAt(sc, nso, ec, neo);
+			r = setCaretAt(sc, nso, ec, neo);
+			
+			r.deleteContents();
+			
+			ev.preventDefault();
 		},
 
 		pasteHandler : function(e) {
@@ -1024,20 +1028,19 @@
 		},
 
 		clearActionData : function() {
-		  var ad = this.__actionData;
+			var ad = this.__actionData;
 
-		  this.removeActionBorder();
+			this.removeActionBorder();
 
-		  this.$.resizeHandler.style.display = "none";
+			this.$.resizeHandler.style.display = "none";
 
-		  if(ad.target)
+			if(ad.target)
 			console.log('stopped action:', ad.target);
 
-		  ad.target = ad.lastAction = ad.type = null;
+			ad.target = ad.lastAction = ad.type = null;
 
 
 			if( ad.id =='resizable-element') ad.id = '';
-
 		},
 
 		deleteCmd : function() {
@@ -3154,7 +3157,8 @@
 
 		range.setStart(startTarget, startOffset);
 		range.setEnd(endTarget, endOffset);
-		range.collapse(startOffset == endOffset);
+		if(startOffset == endOffset)
+			range.collapse();
 		sel.removeAllRanges();
 		sel.addRange(range);
 
