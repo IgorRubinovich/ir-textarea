@@ -275,7 +275,10 @@
 
 				// deletes
 				if(keyCode == 8 || keyCode == 46)
-				{
+				{					
+					if(!this.$.editor.childNodes.length || isEmptyParagraph(this.$.editor.firstChild)) // ignore when $.editor is empty or has one paragraph
+						return;
+
 					if(ev.type == 'keydown')
 					{
 						this.selectionSave();
