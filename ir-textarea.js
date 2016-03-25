@@ -162,21 +162,23 @@
 
 		userInputHandler : function (ev) {
 			var altTarget, noMoreSave, el, toDelete, keyCode = ev.keyCode || ev.which, t,
-				forcedelete, r, done, localRoot, last, n, nn, pn, pos, firstRange, merge, sc, ec, so, eo, toMerge;
+				forcedelete, r, done, localRoot, last, n, nn, pn, pos, firstRange, merge, sc, ec, so, eo, toMerge, previewShortcutListener;
 
-			if(keyCode == 192 && ev.altKey)
+			if(keyCode == 192 && ev.type == 'keydown' && ev.altKey && ev.viewMode != 1)
 			{
-				if(ev.type == 'keydown' && ev.viewMode != 1)
-				{
-					this._prevViewMode = 0;
-					this.set('viewMode', 1);
-				}
+				document.addEventListener('keyup', previewShortcutListener = function() {
+					document.removeEventListener('keyup', previewShortcutListener);
+					this._prevViewMode = null;
 
-				if(ev.type == 'keyUp' && ev.viewMode != 1)
-				{
-					this._prevViewMode = 0;
-					this.set('viewMode', this._prevViewMode);
-				}
+					if(keyCode != 192)
+						return;
+
+					this.set('viewMode', this._prevViewMode || 0);
+				}.bind(this));
+
+				this._prevViewMode = this.viewMode;
+				this.set('viewMode', 1);
+
 			};				
 			
 			if(([89,90,67,86].indexOf(keyCode) > -1 && ev	) || (['mousedown', 'mouseup', 'click'].indexOf(ev.type) > -1  && ev.which == 3)) // undo/redo/copy/paste and right click are handled in their own handlers or their default behavior
@@ -2301,6 +2303,7 @@
 				this.fire('unchange');
 
 			this.$.editor.style.minHeight = this.$.editor.scrollHeight + "px";
+			this.style.minHeight = this.$.editor.scrollHeight + "px";
 		},
 
 		getCleanValue : function(from) {
@@ -2480,7 +2483,10 @@
 
 		viewModeChanged : function() {
 			if(this.viewMode == 1)
-				Polymer.dom(this.$.preview).innerHTML = this.value; //
+				Polymer.dom(this.$.preview).innerHTML = this.value;
+			else
+			if(this.viewMode == 0)
+				this.selectionRestore();
 		},
 
 		properties : {
