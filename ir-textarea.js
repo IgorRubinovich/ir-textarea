@@ -4,15 +4,16 @@
 // Version: 0.82
 
 (function () {
-  var INLINE_ELEMENTS = {};
-  "font,b,big,i,small,tt,abbr,acronym,cite,code,dfn,em,kbd,strong,samp,time,var,a,bdo,br,img,map,object,q,script,span,sub,sup".split(/,/)
-    .forEach(function(tag) { INLINE_ELEMENTS[tag.toUpperCase()] = true });
+  var 	INLINE_ELEMENTS = {},
+		DELIMITER = '\u00a0\u00a0';
+		"font,b,big,i,small,tt,abbr,acronym,cite,code,dfn,em,kbd,strong,samp,time,var,a,bdo,br,img,map,object,q,script,span,sub,sup".split(/,/)
+			.forEach(function(tag) { INLINE_ELEMENTS[tag.toUpperCase()] = true });
 
   console.log('ir-textarea');
   Polymer({
 		is : 'ir-textarea',
 		ready : function() {
-		  var that = this,commands = this.commands.split(/,/);
+			var that = this, commands = this.commands.split(/,/);
 
 			this.changed = true;
 
@@ -29,7 +30,7 @@
 
 			this.$.editor.addEventListener('click', this.contextMenuShow.bind(this), true); // capturing phase
 			this.$.editor.addEventListener('paste', this.pasteHandler.bind(this));
-			that.$.editor.addEventListener('copy', function() {console.log('hi copy')} );
+			//this.$.editor.addEventListener('copy', function() {console.log('hi copy')} );
 
 			var defs = {};
 			window.ir.textarea.commands
@@ -65,8 +66,6 @@
 
 		attached: function(){
 			this.insertPlugins();
-
-			var cleanval;
 
 			this.configureToolbar()
 
@@ -165,8 +164,22 @@
 			var altTarget, noMoreSave, el, toDelete, keyCode = ev.keyCode || ev.which, t,
 				forcedelete, r, done, localRoot, last, n, nn, pn, pos, firstRange, merge, sc, ec, so, eo, toMerge;
 
+			if(keyCode == 192 && ev.altKey)
+			{
+				if(ev.type == 'keydown' && ev.viewMode != 1)
+				{
+					this._prevViewMode = 0;
+					this.set('viewMode', 1);
+				}
+
+				if(ev.type == 'keyUp' && ev.viewMode != 1)
+				{
+					this._prevViewMode = 0;
+					this.set('viewMode', this._prevViewMode);
+				}
+			};				
 			
-			if(([89,90,67,86].indexOf(keyCode) > -1 && ev.ctrlKey) || (['mousedown', 'mouseup', 'click'].indexOf(ev.type) > -1  && ev.which == 3)) // undo/redo/copy/paste and right click are handled in their own handlers or their default behavior
+			if(([89,90,67,86].indexOf(keyCode) > -1 && ev	) || (['mousedown', 'mouseup', 'click'].indexOf(ev.type) > -1  && ev.which == 3)) // undo/redo/copy/paste and right click are handled in their own handlers or their default behavior
 				return;
 
 			this.selectionSave();
@@ -219,8 +232,6 @@
 
 				//this.ensureCursorLocationIsValid({reverseDirection : true});
 
-				this.frameContent();
-
 				this.selectionSave();
 				ev.preventDefault();
 			}
@@ -231,7 +242,7 @@
 				if(r.startContainer.nodeType == 3 || !r.startContainer.childNodes.length) sc = r.startContainer, so = r.startOffset; else sc = r.startContainer.childNodes[r.startOffset], so = 0;
 				if(r.endContainer.nodeType == 3 || !r.endContainer.childNodes.length) ec = r.endContainer, eo = r.startOffset; else ec = r.startContainer.childNodes[r.startOffset], eo = 0;
 
-				if([37,39].indexOf(keyCode) > -1) // left/right
+				if([37,39].indexOf(keyCode) > -1) // left/right keys
 				{
 					// left
 					if(sc && (keyCode == 37) && (so == 0 || sc.isDelimiter) && sc.nodeType == 3)
@@ -260,7 +271,6 @@
 							else
 								setCaretAt(ec, ec.textContent.length);
 						}
-							//? setCaretAt(Polymer.dom(ec).parentNode, getChildPositionInParent(ec.nextSibling.nextSibling, true)) : setCaretAt(ec, 1);
 				}
 
 				// deletes
@@ -318,7 +328,7 @@
 							else
 							if(sc.nodeType == 3 && sc.textContent.length == 1 && so == 0 && sc.nextSibling.is)
 							{
-								sc.textContent = '\u00a0\u00a0';
+								sc.textContent = DELIMITER;
 								setCaretAt(sc, 1);
 								ev.preventDefault();
 							}
@@ -364,7 +374,7 @@
 							else
 							if(sc.nodeType == 3 && sc.textContent.length == 1 && so == 1 && sc.nextSibling.is)
 							{
-								sc.textContent = '\u00a0\u00a0';
+								sc.textContent = DELIMITER;
 								setCaretAt(sc, 1);
 								ev.preventDefault();
 							}
@@ -602,11 +612,8 @@
 			if(this.editorMutationHandler.skip--)
 				return;
 
-			var totalVisits = 0, ce, pe, tnc, created, r, sc, so, ec, eo, delimiter, emptyRe, done, upToDate,
+			var totalVisits = 0, ce, pe, tnc, created, r, sc, so, ec, eo, done, upToDate,
 				effectiveChanges = [], customEls = this.customElements;
-
-			delimiter = '\u00a0\u00a0';
-			emptyRe = /^[\s\u00a0]*$/;
 
 			for(i = 0; i < customEls.length; i++)
 				if(!Polymer.dom(customEls[i]).parentNode)
@@ -639,45 +646,8 @@
 
 				mrt.observerCycle = this.observerCycle;
 
-				/*if(mr.type == "childList" &&
-						((mr.addedNodes && mr.addedNodes.length == 1 && mr.addedNodes[0].nodeType == 1 && mr.addedNodes[0].classList.contains('__moignore'))))
-						//(mr.removedNodes && mr.removedNodes.length == 1 && mr.removedNodes[0].nodeType == 1 && mr.removedNodes[0].classList.contains('__moignore'))) ||
-						// __moignore identifies the span used for cursor position calculation
-						//(mr.addedNodes && mr.addedNodes.length == 1 && mr.addedNodes[0].isDelimiter && !/\S/.test(mr.addedNodes[0].textContent)) ||
-						//(mr.removedNodes && mr.removedNodes.length == 1 && mr.removedNodes[0].isDelimiter && !/\S/.test(mr.removedNodes[0].textContent)))
-					
-					return console.log('ignoring');*/
-
-				/*if(mr.target.nochange)
-				{
-					mr.target.nochange = false;
-					return
-				}*/
-
 				if(mrt.nodeType == 3)
 				{
-					// merge delimiters with neighbouring text nodes
-					/*if(mrt.isDelimiter && mrt.nextSibling && mrt.nextSibling.nodeType == 3)
-					{
-						if(!/\S/.test(mrt.textContent))
-						{
-							if(sc == mrt) setCaretAt(mrt.nextSibling, 0);
-							mrt.parentNode.removeChild(mrt);
-						}
-						else
-							mergeNodes(mrt, mrt.nextSibling);
-					}
-					
-					if(mrt.isDelimiter && mrt.previousSibling && mrt.previousSibling.nodeType == 3)
-						if(!/\S/.test(mrt.textContent))
-						{
-							if(sc == mrt) setCaretAt(mrt.previousSibling, mrt.previousSibling.textContent.length);
-							mrt.parentNode.removeChild(mrt);
-						}
-						else
-							mergeNodes(mrt.previousSibling, mrt);
-					*/
-
 					// process delimiters "detached" from their custom element
 					if(mrt.isDelimiter && !((mrt.previousSibling && mrt.previousSibling.is) || (mrt.nextSibling && mrt.nextSibling.is)))
 					{
@@ -748,7 +718,7 @@
 					// pad before
 					if(!ps || ps.nodeType != 3) // no text element before
 					{
-						ps = pe.insertBefore(created = document.createTextNode(delimiter), ce);
+						ps = pe.insertBefore(created = document.createTextNode(DELIMITER), ce);
 						created.isDelimiter = true;
 					}
 					else // a whitespace text element before
@@ -759,8 +729,8 @@
 							if(ps.previousSibling && ps.previousSibling.nodeType == 3)
 								ps = mergeNodes(ps.previousSibling, ps, true);
 
-							if(ps.textContent != delimiter && !/\S/.test(ps.textContent))
-								ps.textContent = delimiter;
+							if(ps.textContent != DELIMITER && !/\S/.test(ps.textContent))
+								ps.textContent = DELIMITER;
 
 							ps.isDelimiter = true;
 						}
@@ -781,7 +751,7 @@
 					// pad after
 					if(!ns || ns.nodeType != 3)
 					{
-						ns = pe[ns ? 'insertBefore' : 'appendChild'](created = document.createTextNode(delimiter), ns);
+						ns = pe[ns ? 'insertBefore' : 'appendChild'](created = document.createTextNode(DELIMITER), ns);
 						created.isDelimiter = true;
 					}
 					else
@@ -792,8 +762,8 @@
 							if(ns.nextSibling && ns.nextSibling.nodeType == 3)
 								ns = mergeNodes(ns.nextSibling,ns,true);
 
-							if(ns.textContent != delimiter && !/\S/.test(ns.textContent))
-								ns.textContent = delimiter;
+							if(ns.textContent != DELIMITER && !/\S/.test(ns.textContent))
+								ns.textContent = DELIMITER;
 
 							ns.isDelimiter = true;
 						}
@@ -904,7 +874,7 @@
 			}.bind(this))
 
 			if(cycles > 0)
-				this._updateValue();
+				this._updateValue(true);
 			
 			this.editorMutationHandler.inProgress = false;
 			
@@ -1971,8 +1941,6 @@
 
 		// to use instead of execCommand('insertHTML') - modified from code by Tim Down
 		insertHTMLCmd : function (html) {
-			//this.selectionRestore();
-
 			var ef = html.match(/\<p[^\>]+\>/) ? ["p"] : [];
 			var r, after;
 
@@ -2270,51 +2238,7 @@
 			return range;
 		},
 
-		// wraps content in <p><br></p>[content]<p><br></p>
-		frameContent : function() {
-			return; // obsolete
-
-			/*
-			var ed = this.$.editor, nn, i, d, lastBeforeSkip, r;
-
-
-			if(!ed.childNodes.length)
-				return setCaretAt(ed.appendChild(newEmptyParagraph()), 0)
-
-			if(!isEmptyParagraph(ed.childNodes[0]))
-			{
-				if(ed.childNodes[0] && ed.childNodes[0].matchesSelector && ed.childNodes[0].matchesSelector('span.paragraph') && !ed.childNodes[0].innerHTML)
-				{
-					if(ed.childNodes.length == 1)
-						ed.childNodes[0].innerHTML = '<br>'
-					else
-					{
-						if((getSelectionRange() || {}).startContaier == ed.childNodes[0])
-							setCaretAt(ed.childNodes[1], 0);
-
-						ed.removeChild(ed.childNodes[0]);
-					}
-
-				}
-				else
-				if(selfOrLeftmostDescendantIsSpecial(ed.childNodes[0]))
-					ed.insertBefore(newEmptyParagraph(), ed.childNodes[0]);
-			}
-
-			lastBeforeSkip = ed.lastChild;
-
-			if(ed.childNodes.length == 1 || !isEmptyParagraph(lastBeforeSkip))
-			{
-				if(lastBeforeSkip == ed.lastChild)
-					ed.appendChild(newEmptyParagraph());
-				else
-					ed.insertBefore(newEmptyParagraph(), lastBeforeSkip.nextSibling);
-			}
-
-			*/
-		},
-
-		_updateValue : function(force) {
+		_updateValue : function(noForceSelection) {
 			var hadChanged = this.changed;
 			
 			if(this.isGettingCoordinates)
@@ -2326,7 +2250,7 @@
 			//console.log((new Date().getTime()) - this._updateValueTime)
 			if(!this._updateValueTime || (new Date().getTime()) - this._updateValueTime > 300)
 			{
-				this.selectionRestore();
+				this.selectionRestore(!noForceSelection);
 				// this is "regular" undo push invoked by a quick sequence of actions
 				this.customUndo.pushUndo(); 
 				this._updateValueTime = new Date().getTime();
@@ -2517,11 +2441,6 @@
 			return setCaretAt(pos.container, pos.offset);
 		},
 
-		cleanHTML : function() {
-			this.set("value", this.$.editor.innerHTML = HTMLtoXML(this.value));
-			this._updateValue(true);
-		},
-
 		undo : function() {
 			this.selectionRestore();
 			this.customUndo.undo();
@@ -2536,7 +2455,6 @@
 	  _onAnimationFinish: function() {
 		  if (this._showing) {
 		  } else {
-			  //this.style.display = '';
 			  this.$.toolbar.classList.remove('fixit');
 		  }
 	  },
@@ -3055,13 +2973,13 @@
 			if(n.is)
 			{
 				if(!n.previousSibling || n.previousSibling.nodeType != 3)
-					n.parentNode.insertBefore(delimiter = document.createTextNode('\u00a0\u00a0'), n);
+					n.parentNode.insertBefore(delimiter = document.createTextNode(DELIMITER), n);
 
 				if(!n.nextSibling)
-					n.parentNode.appendChild(delimiter = document.createTextNode('\u00a0\u00a0'), n);
+					n.parentNode.appendChild(delimiter = document.createTextNode(DELIMITER), n);
 				else
 				if(n.nextSibling.nodeType != 3)
-					n.parentNode.insertBefore(delimiter = document.createTextNode('\u00a0\u00a0'), n.nextSibling);
+					n.parentNode.insertBefore(delimiter = document.createTextNode(DELIMITER), n.nextSibling);
 				
 				if(delimiter) delimiter.isDelimiter;
 				delimiter = null;
@@ -3228,7 +3146,7 @@
 		range.setStart(startTarget, startOffset);
 		range.setEnd(endTarget, endOffset);
 		if(startOffset == endOffset)
-			range.collapse();
+			range.collapse(false); // false means collapse to end point
 		sel.removeAllRanges();
 		sel.addRange(range);
 
@@ -3316,7 +3234,9 @@
 			if(node.is)
 				return true;
 
-			if (node && node.canHaveChildren)
+			if(node && typeof node.canHaveChildren == 'boolean')
+				return cache[node.tagName] = node.canHaveChildren
+			if(node && typeof node.canHaveChildren == 'function')
 				return cache[node.tagName] = node.canHaveChildren();
 
 			return cache[node.tagName] = node.nodeType === 1 && node.ownerDocument.createElement(node.tagName).outerHTML.indexOf("></") > 0;
@@ -3626,13 +3546,13 @@
 
 		if(left.isDelimiter && !/\S/.test(left.textContent))
 		{
-			left.textContent = '\u00a0\u00a0';
+			left.textContent = DELIMITER;
 			delimiters++
 		}
 		else
 		if(!left.isDelimiter && right.isDelimiter && !/\S/.test(right.textContent))
 		{
-			right.textContent = '\u00a0\u00a0';
+			right.textContent = DELIMITER;
 			delimiters++;
 		}
 		
@@ -3749,5 +3669,21 @@
 		return Number(x.replace ? x.replace(/[^\d\.]/g, '') : x);
 	};
 
+	
+	// polyfill ie11 and older buggy Node.prototype.normalize()
+	if(/MSIE|Trident/.test(navigator.userAgent))
+		Node.prototype.normalize = 
+		function (node) {
+		  if (!node) { return; }
+		  if (node.nodeType == 3) {
+			while (node.nextSibling && node.nextSibling.nodeType == 3) {
+			  node.nodeValue += node.nextSibling.nodeValue;
+			  node.parentNode.removeChild(node.nextSibling);
+			}
+		  } else {
+			normalize(node.firstChild);
+		  }
+		  normalize(node.nextSibling);
+		}
 })();
 
