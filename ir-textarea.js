@@ -5,7 +5,8 @@
 
 (function () {
   var 	INLINE_ELEMENTS = {},
-		DELIMITER = '\u00a0\u00a0';
+		//DELIMITER = '\u00a0\u00a0';
+		DELIMITER = '\u00a0';
 		"font,b,big,i,small,tt,abbr,acronym,cite,code,dfn,em,kbd,strong,samp,time,var,a,bdo,br,img,map,object,q,script,span,sub,sup".split(/,/)
 			.forEach(function(tag) { INLINE_ELEMENTS[tag.toUpperCase()] = true });
 
@@ -58,7 +59,6 @@
 																		timeout : false,
 																		onRestoreState : function(el) {
 																			this.selectionSave()
-																			//this.ensureCursorLocationIsValid();
 																			this.fire('scroll-into-view', el);
 																		}.bind(this)
 																	}))
@@ -161,10 +161,13 @@
 		},
 
 		userInputHandler : function (ev) {
+			if(Polymer.dom(ev).path.filter(function(el) { return el.is == 'paper-dialog' }).length) // a simplish way to allow setup dialogs
+				return;
+				
 			var altTarget, noMoreSave, el, toDelete, keyCode = ev.keyCode || ev.which, t,
 				forcedelete, r, done, localRoot, last, n, nn, pn, pos, firstRange, merge, sc, ec, so, eo, toMerge, previewShortcutListener;
 
-			if(keyCode == 192 && ev.type == 'keydown' && ev.altKey && ev.viewMode != 1)
+			if(keyCode == 192 && ev.type == 'keydown' && ev.altKey && this.viewMode != 1)
 			{
 				document.addEventListener('keyup', previewShortcutListener = function() {
 					document.removeEventListener('keyup', previewShortcutListener);
@@ -180,8 +183,9 @@
 				this.set('viewMode', 1);
 
 			};				
-			
-			if(([89,90,67,86].indexOf(keyCode) > -1 && ev	) || (['mousedown', 'mouseup', 'click'].indexOf(ev.type) > -1  && ev.which == 3)) // undo/redo/copy/paste and right click are handled in their own handlers or their default behavior
+
+			// undo/redo/copy/paste and right click are handled in their own handlers or their default behavior
+			if(([89,90,67,86].indexOf(keyCode) > -1 && ev	) || (['mousedown', 'mouseup', 'click'].indexOf(ev.type) > -1  && ev.which == 3))
 				return;
 
 			this.selectionSave();
@@ -231,8 +235,6 @@
 				}
 				else	// new paragraph
 					this.pasteHtmlWithParagraphs('<span class="paragraph"><br></span>', true);
-
-				//this.ensureCursorLocationIsValid({reverseDirection : true});
 
 				this.selectionSave();
 				ev.preventDefault();
@@ -287,7 +289,13 @@
 						this.customUndo.pushUndo();
 					}
 					if(ev.type != 'keydown')
-						ev.preventDefault();
+					{
+						if(this.preventNextDefault) 
+						{
+							ev.preventDefault();
+							this.preventNextDefault = false;
+						}
+					}
 					else
 					if(this.__actionData.target) // selected item is a priority
 					{
@@ -444,14 +452,15 @@
 						if(merge)
 							mergeNodes(merge.left, merge.right, true);
 
-						this.ensureCursorLocationIsValid();
-
 						ev.preventDefault();
 					}
 					
 					this.selectionSave();
 					this.selectionRestore();
 					this.clearActionData();
+					
+					if(ev.defaultPrevented)
+						this.preventNextDefault = true; // prevent 
 				}				
 			}
 
@@ -470,8 +479,6 @@
 			this.selectionSave();
 
 			this._updateValue();
-			//getSelectionCoords();
-			//this.customUndo.pushUndo();
 		},
 		
 		deleteOnNonCollapsedRange : function(ev) {
@@ -818,13 +825,8 @@
 				if(ocv == t)
 					return;
 
-				//done = t == this.$.editor;
-
 				while(!done) // update parents
 				{
-
-					//	t = t.is ? t.parentNode : t;
-
 					if(t != this.$.editor) {
 						if(!t || !isInLightDom(t.parentNode, this.$.editor)) // it's not attached
 						{
@@ -836,9 +838,6 @@
 						else
 							t = t.parentNode
 					}
-
-					//if(t.cycleLabel == cycleLabel) return;
-					//t.cycleLabel = cycleLabel;
 
 					if(t == this.$.editor)
 						done = true;
@@ -899,6 +898,9 @@
 				},
 				actionableTags = [menuGroups.resizeable, menuGroups.floatable, menuGroups.removeable].join(",");
 
+			if(Polymer.dom(ev).path.filter(function(el) { return el.is == 'paper-dialog' }).length) // a simplish way to allow setup dialogs
+				return;
+			
 			cm.disabled = true;
 
 			target = actionTarget = getClosestLightDomTarget(target, this.$.editor);
@@ -915,9 +917,6 @@
 
 				ev.stopPropagation();
 				ev.stopImmediatePropagation();
-
-				if(Polymer.dom(ev).path.filter(function(el) { return el.is == 'paper-dialog' }).length) // a simplish way to allow setup dialogs
-					return;
 			}
 
 			if(this.__actionData.target != target)
@@ -938,8 +937,6 @@
 
 			// if target is resizable and wasn't set up do set it up for resize
 			if(target.matchesSelector(menuGroups.resizeable) && this.__actionData.resizableTarget != target)
-				//(target.proxyTarget.matchesSelector(menuGroups.resizeable)) /*target.proxyTarget && */
-
 				{
 					this.resizeTarget(target);
 
@@ -984,10 +981,8 @@
 
 			flowTarget = target;
 
-			// target.is || target.matchesSelector(menuGroups.floatable) || (target.proxyTarget && target.proxyTarget.matchesSelector(menuGroups.floatable))
 			// can only float:
 			if((target.is == 'ir-gallery' && Polymer.dom(target).querySelectorAll('img').length == 1) ||    // single-image gallery for now
-			/*(target.proxyTarget && target.proxyTarget.matchesSelector(menuGroups.floatable)) ||		*/    // proxied elements (iframes)
 			(target.matchesSelector(menuGroups.floatable)))												// explicitly floatable elements
 			{
 				if(captionWrapper = mediaEditor.captionWrapperGet(target))
@@ -1044,13 +1039,12 @@
 		  this.clearActionData();
 
 		  this.__actionData.target = target;
-		  this.__actionData.deleteTarget = getTopCustomElementAncestor(target, this.$.editor);
+		  this.__actionData.deleteTarget = getTopCustomElementAncestor(target, this.$.editor) || this.__actionData.deleteTarget;
 		  this.__actionData.type = type;
 
-		  setCaretAt(target.nextSibling, 0);
-
-		  //this.moveCaretAfterOrWrap(target, null, this.$.editor);
-		  this.ensureCursorLocationIsValid();
+		  this.async(function() {
+			setCaretAt(this.__actionData.deleteTarget.nextSibling, 0);
+		  });
 
 		  this.customUndo.pushUndo(false, false);
 
@@ -1066,8 +1060,8 @@
 
 			this.$.resizeHandler.style.display = "none";
 
-			if(ad.target)
-			console.log('stopped action:', ad.target);
+			if(ad.target && ad.target.id =='resizable-element')
+				 ad.id = '';
 
 			ad.target = ad.deleteTarget = ad.lastAction = ad.type = null;
 
@@ -1076,12 +1070,7 @@
 
 		deleteCmd : function() {
 			this.userInputHandler({ type : 'keydown', which : 8, preventDefault : function() {} }); // simply emulate a delete keydown
-			setTimeout(function() { this.selectionRestore() }.bind(this), 50);
-			
-			/*if(this.__actionData && this.__actionData.target)
-				this.deleteTarget(this.__actionData.target);
-			else
-				this.execCommand('delete');*/
+			setTimeout(function() { this.selectionRestore() }.bind(this), 50);			
 		},
 
 		deleteTarget : function(target) {
@@ -1323,14 +1312,11 @@
 			  if(tpce)
 				this.moveCaretAfterOrWrap(tpce, null, this.$.editor);
 
-			  this.ensureCursorLocationIsValid();
-
 			  this.pasteHtmlAtCaret(html);
 			  actualTarget.parentNode.removeChild(actualTarget);
 
 			  moveOccured = true;
 
-			  this.ensureCursorLocationIsValid();
 			}
 			else
 			  this.__actionData.lastAction = null;
@@ -1367,7 +1353,6 @@
 			if(!ad.caretPosData || ad.caretPosData.node != caretPosData.node || ad.caretPosData.offset != caretPosData.offset)
 			{
 			  setCaretAt(caretPosData.node, caretPosData.offset);
-			  // this.ensureCursorLocationIsValid();
 			  ad.caretPosData = caretPosData;
 			  ad.caretPosData.changed = true;
 			  this.__actionData.lastAction = 'drag';
@@ -1949,18 +1934,14 @@
 			var ef = html.match(/\<p[^\>]+\>/) ? ["p"] : [];
 			var r, after;
 
-			this.ensureCursorLocationIsValid({ extraForbiddenElements : ef });
 			this.pasteHtmlWithParagraphs(html);
 
-			this.ensureCursorLocationIsValid();
 			this._updateValue()
 		},
 
 
 		_execCommand : function(cmd, sdu, val) {
 			var that = this;
-
-			this.ensureCursorLocationIsValid();
 
 			if(cmd == 'replaceHTML')
 				this.insertHTMLCmd(val, true);
@@ -2086,7 +2067,6 @@
 
 					Polymer.dom.flush();
 					this.async(function() {
-						that.ensureCursorLocationIsValid();
 						that.$.editor.focus();
 						that._updateValue();
 					})
@@ -2176,52 +2156,6 @@
 
 		selectionForget : function() {
 			this._selectionRange = null;
-		},
-
-		// a list of functions where each function enforces a single rule.
-		// if applicable the rule will usually modify the selection range and return true, and all the rules will be re-executed
-		// the rules are executed by ensureCursorLocationIsValid
-		cursorRules : [
-			function inEditor(opts, range) {
-				var sc, ec;
-
-				if(range)
-				{
-					sc = range.startContainer,
-					ec = range.endContainer;
-				}
-
-				if(!range || !this.isOrIsAncestorOf(this.$.editor, sc) || !this.isOrIsAncestorOf(this.$.editor, ec)) {
-					if(opts.originalEvent && (opts.originalEvent.type == 'mouseup' || opts.originalEvent.type == 'mousedown'))
-						r = caretPositionFromPoint(opts.originalEvent.clientX, opts.originalEvent.clientY);
-					else
-						this.selectionRestore();
-					return true;
-				}
-			}
-		],
-
-		ensureCursorLocationIsValid : function(opts) { // if reverseDirection is true cursor is moving in reverse to typing direction
-			return; // obsolete
-
-			/*var r, i, sp, sc, ec, so, eo, totalChecks = 0, jumpsOccured = 0;
-
-			opts = opts || {};
-
-			opts.extraForbiddenElements = opts.extraForbiddenElements || [];
-
-			for(i = 0; i < this.cursorRules.length && totalChecks++ < 50; i++)
-				if(this.cursorRules[i].call(this, opts, r = getSelectionRange()))
-				{
-					i = -1;
-					jumpsOccured++;
-				}
-
-			if(totalChecks >= 50)
-				return console.error('too many cursor movements');
-
-			this.selectionSave();
-			this.fire('scroll-into-view', this.getSelectionCoords());*/
 		},
 
 		getSelectionCoords : function() {
@@ -3385,11 +3319,7 @@
 		span = document.createElement("span");
 		span.appendChild( document.createTextNode("\u200b") );
 		span.classList.add('__moignore'); // to be ignored by mutation observer
-		// span.setAttribute('contenteditable', false);
-		//span.style.width = "3px";
-		//span.style.backgroundColor = "pink";
 
-		//span.
 		return function _getSelectionCoords(win)
 		{
 			win = win || window;
