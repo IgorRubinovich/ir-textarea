@@ -290,11 +290,8 @@
 					}
 					if(ev.type != 'keydown')
 					{
-						if(this.preventNextDefault) 
-						{
+						if(this.preventNextDefault)
 							ev.preventDefault();
-							this.preventNextDefault = false;
-						}
 					}
 					else
 					if(this.__actionData.target) // selected item is a priority
@@ -385,7 +382,7 @@
 							if(getTopCustomElementAncestor(sc, this.$.editor) && sc.nodeType == 3 && !sc.previousSibling && so == 0)
 								return ev.preventDefault();
 							else
-							if(sc.nodeType == 3 && sc.textContent.length == 1 && so == 1 && sc.nextSibling.is)
+							if(sc.nodeType == 3 && sc.textContent.length == 1 && so == 1 && sc.nextSibling && sc.nextSibling.is)
 							{
 								sc.textContent = DELIMITER;
 								setCaretAt(sc, 1);
@@ -459,8 +456,11 @@
 					this.selectionRestore();
 					this.clearActionData();
 					
-					if(ev.defaultPrevented)
-						this.preventNextDefault = true; // prevent 
+					if(ev.defaultPrevented && !this.preventNextDefault)
+						this.preventNextDefault = true; // prevent next non-keydown (mostly FF)
+					else
+						this.preventNextDefault = false;
+					
 				}				
 			}
 
