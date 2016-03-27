@@ -161,7 +161,7 @@
 		},
 
 		userInputHandler : function (ev) {
-			if(Polymer.dom(ev).path.filter(function(el) { return el.is == 'paper-dialog' }).length) // a simplish way to allow setup dialogs
+			if(ev.path && Polymer.dom(ev).path.filter(function(el) { return el.is == 'paper-dialog' }).length) // a simplish way to allow setup dialogs
 				return;
 				
 			var altTarget, noMoreSave, el, toDelete, keyCode = ev.keyCode || ev.which, t,
@@ -288,23 +288,26 @@
 						this.selectionSave();
 						this.customUndo.pushUndo();
 					}
-					if(ev.type != 'keydown')
+
+					if(/firefox|iceweasel/i.test(navigator.userAgent) && ev.type != 'keydown')
+					if(ev.type == 'keydown')
 					{
 						if(this.preventNextDefault)
 							ev.preventDefault();
+						
+						this.preventNextDefault = false;
 					}
-					else
+
 					if(this.__actionData.target) // selected item is a priority
 					{
 						toDelete = this.__actionData.deleteTarget;
 						forcedelete = true;
 					}
 					else
-					if(!r.collapsed) // delete a non-collapsed range
+					if(!r.collapsed && ev.type != 'keydown') // delete a non-collapsed range
 					{
-						if(ev.type != 'keydown')
-							ev.preventDefault();
-
+						ev.preventDefault();
+						this.preventNextDefault = false;
 						this.deleteOnNonCollapsedRange(ev);
 					}
 					else
@@ -482,13 +485,16 @@
 		},
 		
 		deleteOnNonCollapsedRange : function(ev) {
-			var i, s, r, r1, sc, ec, so, eo, nso, neo, sild, eild, stpce, etpce, scp;
+			var i, s, r, r1, sc, ec, so, eo, nso, neo, sild, eild, stpce, etpce, scp, origsc, origec;
 			s = window.getSelection();
 			r = getSelectionRange();
 			sc = r.startContainer;
 			ec = r.endContainer;
 			nso = so = r.startOffset;
 			neo = eo = r.endOffset;
+			
+			origsc = s.getRangeAt(0).startContainer;
+			origec = s.getRangeAt(s.rangeCount - 1).endContainer;
 
 			for(i = 0; i < s.rangeCount; i++)
 			{
@@ -540,7 +546,21 @@
 						setCaretAt(scp, so);
 				}
 			}
-
+			
+			//r = getSelectionRange();
+			
+			sc = origsc;
+			while(sc && sc != this.$.editor && !isParagraph(sc) && !INLINE_ELEMENTS[sc.tagName] && !canHaveChildren(sc))
+				sc = isInLightDom(sc.parentNode, this.$.editor) ? sc.parentNode : Polymer.dom(sc).parentNode;
+			ec = origec;
+			while(ec && ec != this.$.editor && !isParagraph(ec) && !INLINE_ELEMENTS[ec.tagName] && !canHaveChildren(ec))
+				ec = isInLightDom(ec.parentNode, this.$.editor) ? ec.parentNode : Polymer.dom(ec).parentNode;
+			
+			if(sc.nextSibling == ec)
+				mergeNodes(sc, ec, true);
+				//this.userInputHandler({ type : 'keydown', which : 8});
+				
+			
 			ev.preventDefault();
 		},
 
