@@ -1,7 +1,7 @@
 // ir-textarea
 // A wysiwyg  editor for Polymer 1.0+
 
-// Version: 0.82
+// Version: 0.83 
 
 (function () {
   var 	INLINE_ELEMENTS = {},
