@@ -1,3 +1,34 @@
+<!--
+@license
+Copyright (c) 2015 Igor Rubinovich <igor.rubinovich@gmail.com>. All rights reserved.
+This code may only be used under the MIT license found at http://opensource.org/licenses/MIT
+-->
+<!--
+# ir-textarea
+
+**A wysiwyg editor custom component for Polymer 1.0**
+
+Just what it says.
+
+## To-do
+- All of it
+- Docs
+- Demo
+
+## Contribution
+Issues and pull requests are most welcome. Fork it [here](https://github.com/IgorRubinovich/ir-textarea).
+
+## License
+[MIT](http://opensource.org/licenses/MIT)
+
+
+@group GUI Elements
+@element ir-textarea
+@homepage http://igorrubinovich.github.io/ir-textarea/
+@demo demo/index.html
+-->
+
+
 <link rel="import" href="../ir-reflect-to-native-behavior/ir-reflect-to-native-behavior.html">
 <link rel="import" href="../paper-dropdown-menu/paper-dropdown-menu.html">
 <link rel="import" href="../paper-tabs/paper-tabs.html">
@@ -28,39 +59,15 @@
 
 <link rel="import" href="./commands.html">
 
-<script src="./htmlparser.js"></script>
+<link rel="import" href="./modules/utils.html">
+<link rel="import" href="./modules/mutationHandler.html">
+<link rel="import" href="./modules/customUndo.html">
+<link rel="import" href="./modules/paste.html">
+<link rel="import" href="./modules/deletes.html">
+<link rel="import" href="./modules/inputHandlers.html">
 
 <script src="../interact/interact.js"></script>
 <script src="https://rawgit.com/taye/interact.js/unstable/dist/interact.js"></script>
-<!--
-@license
-Copyright (c) 2015 Igor Rubinovich <igor.rubinovich@gmail.com>. All rights reserved.
-This code may only be used under the MIT license found at http://opensource.org/licenses/MIT
--->
-<!--
-# ir-textarea
-
-**A wysiwyg editor custom component for Polymer 1.0**
-
-Just what it says.
-
-## To-do
-- All of it
-- Docs
-- Demo
-
-## Contribution
-Issues and pull requests are most welcome. Fork it [here](https://github.com/IgorRubinovich/ir-textarea).
-
-## License
-[MIT](http://opensource.org/licenses/MIT)
-
-
-@group GUI Elements
-@element ir-textarea
-@homepage http://igorrubinovich.github.io/ir-textarea/
-@demo demo/index.html
--->
 <dom-module id="ir-textarea">
   <style>
     :host {

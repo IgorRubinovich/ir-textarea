@@ -1,0 +1,321 @@
+<script>
+	if(!window.ir) window.ir = {};
+
+	window.ir.textarea = {
+		var	inputHandlers = [
+				updateRange : function(ev) {
+					// save position on control keys
+					if((ev.type == 'keyup') && ([33,34,35,36,37,38,39,40].indexOf(keyCode) > -1) || (ev.type == 'mouseup'))
+						this.customUndo.pushUndo();
+				},
+				previewHotKey : function(ev) {
+					var keyCode = ev.which || ev.keyCode;
+					if(keyCode == 192 && ev.type == 'keydown' && ev.altKey && this.viewMode != 1)
+					{
+						document.addEventListener('keyup', previewShortcutListener = function() {
+							document.removeEventListener('keyup', previewShortcutListener);
+							this._prevViewMode = null;
+
+							if(keyCode != 192)
+								return;
+
+							this.set('viewMode', this._prevViewMode || 0);
+						}.bind(this));
+
+						this._prevViewMode = this.viewMode;
+						this.set('viewMode', 1);
+					};
+				},
+				
+				clearActionData : function(ev) {
+					// clear action data on any key except delete/backspace
+					if(keyCode && !(keyCode == 8 || keyCode == 46) && !ev.ctrlKey && !ev.metaKey && !ev.altKey)
+						this.clearActionData();
+				}
+				
+				enterKey : function(ev) {
+					var r, keyCode = ev.which || ev.keyCode, r, pos, n;
+					
+					if (ev.type == 'keyup' && keyCode == 13) { 	// line break/paragraph
+						return ev.preventDefault();
+					}
+
+					if (ev.type == 'keydown' && keyCode == 13) { 	// line break/paragraph
+						r = this.selectionRestore();
+						if(ev.shiftKey || // line break
+							getTopCustomElementAncestor(r.startContainer, this.$.editor) ||
+							this.selectAncestor(r.startContainer, 'table', this.$.editor) ||  // need more work to enable paragraphs in tables
+							getTopCustomElementAncestor(r.endContainer, this.$.editor))
+						{
+								r = getSelectionRange();
+
+								if(r.startContainer.nodeType == 3 && (r.startContainer.length - 1 <= r.startOffset && r.startContainer.textContent.charAt(r.startOffset).match(/^ ?$/) && ((nextNode(r.startContainer) || {}).tagName != "BR")))
+									firstRange = this.pasteHtmlAtCaret('<br>', false, true);
+
+								this.pasteHtmlAtCaret('<br>', false, true);
+
+								r = getSelectionRange();
+								pos = r.startOffset;
+
+								if(firstRange && isSpecialElement(nextNode(r.startContainer)))
+									setCaretAt(firstRange.startContainer, 0);
+								else
+								if(!r.startContainer.childNodes.length)
+								{
+								  n = r.startContainer.parentNode;
+								  pos = getChildPositionInParent(n);
+								}
+								else
+								{
+								  while(pos >= r.startContainer.childNodes.length) pos--;
+								  n = r.startContainer;
+								}
+						}
+						else	// new paragraph
+							this.pasteHtmlWithParagraphs('<span class="paragraph"><br></span>', true);
+
+						this.selectionSave();
+						ev.preventDefault();
+					}
+				},
+				
+				navigationKeys : function(ev) {
+					var r, sc, se, so, eo;
+
+					r = getSelectionRange();
+					if(r.startContainer.nodeType == 3 || !r.startContainer.childNodes.length) sc = r.startContainer, so = r.startOffset; else sc = r.startContainer.childNodes[r.startOffset], so = 0;
+					if(r.endContainer.nodeType == 3 || !r.endContainer.childNodes.length) ec = r.endContainer, eo = r.startOffset; else ec = r.startContainer.childNodes[r.startOffset], eo = 0;
+
+					var keyCode = ev.which || ev.keyCode;
+					if([37,39].indexOf(keyCode) > -1) // left/right keys
+					{
+						// left
+						if(sc && (keyCode == 37) && (so == 0 || sc.isDelimiter) && sc.nodeType == 3)
+						{
+							if(sc.isInTransition = (ev.type == 'keydown'))
+							{
+								//setCaretAt(sc.previousSibling.previousSibling, sc.previousSibling.previousSibling.textContent.length);
+								if(sc.previousSibling && sc.previousSibling.is)
+								{
+									setCaretAt(sc.previousSibling.previousSibling, sc.previousSibling.previousSibling.textContent.length);
+									ev.preventDefault();
+								}
+								else
+									setCaretAt(sc, 0); // let the browser do the job, this happens at paragraph start
+							}
+						}
+						else
+						if(ec && (keyCode == 39) && (ec.isDelimiter || eo >= ec.length) && sc.nodeType == 3) // end and right, next sibling must be a custom element with a delimiter or a text node as nextSibling
+							if(ec.isInTransition = (ev.type == 'keydown'))
+							{
+								if(ec.nextSibling && ec.nextSibling.is)
+								{
+									setCaretAt(ec.nextSibling.nextSibling, (ec.nextSibling.nextSibling.isDelimiter ? 1 : 0));
+									ev.preventDefault();
+								}
+								else
+									setCaretAt(ec, ec.textContent.length);
+							}
+					}
+				},
+				
+				deletes : function() {
+					if(['keydown','keyup','keypress'].indexOf(ev.type) > -1)
+					{
+
+						// deletes
+						if(keyCode == 8 || keyCode == 46)
+						{					
+							if(!this.$.editor.childNodes.length || isEmptyParagraph(this.$.editor.firstChild)) // ignore when $.editor is empty or has one paragraph
+								return;
+
+							if(ev.type == 'keydown')
+							{
+								this.selectionSave();
+								this.customUndo.pushUndo();
+							}
+
+							if(/firefox|iceweasel/i.test(navigator.userAgent) && ev.type != 'keydown')
+							if(ev.type == 'keydown')
+							{
+								if(this.preventNextDefault)
+									ev.preventDefault();
+								
+								this.preventNextDefault = false;
+							}
+
+							if(this.__actionData.target) // selected item is a priority
+							{
+								toDelete = this.__actionData.deleteTarget;
+								forcedelete = true;
+							}
+							else
+							if(!r.collapsed && ev.type == 'keydown') // delete a non-collapsed range
+							{
+								ev.preventDefault();
+								this.preventNextDefault = false;
+								this.deleteOnNonCollapsedRange(ev);
+							}
+							else
+							{
+								t = this.$.editor;
+
+								if(sc == this.$.editor)
+								{
+									r = setCaretAt(sc.childNodes[so], 0);
+									if(r.startContainer.nodeType == 3 || !r.startContainer.childNodes.length) sc = r.startContainer, so = r.startOffset; else sc = r.startContainer.childNodes[r.startOffset], so = 0;
+									if(r.endContainer.nodeType == 3 || !r.endContainer.childNodes.length) ec = r.endContainer, eo = r.startOffset; else ec = r.startContainer.childNodes[r.startOffset], eo = 0;
+								}
+
+								if(!sc)
+									return;
+
+								if(ev.type == 'keydown' && keyCode == 8 && (sc.previousSibling && sc.previousSibling.is && sc.textContent.length == 1 && so == 1)) // prevent jump when deleting last char in a to-be delimiter
+								{
+									sc.textContent = ' '
+									setCaretAt(sc, 1);
+									ev.preventDefault();
+								}
+								else
+								if(ev.defaultPrevented && (tcea = getTopCustomElementAncestor(sc, this.$.editor)) && tcea != el)
+									;
+								else
+								if(keyCode == 46) // del key
+								{
+									if(getTopCustomElementAncestor(ec, this.$.editor) && ec.nodeType == 3 && !ec.nextSibling && eo >= ec.textContent.length)
+										return ev.preventDefault();
+									else
+									if(sc.nodeType == 3 && sc.textContent.length == 1 && so == 0 && sc.nextSibling.is)
+									{
+										sc.textContent = DELIMITER;
+										setCaretAt(sc, 1);
+										ev.preventDefault();
+									}
+									else
+									if(sc.nextSibling && sc.nodeType == 3 && sc.nextSibling.is && (sc.isDelimiter || so >= sc.textContent.length) && getSelection().isCollapsed)
+										forcedelete = toDelete = sc.nextSibling;
+									else
+									//if(/firefox|iceweasel/i.test(navigator.userAgent) && this.get("startContainer.parentNode.nextSibling", r) == el)
+									if(/firefox|iceweasel/i.test(navigator.userAgent) && sc != this.$.editor && so == 0 && sc.nodeType == 3 && !sc.textContent.length && !sc.nextSibling)
+									{
+										if(sc.parentNode && sc.parentNode.nextSibling)
+										{
+											setCaretAt(sc.parentNode.nextSibling, 0);
+											sc.parentNode.removeChild(sc);
+										}
+									}
+									else
+									// merge nodes "manually" // /firefox|iceweasel/i.test(navigator.userAgent) && 
+									if(!ec.nextSibling && ((!canHaveChildren(ec.nodeType) && eo >= ec.textContent.length) || ec.isDelimiter) && this.get("parentNode.nextSibling.firstChild", ec))
+									{
+										if(ec.parentNode.nextSibling.firstChild.tagName == 'BR')
+											ec.parentNode.nextSibling.removeChild(ec.parentNode.nextSibling.firstChild);
+
+										mergeNodes(ec.parentNode, ec.parentNode.nextSibling, true);
+
+										if(ec.nextSibling && !INLINE_ELEMENTS[ec.tagName])
+											mergeNodes(ec, ec.nextSibling, true);
+
+										ev.preventDefault();
+									}
+								}
+								else
+								if(keyCode == 8) // backspace key
+								{
+									if(getTopCustomElementAncestor(sc, this.$.editor) && sc.nodeType == 3 && !sc.previousSibling && so == 0)
+										return ev.preventDefault();
+									else
+									if(sc.nodeType == 3 && sc.textContent.length == 1 && so == 1 && sc.nextSibling && sc.nextSibling.is)
+									{
+										sc.textContent = DELIMITER;
+										setCaretAt(sc, 1);
+										ev.preventDefault();
+									}
+									else
+									if((sc.isDelimiter || (sc.nodeType == 3 && so == 0)) && sc.previousSibling && sc.previousSibling.is)
+									{
+										forcedelete = toDelete = sc.previousSibling;
+										ev.preventDefault();
+									}
+									else
+									// merge nodes "manually"
+									if(sc != this.$.editor && ((so == 0 && !canHaveChildren(sc)) || sc.isDelimiter) && !sc.previousSibling && sc.parentNode && sc.parentNode.previousSibling)
+									{
+										if(this.get("parentNode.previousSibling.lastChild", sc)) // neighbouring paragraphs with text nodes
+										{
+											if(sc.parentNode.previousSibling.lastChild.tagName == 'BR')
+												sc.parentNode.previousSibling.removeChild(sc.parentNode.previousSibling.lastChild);
+
+											mergeNodes(sc.parentNode.previousSibling, sc.parentNode, true);
+
+											if(sc.previousSibling && !INLINE_ELEMENTS[sc.tagName])
+												mergeNodes(sc.previousSibling, sc, true);
+
+											ev.preventDefault();
+										}
+										else
+										if(sc.parentNode.previousSibling) // inline node before current element
+										{
+											mergeNodes(sc.parentNode, sc.parentNode.previousSibling);
+											if(sc.previousSibling && sc.previousSibling.tagName == 'BR')
+												sc.parentNode.removeChild(sc.previousSibling);
+
+											sc.parentNode.normalize();
+											ev.preventDefault();
+										}
+									}
+								}
+							}
+							
+							if(toDelete && toDelete.parentNode && toDelete.nodeType == 1 && (forcedelete || !ev.defaultPrevented))
+							{
+								if(toDelete.parentNode.firstChild == toDelete && toDelete.parentNode.lastChild == toDelete)
+									toDelete = toDelete.parentNode;
+
+								if(toDelete.previousSibling && toDelete.nextSibling)
+									merge = { left : toDelete.previousSibling, right : toDelete.nextSibling };
+								else
+								if(!toDelete.nextSibling && toDelete.parentNode != this.$.editor && toDelete.parentNode.nextSibling)
+									merge = { left : toDelete.parentNode, right : toDelete.parentNode.nextSibling };
+								else
+								if(!toDelete.previousSibling && toDelete.parentNode != this.$.editor && toDelete.parentNode.previousSibling)
+									merge = { left : toDelete.parentNode.previousSibling, right : toDelete.parentNode };
+
+								this.deleteTarget(toDelete);
+
+								if(merge)
+									mergeNodes(merge.left, merge.right, true);
+
+								ev.preventDefault();
+							}
+							
+							this.selectionSave();
+							this.selectionRestore();
+							this.clearActionData();
+							
+							if(ev.defaultPrevented && !this.preventNextDefault)
+								this.preventNextDefault = true; // prevent next non-keydown (mostly FF)
+							else
+								this.preventNextDefault = false;
+							
+						}				
+					}
+				},
+				
+				dragAndDrop : function() {
+					var altTarget = getTopCustomElementAncestor(ev.target, this.$.editor); // || (ev.target.proxyTarget && ev.target);
+					if(ev.type == 'mousedown' && altTarget && this.__actionData.type != 'drag' &&
+						!(isInLightDom(ev.target) && (ev.target.nodeType == 3 || (ev.target.firstChild && ev.target.firstChild.nodeType == 3))))
+					{
+						this.moveTarget.call(this, altTarget);
+						ev.preventDefault();
+						return;
+					}
+
+					if(ev.type == 'drop' && ev.target && getTopCustomElementAncestor(ev.target, this.$.editor)) // prevent default drop (like text) into custom elements
+						ev.preventDefault();
+				}
+				
+			]
+		}
+</script>

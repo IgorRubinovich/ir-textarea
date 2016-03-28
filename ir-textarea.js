@@ -4,14 +4,15 @@
 // Version: 0.83 
 
 (function () {
-  var 	INLINE_ELEMENTS = {},
-		//DELIMITER = '\u00a0\u00a0';
-		DELIMITER = '\u00a0';
-		"font,b,big,i,small,tt,abbr,acronym,cite,code,dfn,em,kbd,strong,samp,time,var,a,bdo,br,img,map,object,q,script,span,sub,sup".split(/,/)
-			.forEach(function(tag) { INLINE_ELEMENTS[tag.toUpperCase()] = true });
-
-  console.log('ir-textarea');
-  Polymer({
+	var utils = window.ir.textarea.utils,
+		inputHandlers = window.ir.textarea.inputHandlers,
+		paste = window.ir.textarea.paste,
+		editorMutationHandler = window.ir.textarea.editorMutationHandler,
+		CustomUndoEngine = window.ir.textarea.CustomUndoEngine,
+		deletes = window.ir.textarea.deletes;
+		
+	console.log('ir-textarea');
+	Polymer({
 		is : 'ir-textarea',
 		ready : function() {
 			var that = this, commands = this.commands.split(/,/);
@@ -25,12 +26,25 @@
 				{
 					that.$.editor.addEventListener(evType, this.userInputHandler.bind(this));
 				}.bind(this));
+			
+			
+			// custom user input handlers
+			this.bindHandlers("keydown,keyup", inputHandlers.previewHotKey);
+			this.bindHandlers("keydown,keyup,mousedown,mouseup", inputHandlers.clearActionData);
+			this.bindHandlers("keydown,keyup", inputHandlers.enterKey);
+			this.bindHandlers("keydown,keyup", inputHandlers.navigationKeys);
+			this.bindHandlers("mousedown,mouseup", inputHandlers.dragAndDrop);
+			this.bindHandlers("keydown,keyup,keypress", deletes.handler);
 
+			// resize handler
 			this.$.resizeHandler.addEventListener('mousedown', function(ev) { ev.preventDefault(); }); // capturing phase
 			this.$.resizeHandler.addEventListener('mousemove', function(ev) { ev.preventDefault(); }); // capturing phase
 
+			// context menu
 			this.$.editor.addEventListener('click', this.contextMenuShow.bind(this), true); // capturing phase
-			this.$.editor.addEventListener('paste', this.pasteHandler.bind(this));
+
+			// paste
+			this.$.editor.addEventListener('paste', paste.pasteHandler.bind(this));
 			//this.$.editor.addEventListener('copy', function() {console.log('hi copy')} );
 
 			var defs = {};
@@ -63,6 +77,21 @@
 																		}.bind(this)
 																	}))
 		},
+		
+		// bind all eventTypes to all given handlers
+		bindHandlers : function(eventTypes, handlers, target)
+		{
+			if(typeof eventTypes == 'string') eventTypes = eventTypes.split(',');
+			if(!(handlers instanceof Array)) handlers = [handlers];
+			
+			if(!target) target = this;
+			
+			eventTypes.forEach(function(et) { 
+				handlers.forEach(function(h) {
+					target.addEventListener(et, h.bind(this));
+				}.bind(this))
+			}.bind(this));
+		},
 
 		attached: function(){
 			this.insertPlugins();
@@ -80,13 +109,13 @@
 			if(/^\s*$/.test(this.$.editor.innerHTML))
 			{
 				this.$.editor.innerHTML = "";
-				this.$.editor.appendChild(newEmptyParagraph());
+				this.$.editor.appendChild(utils.newEmptyParagraph());
 			}
 
 			// set up and start the observer
 			this.observerCycle = 0;
 			this.customElements = [];
-			this.editorMutationObserver = new MutationObserver(this.editorMutationHandler.bind(this));
+			this.editorMutationObserver = new MutationObserver(editorMutationHandler.bind(this));
 			this.editorMutationObserverConfig = {
 				attributes : true,
 				childList : true,
@@ -167,745 +196,16 @@
 			var altTarget, noMoreSave, el, toDelete, keyCode = ev.keyCode || ev.which, t,
 				forcedelete, r, done, localRoot, last, n, nn, pn, pos, firstRange, merge, sc, ec, so, eo, toMerge, previewShortcutListener;
 
-			if(keyCode == 192 && ev.type == 'keydown' && ev.altKey && this.viewMode != 1)
-			{
-				document.addEventListener('keyup', previewShortcutListener = function() {
-					document.removeEventListener('keyup', previewShortcutListener);
-					this._prevViewMode = null;
-
-					if(keyCode != 192)
-						return;
-
-					this.set('viewMode', this._prevViewMode || 0);
-				}.bind(this));
-
-				this._prevViewMode = this.viewMode;
-				this.set('viewMode', 1);
-
-			};				
-
 			// undo/redo/copy/paste and right click are handled in their own handlers or their default behavior
 			if(([89,90,67,86].indexOf(keyCode) > -1 && ev	) || (['mousedown', 'mouseup', 'click'].indexOf(ev.type) > -1  && ev.which == 3))
 				return;
-
+		
 			this.selectionSave();
 			this.selectionRestore(true);
 
-			// save position on control keys
-			if((ev.type == 'keyup') && ([33,34,35,36,37,38,39,40].indexOf(keyCode) > -1) || (ev.type == 'mouseup'))
-				this.customUndo.pushUndo();
-			//else
-			if(keyCode && !(keyCode == 8 || keyCode == 46) && !ev.ctrlKey && !ev.metaKey && !ev.altKey)
-				this.clearActionData();
-
-			if (ev.type == 'keyup' && keyCode == 13) { 	// line break/paragraph
-				return ev.preventDefault();
-			}
-
-			if (ev.type == 'keydown' && keyCode == 13) { 	// line break/paragraph
-				r = this.selectionRestore();
-				if(ev.shiftKey || // line break
-					getTopCustomElementAncestor(r.startContainer, this.$.editor) ||
-					this.selectAncestor(r.startContainer, 'table', this.$.editor) ||  // need more work to enable paragraphs in tables
-					getTopCustomElementAncestor(r.endContainer, this.$.editor))
-				{
-						r = getSelectionRange();
-
-						if(r.startContainer.nodeType == 3 && (r.startContainer.length - 1 <= r.startOffset && r.startContainer.textContent.charAt(r.startOffset).match(/^ ?$/) && ((nextNode(r.startContainer) || {}).tagName != "BR")))
-							firstRange = this.pasteHtmlAtCaret('<br>', false, true);
-
-						this.pasteHtmlAtCaret('<br>', false, true);
-
-						r = getSelectionRange();
-						pos = r.startOffset;
-
-						if(firstRange && isSpecialElement(nextNode(r.startContainer)))
-							setCaretAt(firstRange.startContainer, 0);
-						else
-						if(!r.startContainer.childNodes.length)
-						{
-						  n = r.startContainer.parentNode;
-						  pos = getChildPositionInParent(n);
-						}
-						else
-						{
-						  while(pos >= r.startContainer.childNodes.length) pos--;
-						  n = r.startContainer;
-						}
-				}
-				else	// new paragraph
-					this.pasteHtmlWithParagraphs('<span class="paragraph"><br></span>', true);
-
-				this.selectionSave();
-				ev.preventDefault();
-			}
-
-			if(['keydown','keyup','keypress'].indexOf(ev.type) > -1)
-			{
-				r = getSelectionRange();
-				if(r.startContainer.nodeType == 3 || !r.startContainer.childNodes.length) sc = r.startContainer, so = r.startOffset; else sc = r.startContainer.childNodes[r.startOffset], so = 0;
-				if(r.endContainer.nodeType == 3 || !r.endContainer.childNodes.length) ec = r.endContainer, eo = r.startOffset; else ec = r.startContainer.childNodes[r.startOffset], eo = 0;
-
-				if([37,39].indexOf(keyCode) > -1) // left/right keys
-				{
-					// left
-					if(sc && (keyCode == 37) && (so == 0 || sc.isDelimiter) && sc.nodeType == 3)
-					{
-						if(sc.isInTransition = (ev.type == 'keydown'))
-						{
-							//setCaretAt(sc.previousSibling.previousSibling, sc.previousSibling.previousSibling.textContent.length);
-							if(sc.previousSibling && sc.previousSibling.is)
-							{
-								setCaretAt(sc.previousSibling.previousSibling, sc.previousSibling.previousSibling.textContent.length);
-								ev.preventDefault();
-							}
-							else
-								setCaretAt(sc, 0); // let the browser do the job, this happens at paragraph start
-						}
-					}
-					else
-					if(ec && (keyCode == 39) && (ec.isDelimiter || eo >= ec.length) && sc.nodeType == 3) // end and right, next sibling must be a custom element with a delimiter or a text node as nextSibling
-						if(ec.isInTransition = (ev.type == 'keydown'))
-						{
-							if(ec.nextSibling && ec.nextSibling.is)
-							{
-								setCaretAt(ec.nextSibling.nextSibling, (ec.nextSibling.nextSibling.isDelimiter ? 1 : 0));
-								ev.preventDefault();
-							}
-							else
-								setCaretAt(ec, ec.textContent.length);
-						}
-				}
-
-				// deletes
-				if(keyCode == 8 || keyCode == 46)
-				{					
-					if(!this.$.editor.childNodes.length || isEmptyParagraph(this.$.editor.firstChild)) // ignore when $.editor is empty or has one paragraph
-						return;
-
-					if(ev.type == 'keydown')
-					{
-						this.selectionSave();
-						this.customUndo.pushUndo();
-					}
-
-					if(/firefox|iceweasel/i.test(navigator.userAgent) && ev.type != 'keydown')
-					if(ev.type == 'keydown')
-					{
-						if(this.preventNextDefault)
-							ev.preventDefault();
-						
-						this.preventNextDefault = false;
-					}
-
-					if(this.__actionData.target) // selected item is a priority
-					{
-						toDelete = this.__actionData.deleteTarget;
-						forcedelete = true;
-					}
-					else
-					if(!r.collapsed && ev.type != 'keydown') // delete a non-collapsed range
-					{
-						ev.preventDefault();
-						this.preventNextDefault = false;
-						this.deleteOnNonCollapsedRange(ev);
-					}
-					else
-					{
-						t = this.$.editor;
-
-						if(sc == this.$.editor)
-						{
-							r = setCaretAt(sc.childNodes[so], 0);
-							if(r.startContainer.nodeType == 3 || !r.startContainer.childNodes.length) sc = r.startContainer, so = r.startOffset; else sc = r.startContainer.childNodes[r.startOffset], so = 0;
-							if(r.endContainer.nodeType == 3 || !r.endContainer.childNodes.length) ec = r.endContainer, eo = r.startOffset; else ec = r.startContainer.childNodes[r.startOffset], eo = 0;
-						}
-
-						if(!sc)
-							return;
-
-						if(ev.type == 'keydown' && keyCode == 8 && (sc.previousSibling && sc.previousSibling.is && sc.textContent.length == 1 && so == 1)) // prevent jump when deleting last char in a to-be delimiter
-						{
-							sc.textContent = ' '
-							setCaretAt(sc, 1);
-							ev.preventDefault();
-						}
-						else
-						if(ev.defaultPrevented && (tcea = getTopCustomElementAncestor(sc, this.$.editor)) && tcea != el)
-							;
-						else
-						if(keyCode == 46) // del key
-						{
-							if(getTopCustomElementAncestor(ec, this.$.editor) && ec.nodeType == 3 && !ec.nextSibling && eo >= ec.textContent.length)
-								return ev.preventDefault();
-							else
-							if(sc.nodeType == 3 && sc.textContent.length == 1 && so == 0 && sc.nextSibling.is)
-							{
-								sc.textContent = DELIMITER;
-								setCaretAt(sc, 1);
-								ev.preventDefault();
-							}
-							else
-							if(sc.nextSibling && sc.nodeType == 3 && sc.nextSibling.is && (sc.isDelimiter || so >= sc.textContent.length) && getSelection().isCollapsed)
-								forcedelete = toDelete = sc.nextSibling;
-							else
-							// firefox won't delete first char after non-contenteditable (y u firefox?!)
-							if(/firefox|iceweasel/i.test(navigator.userAgent) && sc != this.$.editor && so == 0 && sc && sc.previousSibling && sc.previousSibling.is)
-							{
-								sc.textContent = sc.textContent.replace(/^./, '');
-								setCaretAt(sc, 0);
-							}
-							//if(/firefox|iceweasel/i.test(navigator.userAgent) && this.get("startContainer.parentNode.nextSibling", r) == el)
-							if(/firefox|iceweasel/i.test(navigator.userAgent) && sc != this.$.editor && so == 0 && sc.nodeType == 3 && !sc.textContent.length && !sc.nextSibling)
-							{
-								if(sc.parentNode && sc.parentNode.nextSibling)
-								{
-									setCaretAt(sc.parentNode.nextSibling, 0);
-									sc.parentNode.removeChild(sc);
-								}
-							}
-							else
-							// merge nodes "manually" // /firefox|iceweasel/i.test(navigator.userAgent) && 
-							if(!ec.nextSibling && ((!canHaveChildren(ec.nodeType) && eo >= ec.textContent.length) || ec.isDelimiter) && this.get("parentNode.nextSibling.firstChild", ec))
-							{
-								if(ec.parentNode.nextSibling.firstChild.tagName == 'BR')
-									ec.parentNode.nextSibling.removeChild(ec.parentNode.nextSibling.firstChild);
-
-								mergeNodes(ec.parentNode, ec.parentNode.nextSibling, true);
-
-								if(ec.nextSibling && !INLINE_ELEMENTS[ec.tagName])
-									mergeNodes(ec, ec.nextSibling, true);
-
-								ev.preventDefault();
-							}
-						}
-						else
-						if(keyCode == 8) // backspace key
-						{
-							if(getTopCustomElementAncestor(sc, this.$.editor) && sc.nodeType == 3 && !sc.previousSibling && so == 0)
-								return ev.preventDefault();
-							else
-							if(sc.nodeType == 3 && sc.textContent.length == 1 && so == 1 && sc.nextSibling && sc.nextSibling.is)
-							{
-								sc.textContent = DELIMITER;
-								setCaretAt(sc, 1);
-								ev.preventDefault();
-							}
-							else
-							if((sc.isDelimiter || (sc.nodeType == 3 && so == 0)) && sc.previousSibling && sc.previousSibling.is)
-							{
-								forcedelete = toDelete = sc.previousSibling;
-								ev.preventDefault();
-							}
-							else
-							// firefox won't delete first char after non-contenteditable (y u firefox?!)
-							if(/firefox|iceweasel/i.test(navigator.userAgent) && sc != this.$.editor && so == 1 && sc && sc.previousSibling && sc.previousSibling.is)
-							{
-								sc.textContent = sc.textContent.replace(/^./, '');
-								setCaretAt(sc, 0);
-							}
-							// merge nodes "manually"
-							if(sc != this.$.editor && ((so == 0 && !canHaveChildren(sc)) || sc.isDelimiter) && !sc.previousSibling && sc.parentNode && sc.parentNode.previousSibling)
-							{
-								if(this.get("parentNode.previousSibling.lastChild", sc)) // neighbouring paragraphs with text nodes
-								{
-									if(sc.parentNode.previousSibling.lastChild.tagName == 'BR')
-										sc.parentNode.previousSibling.removeChild(sc.parentNode.previousSibling.lastChild);
-
-									mergeNodes(sc.parentNode.previousSibling, sc.parentNode, true);
-
-									if(sc.previousSibling && !INLINE_ELEMENTS[sc.tagName])
-										mergeNodes(sc.previousSibling, sc, true);
-
-									ev.preventDefault();
-								}
-								else
-								if(sc.parentNode.previousSibling) // inline node before current element
-								{
-									mergeNodes(sc.parentNode, sc.parentNode.previousSibling);
-									if(sc.previousSibling && sc.previousSibling.tagName == 'BR')
-										sc.parentNode.removeChild(sc.previousSibling);
-
-									sc.parentNode.normalize();
-									ev.preventDefault();
-								}
-							}
-						}
-					}
-					
-					if(toDelete && toDelete.parentNode && toDelete.nodeType == 1 && (forcedelete || !ev.defaultPrevented))
-					{
-						if(toDelete.parentNode.firstChild == toDelete && toDelete.parentNode.lastChild == toDelete)
-							toDelete = toDelete.parentNode;
-
-						if(toDelete.previousSibling && toDelete.nextSibling)
-							merge = { left : toDelete.previousSibling, right : toDelete.nextSibling };
-						else
-						if(!toDelete.nextSibling && toDelete.parentNode != this.$.editor && toDelete.parentNode.nextSibling)
-							merge = { left : toDelete.parentNode, right : toDelete.parentNode.nextSibling };
-						else
-						if(!toDelete.previousSibling && toDelete.parentNode != this.$.editor && toDelete.parentNode.previousSibling)
-							merge = { left : toDelete.parentNode.previousSibling, right : toDelete.parentNode };
-
-						this.deleteTarget(toDelete);
-
-						if(merge)
-							mergeNodes(merge.left, merge.right, true);
-
-						ev.preventDefault();
-					}
-					
-					this.selectionSave();
-					this.selectionRestore();
-					this.clearActionData();
-					
-					if(ev.defaultPrevented && !this.preventNextDefault)
-						this.preventNextDefault = true; // prevent next non-keydown (mostly FF)
-					else
-						this.preventNextDefault = false;
-					
-				}				
-			}
-
-			altTarget = getTopCustomElementAncestor(ev.target, this.$.editor); // || (ev.target.proxyTarget && ev.target);
-			if(ev.type == 'mousedown' && altTarget && this.__actionData.type != 'drag' &&
-				!(isInLightDom(ev.target) && (ev.target.nodeType == 3 || (ev.target.firstChild && ev.target.firstChild.nodeType == 3))))
-			{
-				this.moveTarget.call(this, altTarget);
-				ev.preventDefault();
-				return;
-			}
-
-			if(ev.type == 'drop' && ev.target && getTopCustomElementAncestor(ev.target, this.$.editor)) // prevent default drop (like text) into custom elements
-				ev.preventDefault();
-
-			this.selectionSave();
-
 			this._updateValue();
 		},
-		
-		deleteOnNonCollapsedRange : function(ev) {
-			var i, s, r, r1, sc, ec, so, eo, nso, neo, sild, eild, stpce, etpce, scp, origsc, origec;
-			s = window.getSelection();
-			r = getSelectionRange();
-			sc = r.startContainer;
-			ec = r.endContainer;
-			nso = so = r.startOffset;
-			neo = eo = r.endOffset;
-			
-			origsc = s.getRangeAt(0).startContainer;
-			origec = s.getRangeAt(s.rangeCount - 1).endContainer;
 
-			for(i = 0; i < s.rangeCount; i++)
-			{
-				r = s.getRangeAt(i);
-				sc = r.startContainer;
-				ec = r.endContainer;
-				scp = sc.parentNode;
-				
-				nso = so = r.startOffset;
-				neo = eo = r.endOffset;
-				
-				sild = sc == this.$.editor || isInLightDom(sc, this.$.editor);
-				eild = ec == this.$.editor || isInLightDom(ec, this.$.editor);
-				
-				stpce = sc != this.$.editor && getTopCustomElementAncestor(sc, this.$.editor);
-				etpce = ec != this.$.editor && getTopCustomElementAncestor(ec, this.$.editor);
-
-				if((!sild || !eild && s.rangeCount == 1) || (stpce || etpce) && stpce != etpce  && s.rangeCount == 1)
-				{
-					this.fire('toast', "Cannot delete over an embedded element's boundary.");
-					return ev.preventDefault();
-				}
-				
-				if(stpce && stpce == etpce && (!sild || !eild || sc.parentNode != ec.parentNode))
-					stpce.parentNode.removeChild(stpce);
-			
-				r.deleteContents();				
-
-				if(sc.nodeType == 1)
-					while(so < sc.childNodes.length && sc.childNodes[so].nodeType == 3 && !sc.childNodes[so].textContent)
-						sc.removeChild(sc.childNodes[so]);
-
-				if(sc.nodeType == 1 && !sc.childNodes.length)
-				{
-					if(sc != this.$.editor)
-					{
-						so = getChildPositionInParent(sc);
-						sc.parentNode.removeChild(sc);
-					}
-					
-					while(!scp.childNodes[so])
-						so--;
-					if(!scp.childNodes[so])
-					{
-						setCaretAt(scp, 0);
-						r = pasteHTMLWithParagraphs(newEmptyParagraph());
-					}
-					else
-						setCaretAt(scp, so);
-				}
-			}
-			
-			//r = getSelectionRange();
-			
-			sc = origsc;
-			while(sc && sc != this.$.editor && !isParagraph(sc) && !INLINE_ELEMENTS[sc.tagName] && !canHaveChildren(sc))
-				sc = isInLightDom(sc.parentNode, this.$.editor) ? sc.parentNode : Polymer.dom(sc).parentNode;
-			ec = origec;
-			while(ec && ec != this.$.editor && !isParagraph(ec) && !INLINE_ELEMENTS[ec.tagName] && !canHaveChildren(ec))
-				ec = isInLightDom(ec.parentNode, this.$.editor) ? ec.parentNode : Polymer.dom(ec).parentNode;
-			
-			if(sc.nextSibling == ec)
-				mergeNodes(sc, ec, true);
-				//this.userInputHandler({ type : 'keydown', which : 8});
-				
-			
-			ev.preventDefault();
-		},
-
-		pasteHandler : function(e) {
-			var v, d, withParagraphs, i, n, nn;
-			if(typeof clipboardData != 'undefined')
-				v = clipboardData.getData();
-			else
-				v = e.originalEvent ? e.originalEvent.clipboardData.getData('text/html') : ((e.clipboardData.getData('text/html') || '<span class="paragraph">' + e.clipboardData.getData('text/plain').replace(/\n/g, '</span><span class="paragraph">') + "</span>"));
-
-			if(!v)
-				return;
-
-			if(v.match(/<!--StartFragment-->/i))
-			{
-				v = v	.replace(/<!--\[if[^\[]*\[endif\]--\>/gi).replace(/\<style[\s][\S]+<\/style>/ig, '')
-						.replace(/<(meta|link)[^>]>/, '')
-						.match(/<!--StartFragment-->([\s\S]*?)(?=<!--EndFragment-->)/i)[1]
-						.replace(/\<\/?o\:[^>]*\>/g, '')
-						.replace(/<p([\s\S]*?(?=<\/p>))<\/p>/gi, '<span class="paragraph" $1</span>')
-						.replace(/\n/g, '')
-						.replace(/<span[^>]*>\s*<\/span>/g, '')
-						.replace("&nbsp;", " ");
-			}
-			else
-			if(/\r|\n/.test(v))
-				v = '<span class="paragraph">' + v.replace(/\r|\n/, '</span><span class="paragraph">') + "</span>";
-
-
-			d = document.createElement('div');
-			d.innerHTML = v;
-
-			i = 0;
-			while(i < d.childNodes.length)
-			{
-				n = d.childNodes[i];
-
-				if(((n.nodeType == 3 || (n.tagName == 'SPAN' && !n.childNodes.length)) && /^\s*(&nbsp;)*\s*$/.test(n.textContent)))
-					d.removeChild(n);
-				else
-				{
-					if(n.nodeType == 3)
-					{
-						nn = document.createElement('span');
-						nn.innerHTML = n.textContent;
-						d.insertBefore(nn, n);
-						d.removeChild(n);
-						n = nn;
-					}
-
-					if(n.tagName == 'SPAN')
-						if(d.childNodes.length == 1 && n.childNodes.length == 1 && n.childNodes[0].nodeType == 3)
-						{
-							d.insertBefore(n.childNodes[0], n);
-							d.removeChild(n);
-						}
-						else
-							n.classList.add('paragraph');
-
-					i++;
-				}
-			}
-
-			visitNodes(d, function(el) {
-				if(el.nodeType == 1) el.removeAttribute('style') ;
-			}, { noRoot : true });
-
-			// edit out eventual closing br
-			if(d.lastChild && d.lastChild != d.firstChild && d.lastChild.tagName == "BR")
-				d.removeChild(d.lastChild);
-
-			this.pasteHtmlWithParagraphs(d.innerHTML, { removeFormat : false });
-
-			e.preventDefault();
-			return false;
-		},
-
-		editorMutationHandler : function(mrecs) {
-			this.disconnectEditorObserver();
-
-			if(this.editorMutationHandler.skip--)
-				return;
-
-			var totalVisits = 0, ce, pe, tnc, created, r, sc, so, ec, eo, done, upToDate,
-				effectiveChanges = [], customEls = this.customElements;
-
-			for(i = 0; i < customEls.length; i++)
-				if(!Polymer.dom(customEls[i]).parentNode)
-					customEls.splice(i, 1);
-
-			if(this.editorMutationHandler.inProgress) // redundant? check with firefox
-				return;
-
-			this.editorMutationHandler.inProgress = true;
-
-			this.observerCycle++;
-
-			if(r = getSelectionRange())
-			{
-				if(r.startContainer.nodeType == 3 || !r.startContainer.childNodes.length) sc = r.startContainer, so = r.startOffset; else sc = r.startContainer.childNodes[r.startOffset], so = 0;
-				if(r.endContainer.nodeType == 3 || !r.endContainer.childNodes.length) ec = r.endContainer, eo = r.startOffset; else ec = r.startContainer.childNodes[r.startOffset], eo = 0;
-			}
-			else
-				r = {}
-
-			// update this.customElements - list of custom elements
-			mrecs.forEach(function(mr) {
-				var mrt = mr.target;
-				if(!mrt.parentNode)
-					return;
-
-				// ignore if node appears more than once in this record - until we actually analyze the record types
-				if(mrt.observerCycle == this.observerCycle)
-					return;
-
-				mrt.observerCycle = this.observerCycle;
-
-				if(mrt.nodeType == 3)
-				{
-					// process delimiters "detached" from their custom element
-					if(mrt.isDelimiter && !((mrt.previousSibling && mrt.previousSibling.is) || (mrt.nextSibling && mrt.nextSibling.is)))
-					{
-						mrt.isDelimiter = false;
-						if(/\u00a0/.test(mrt.textContent))
-						{
-							mrt.textContent = mrt.textContent.replace(/\u00a0/g, '');
-							if(mrt == sc)
-								setCaretAt(sc, Math.min(so, mrt.textContent.length));
-						}
-					}
-					else
-					// clear .isDelimiter of non-empty nodes
-					if(mrt.isDelimiter && /\S/.test(mrt.textContent))
-					{
-						mrt.textContent = mrt.textContent.replace(/\u00a0/g, '');
-						mrt.isDelimiter = false;
-						if(sc == mrt) // && mrt.isDelimiter && !mrt.isInTransition && so != 1)
-							setCaretAt(sc, 1);
-					}
-					else
-					if(!mrt.textContent.length)
-						mrt.parentNode.removeChild(mrt);
-
-					if(mrt.textContent.length)
-						effectiveChanges.push(mr.target);
-
-					return;
-				}
-
-				if(mrt.nodeType != 1)
-					return;
-
-				mrt.isDelimiter = false;
-				
-				if(mr.addedNodes.length)
-					Array.prototype.forEach.call(mr.addedNodes, function(n) { effectiveChanges.push(n) });
-				else
-					effectiveChanges.push(mr.target);
-
-				if(mr.type == 'childList')
-					visitNodes(mrt, function(n) {
-						totalVisits++;
-						if(n.nodeType != 3) n.isDelimiter = false;
-						if(n != this.$.editor && !isInLightDom(n, this.$.editor) || !Polymer.dom(n).parentNode)
-							return;
-						if(n.is && customEls.indexOf(n) == -1)
-						{
-							customEls.push(n);
-							n.setAttribute('contenteditable', false);
-						}
-					}.bind(this));
-			}.bind(this));
-
-
-			for(i = 0; i < customEls.length; i++)
-			{
-				ce = customEls[i];
-
-				pe = Polymer.dom(ce).parentNode;
-				if(pe)
-				{
-					pe.normalize();
-
-					ps = ce.previousSibling;
-					ns = ce.nextSibling;
-
-					// pad before
-					if(!ps || ps.nodeType != 3) // no text element before
-					{
-						ps = pe.insertBefore(created = document.createTextNode(DELIMITER), ce);
-						created.isDelimiter = true;
-					}
-					else // a whitespace text element before
-					if(ps.nodeType == 3)
-					{
-						if(!/\S/.test(ps.textContent))
-						{
-							if(ps.previousSibling && ps.previousSibling.nodeType == 3)
-								ps = mergeNodes(ps.previousSibling, ps, true);
-
-							if(ps.textContent != DELIMITER && !/\S/.test(ps.textContent))
-								ps.textContent = DELIMITER;
-
-							ps.isDelimiter = true;
-						}
-						if(sc == ps && ps.isDelimiter && !ps.isInTransition && so != 1 && r.collapsed)
-							setCaretAt(ps, 1);
-					}
-
-					if(!created && ps.isDelimiter && /\S/.test(ps.textContent)) // remove the padding space if node is not whitespace-only anymore
-					{
-						ps.textContent = ps.textContent.replace(/[\u200b\u00a0\s]/g, '')
-						ps.isDelimiter = false;
-						if(sc == ps)
-							setCaretAt(ps, Math.min(so, ps.textContent.length))
-					}
-
-					created = null;
-
-					// pad after
-					if(!ns || ns.nodeType != 3)
-					{
-						ns = pe[ns ? 'insertBefore' : 'appendChild'](created = document.createTextNode(DELIMITER), ns);
-						created.isDelimiter = true;
-					}
-					else
-					if(ns.nodeType == 3)
-					{
-						if(!/\S/.test(ns.textContent))
-						{
-							if(ns.nextSibling && ns.nextSibling.nodeType == 3)
-								ns = mergeNodes(ns.nextSibling,ns,true);
-
-							if(ns.textContent != DELIMITER && !/\S/.test(ns.textContent))
-								ns.textContent = DELIMITER;
-
-							ns.isDelimiter = true;
-						}
-						if(ec == ns && ns.isDelimiter && !ns.isInTransition && so != 1 && r.collapsed)
-							setCaretAt(ns, 1);
-					}
-
-					if(!created && ns.isDelimiter && /\S/.test(ns.textContent))
-					{
-						if(/[\u200b\u00a0\s]/.test(ns.textContent))
-							ns.textContent = ns.textContent.replace(/[\u200b\u00a0\s]/g, '')
-						ns.isDelimiter = false;
-						if(ec == ns)
-							setCaretAt(ns, Math.min(eo, ns.textContent.length))
-					}
-
-					ce.setAttribute('contenteditable', false);
-
-					// auto-editable lightdom children - should come as a property
-					Array.prototype.forEach.call(Polymer.dom(ce).querySelectorAll('.caption'), function(el) { el.setAttribute('contenteditable', true) });
-				}
-			}
-
-			
-			if(effectiveChanges.length)
-				this.changed = true;
-
-			var cycles = 0,	cycleLabel = new Date().getTime();
-
-			effectiveChanges.forEach(function(mr) {
-				var t = mr, done, cv, cn, ocv, toutline, altp;
-
-				if(t.isDelimiter && (t.nodeType != 3 || /\S/.test(t.textContent)))
-					t.isDelimiter = false;
-				
-				if(t.cycleLabel == cycleLabel) return;
-				t.cycleLabel = cycleLabel;
-
-				if(t != this.$.editor && !isInLightDom(t, this.$.editor))
-					return;
-
-				ocv = t._cleanValue;
-
-				if(t != this.$.editor)
-					t._cleanValue = this.getCleanValue(t);
-
-				if(ocv == t)
-					return;
-
-				while(!done) // update parents
-				{
-					if(t != this.$.editor) {
-						if(!t || !isInLightDom(t.parentNode, this.$.editor)) // it's not attached
-						{
-							altp = Polymer.dom(t).parentNode;
-							if(altp != this.$.editor && !isInLightDom(altp, this.$.editor))
-								return;
-							t = altp;
-						}
-						else
-							t = t.parentNode
-					}
-
-					if(t == this.$.editor)
-						done = true;
-
-					ocv = t._cleanValue;
-
-					if(t.nodeType == 3)
-						t._cleanValue = t.textContent;
-					else
-					{
-						cn = (t.is ? Polymer.dom(t) : t).childNodes;
-						cv = "";
-						if(cn.length)
-							cv = Array.prototype.map.call(cn, function(ch) {
-								if(t.isDelimiter && (t.nodeType != 3 || /\S/.test(t.textContent)))
-								{
-									t._cleanValue = '';
-									t.isDelimiter = false;
-								}
-								return ch._cleanValue || (ch._cleanValue = this.getCleanValue(ch))
-							}.bind(this)).join('');
-
-						if(t != this.$.editor)
-						{
-							toutline = tagOutline(t);
-							toutline = toutline.split(">");
-							t._cleanValue = toutline[0] + ">" + cv + toutline[1] + ">";
-						}
-						else
-							t._cleanValue = cv;
-					}
-
-					if(ocv == t._cleanValue)
-						return;
-
-					cycles++;
-				}
-			}.bind(this))
-
-			if(cycles > 0)
-				this._updateValue(true);
-			
-			this.editorMutationHandler.inProgress = false;
-			
-
-			
-			this.connectEditorObserver();
-		},
 
 		contextMenuShow : function(ev) {
 			var cm = this.$.contextMenu, target = ev.target, flowTarget, captionWrapper,
@@ -923,9 +223,9 @@
 			
 			cm.disabled = true;
 
-			target = actionTarget = getClosestLightDomTarget(target, this.$.editor);
+			target = actionTarget = utils.getClosestLightDomTarget(target, this.$.editor);
 
-			parentCustomEl = getTopCustomElementAncestor(target, this.$.editor);
+			parentCustomEl = utils.getTopCustomElementAncestor(target, this.$.editor);
 
 			if(parentCustomEl)
 			{
@@ -1047,7 +347,7 @@
 		  if(!t)
 			return;
 
- 		  t.classList.remove('ir-textarea-action');
+		  t.classList.remove('ir-textarea-action');
 		},
 
 		selectForAction : function(target, type) {
@@ -1059,16 +359,16 @@
 		  this.clearActionData();
 
 		  this.__actionData.target = target;
-		  this.__actionData.deleteTarget = getTopCustomElementAncestor(target, this.$.editor) || this.__actionData.deleteTarget;
+		  this.__actionData.deleteTarget = utils.getTopCustomElementAncestor(target, this.$.editor) || this.__actionData.deleteTarget;
 		  this.__actionData.type = type;
 
 		  this.async(function() {
-			setCaretAt(this.__actionData.deleteTarget.nextSibling, 0);
+			utils.setCaretAt(this.__actionData.deleteTarget.nextSibling, 0);
 		  });
 
 		  this.customUndo.pushUndo(false, false);
 
-		  this.fire('scroll-into-view', this.getSelectionCoords());
+		  this.fire('scroll-into-view', utils.getSelectionCoords());
 
 		  this.addActionBorder();
 		},
@@ -1104,7 +404,7 @@
 			};
 
 
-			if(!(deleteTarget = getTopCustomElementAncestor(target, this.$.editor)))
+			if(!(deleteTarget = utils.getTopCustomElementAncestor(target, this.$.editor)))
 				deleteTarget = target;
 			else
 				this.$.mediaEditor.captionRemove(target);
@@ -1136,10 +436,10 @@
 
 			this.clearActionData();
 
-      if( target.id =='resizable-element') target.id = '';
+			if( target.id =='resizable-element') target.id = '';
 
-      document.removeEventListener('mouseup', this.resizeTargetStop);
-      document.removeEventListener('click', this.resizeTargetStop);
+			document.removeEventListener('mouseup', this.resizeTargetStop);
+			document.removeEventListener('click', this.resizeTargetStop);
 		},
 
 		resizeTarget : function(target) {
@@ -1253,9 +553,9 @@
 			.on('resizeend', resizeEndHandler);
 
 			if(target.nextSibling)
-				setCaretAt(target.nextSibling, 0);
+				utils.setCaretAt(target.nextSibling, 0);
 			else
-				setCaretAt(target, 0);
+				utils.setCaretAt(target, 0);
 
 			interact('#resizeHandler').on('down', function (event) {
 				var interaction = event.interaction,
@@ -1285,8 +585,7 @@
 		  //this.__actionData.interactable = interactable;
 		},
 		
-		setResizeHandlerPosition : function()
-		{
+		setResizeHandlerPosition : function() {
 			var target, cbr, handlercbr, ep;
 			
 			if(!this.__actionData || !this.__actionData.target)
@@ -1297,7 +596,7 @@
 			handlercbr = this.$.resizeHandler.getBoundingClientRect();
 			
 			cbr = cbr = target.getBoundingClientRect();
-			ep = getElementPosition(target, this.$.editor);
+			ep = utils.getElementPosition(target, this.$.editor);
 
 			this.$.resizeHandler.style.left = (ep.x + cbr.width - 25) + "px";
 			this.$.resizeHandler.style.top = (ep.y + cbr.height - 25) + "px";
@@ -1319,14 +618,14 @@
 			caretPosData = this.__actionData.caretPosData;
 
 			if(caretPosData && caretPosData.node)
-			  caretPosData.node = (tpce = getTopCustomElementAncestor(caretPosData.node, editor)) || caretPosData.node;
+			  caretPosData.node = (tpce = utils.getTopCustomElementAncestor(caretPosData.node, editor)) || caretPosData.node;
 
 			if(actualTarget.parentNode && (caretPosData && this.isOrIsAncestorOf(this.$.editor, caretPosData.node)) && !this.isOrIsAncestorOf(actualTarget, caretPosData.node))
 			{
 			  this.clearActionData();
 			  this.__actionData.caretPosData = null;
 
-			  html = recursiveOuterHTML(actualTarget);
+			  html = utils.recursiveOuterHTML(actualTarget);
 
 			  // for now, forbid explicitly to drop into custom elements. (for custom targets only - built-in text drop is still possible! - e.g., it's ok to move text into a caption inside a gallery)
 			  if(tpce)
@@ -1356,7 +655,7 @@
 		  this.__actionData.dragTarget = target;
 		  this.__actionData.dragMoveListener = function(event) {
 			var ad = this.__actionData;
-			var caretPosData = caretPositionFromPoint(event.clientX, event.clientY);
+			var caretPosData = utils.caretPositionFromPoint(event.clientX, event.clientY);
 
 			if(!ad.dragTarget)
 			{
@@ -1372,7 +671,7 @@
 
 			if(!ad.caretPosData || ad.caretPosData.node != caretPosData.node || ad.caretPosData.offset != caretPosData.offset)
 			{
-			  setCaretAt(caretPosData.node, caretPosData.offset);
+			  utils.setCaretAt(caretPosData.node, caretPosData.offset);
 			  ad.caretPosData = caretPosData;
 			  ad.caretPosData.changed = true;
 			  this.__actionData.lastAction = 'drag';
@@ -1433,7 +732,7 @@
 			} else {
 			  // Iterate nodes until we hit the end container
 			  while (node && node != endNode) {
-				rangeNodes.push( node = nextNode(node) );
+				rangeNodes.push( node = utils.nextNode(node) );
 			  }
 
 			  // Add partially selected nodes at the start of the range
@@ -1556,398 +855,6 @@
 		  removeSelectedElements({ root : element.children ? element : null, removeTags : "hr,b,i,span,font", mapTags : { "h1,h2,h3,h4,h5,h6,div" : "p" },  attributeNames : "style,class"}, this.$.editor);
 		},
 
-		getElementAfterCaret : function(opts) {
-			var i, done,
-			r = getSelectionRange(),
-			n = r.endContainer, o = r.endOffset;
-
-			opts.skip = opts.skip || [];
-			if(!(opts.skip instanceof Array))
-				opts.skip = [opts.skip];
-
-			//if(n.nodeType == 1)
-			//	n = n.childNodes[o];
-
-			if(n.nodeType == 3 && o < n.length)
-				return n;
-
-			n = nextNode(n);
-			for(i = 0; n && !done && i < opts.skip.length; i++)
-			{
-				if(!n.matchesSelector || !n.matchesSelector(opts.skip[i]))
-					done = true;
-				else
-				{
-					n = nextNode(n);
-					i = -1;
-				}
-			}
-
-		  return n;
-		},
-
-		getElementBeforeCaret : function(opts) {
-		  var r = getSelectionRange();
-
-		  opts = opts || {};
-		  opts.skipAncestors = true;
-		  opts.atomicCustomElements = true;
-		  // opts.atomic = ['.embed-aspect-ratio'];
-
-		  if(!r || (!r.startOffset && r.startOffset != 0)  || r.startOffset != r.endOffset)
-			return null;
-
-		  if(r.startContainer.nodeType == 1)
-			return prevNodeDeep(r.startContainer.childNodes[r.startOffset] || r.startContainer, this.$.editor, opts);
-		  else
-		  if(!r.startOffset)
-			return prevNodeDeep(r.startContainer, this.$.editor, opts);
-
-		  return r.startContainer;
-		},
-
-		pasteHtmlWithParagraphs : function (html, opts) // html is either a string or an element that will be inserted as is
-		{
-			var div, paragraph, r, sp, caretAt = {}, firstIsEmptyParagraph,
-				container, newWrapperParagraph, container, firstToWrap, index,
-				isNewParagraph, lastInserted, pos, first, last, takeout, tp,
-				sc, ec, so, eo;
-
-			if(!html)
-				return;
-
-			div = document.createElement('div');
-			if(typeof html == 'string')
-				div.innerHTML = html;
-			else
-				div.appendChild(html);
-
-			if(div.lastChild.nodeType == 1 && div.lastChild.tagName == 'BR')
-				div.removeChild(div.lastChild);
-
-			// html = div.innerHTML;
-
-			// check if there are any paragraphs
-			paragraph = div.querySelector('span.paragraph');
-
-			r = this.selectionSave();
-			r = this.selectionRestore();
-
-			this.customUndo.pushUndo(false, true);
-
-			// if not, fall back to regular paste
-			if(!paragraph)
-				return this.pasteHtmlAtCaret(html);
-
-			// otherwise html contains paragraphs.
-			if(!r.collapsed)
-			{
-				if(r.startContainer.nodeType == 3 && r.startOffset > 0)
-					pos = { container : r.startContainer, offset : r.startOffset };
-				else
-					pos = { container : r.startContainer.parentNode, offset : getChildPositionInParent(r.startContainer) };
-
-				r.deleteContents();
-
-				if(!this.$.editor.childNodes.length)
-					setCaretAt(this.$.editor.appendChild(newEmptyParagraph()), 0);
-				else
-					setCaretAt(pos.container, pos.offset);
-			}
-
-			r = getSelectionRange();
-
-			if(!this.$.editor.childNodes.length)
-				r = setCaretAt(this.$.editor.appendChild(newEmptyParagraph()), 0);
-			
-			// remove 'br' if is direct child of $.editor
-			if(r.startContainer == this.$.editor && r.startContainer.nodeType == 1 && r.startContainer.childNodes[r.startOffset].nodeType == 1 && r.startContainer.childNodes[r.startOffset].tagName == 'BR')
-			{
-				r.startContainer.insertBefore(newEmptyParagraph(), r.startContainer.childNodes[r.startOffset]);
-				r = setCaretAt(r.startContainer.childNodes[r.startOffset], 0);
-				r.startContainer.parentNode.removeChild(r.startContainer.nextSibling);
-			}
-			// add empty paragraph if doesn't exist
-			if(this.$.editor.childNodes.length == 0)
-			{
-				this.$.editor.appendChild(newEmptyParagraph());
-				r = setCaretAt();
-			}
-			
-			sc = r.startContainer, so = r.startOffset;
-			ec = r.endContainer, eo = r.endOffset;
-
-			// move selection range off $.editor on both ends or FF will act funny
-			if(r.startContainer == this.$.editor || r.endContainer == this.$.editor)
-			{
-				if(sc == this.$.editor) sc = r.startContainer.childNodes[r.startOffset], so = 0;
-				if(ec == this.$.editor) ec = r.endContainer.childNodes[r.endOffset], eo = 0;
-
-				r = setCaretAt(sc, so, ec, eo);
-
-				//if(r.startContainer.nodeType == 3 || !r.startContainer.childNodes.length) sc = r.startContainer, so = r.startOffset; else sc = r.startContainer.childNodes[r.startOffset], so = 0;
-				//if(r.endContainer.nodeType == 3 || !r.endContainer.childNodes.length) ec = r.endContainer, eo = r.startOffset; else ec = r.startContainer.childNodes[r.startOffset], eo = 0;
-			}
-
-			// analyze where the caret is in paragraph
-
-			first = r.startContainer;
-			firstOffset = r.startOffset;
-			if(first.firstChild && (!selfOrLeftmostDescendantIsSpecial(first.childNodes[firstOffset])))
-			{
-				first = first.childNodes[firstOffset];
-				firstOffset = 0;
-			}
-
-			firstIsEmptyParagraph = canHaveChildren(first) ? isEmptyParagraph(first) : (first.parentNode && isEmptyParagraph(first.parentNode));
-			isNewParagraph = div.childNodes.length == 1 && isEmptyParagraph(div.firstChild);
-
-			if(firstIsEmptyParagraph)
-				caretAt.containerStart = true;
-			else
-			// if it's a bare text/inline node (sitting on $.editor) wrap it and its text/inline siblings in a paragraph
-			if(!isParagraph(first) && (first.nodeType == 3 || INLINE_ELEMENTS[first.tagName]) && first.parentNode == this.$.editor)
-			{
-				newWrapperParagraph = document.createElement('span');
-				newWrapperParagraph.classList.add('paragraph');
-				firstToWrap = first;
-
-				// go back until paragraph/block element/container start
-				while(!isParagraph(firstToWrap.previousSibling) && (firstToWrap.previousSibling && (firstToWrap.previousSibling.is || firstToWrap.previousSibling.nodeType == 3 || INLINE_ELEMENTS[firstToWrap.previousSibling.tagName])))
-					firstToWrap = firstToWrap.previousSibling;
-
-				container = firstToWrap.parentNode;
-				index = getChildPositionInParent(firstToWrap);
-
-				// go forward and wrap anything until next paragraph/block element
-				while(!isParagraph(firstToWrap) && (firstToWrap && (firstToWrap.is || firstToWrap.nodeType == 3 || INLINE_ELEMENTS[firstToWrap.tagName])))
-				{
-					newWrapperParagraph.appendChild(firstToWrap)
-					firstToWrap = container.childNodes[index];
-				}
-				firstIsEmptyParagraph = isEmptyParagraph(newWrapperParagraph);
-
-				// add the wrapping paragraph
-				if(index < container.childNodes.length)
-					container.insertBefore(newWrapperParagraph, container.childNodes[index]);
-				else
-					container.appendChild(newWrapperParagraph);
-
-				if(first.nodeType == 1)
-					firstOffset = getChildPositionInParent(first);
-			}
-
-			// wrap bare nodes
-
-			container = first;
-			// find first praragraph or non-text, non-inline container. it could have been the editor but we wrapped bare nodes earlier
-			while(!isParagraph(container) && (container.nodeType == 3 || INLINE_ELEMENTS[container.tagName] || isSpecialElement(container)))
-				container = container.parentNode;
-
-			if(caretAt.containerStart || (container.firstChild == first && firstOffset == 0))
-				caretAt.containerStart = true;
-			else
-			{
-				pos = getLastCaretPosition(container);
-				if(pos.container == first && pos.offset == firstOffset && (!first.nextSibling && !(first.nextSibling == first.parentNode.lastChild && first.nextSibling.tagName == 'BR'))) // last condition prevents ignoring elements that can't have children implied by getLastCaretPosition
-					caretAt.containerEnd = true;
-				else
-					caretAt.containerMiddle = true;
-			}
-
-			// paste html and move carret
-			if(caretAt.containerStart)
-			{
-				while(div.firstChild)
-					lastInserted = container.parentNode.insertBefore(div.firstChild, container);
-
-				if(!isNewParagraph)
-				{
-					pos = getLastCaretPosition(lastInserted);
-					setCaretAt(lastInserted, pos.offset);
-					//if(!container.textContent)
-					//	container.parentNode.removeChild(container);
-				}
-				else
-					setCaretAt(sc, so, ec, eo);
-				return;
-			}
-			else
-			if(caretAt.containerEnd)
-			{
-				if(last = container.nextSibling)
-					while(div.firstChild)
-						lastInserted = container.parentNode.insertBefore(div.firstChild, last);
-				else
-					while(div.firstChild)
-						lastInserted = container.parentNode.appendChild(div.firstChild);
-
-				pos = getLastCaretPosition(lastInserted);
-				setCaretAt(pos.container, pos.offset);
-			}
-			else // containerMiddle
-			{
-				if(first.tagName == 'BR') // remember we are in the middle of a paragprah so prevSibling exists
-				{
-					first = first.previousSibling;
-					first.parentNode.removeChild(first.nextSibling);
-					if(canHaveChildren(first))
-					{
-						pos = getLastCaretPosition(first);
-						first = pos.container;
-						firstOffset = pos.offset;
-					}
-					else
-					{
-						firstOffset = getChildPositionInParent(first);
-						first = first.parentNode;
-					}
-				}
-
-				if(!selfOrLeftmostDescendantIsSpecial(first)) // first is custom element
-					last = splitNode(first, firstOffset, container);
-				else
-				if(first.parentNode != this.$.editor)
-					last = splitNode(first.parentNode, getChildPositionInParent(first), container);
-				else
-					last = first;
-
-				first = last.previousSibling;
-
-				if(last.nodeType == 1 && last.firstChild) {
-					if(last.firstChild.nodeType == 3 && !last.firstChild.textContent)
-						last.removeChild(last.firstChild);
-					if(last.firstChild && last.firstChild.tagName == "BR")
-						last.removeChild(last.firstChild);
-					if(!last.childNodes.length)
-						last.parentNode.removeChild(last);
-				}
-
-				last = first.nextSibling;
-
-				if(!isNewParagraph || (sp = selfOrLeftmostDescendantIsSpecial(last)) || !last)
-				{
-					if(sp && !selfOrLeftmostDescendantIsSpecial(first))
-						lastInserted = first;
-					else
-						while(div.firstChild)
-							lastInserted = first.parentNode[last ? 'insertBefore' : 'appendChild'](div.firstChild, last);
-
-					pos = getLastCaretPosition(lastInserted);
-					return setCaretAt(pos.container, pos.offset);
-				}
-				return setCaretAt(last, 0);
-			}
-		},
-
-		pasteHtmlAtCaret : function(html, removeFormat, keepLastBr) {
-			var sel, range, endNode, newRange, node, lastNode, preLastNode, el, frag, pos, isLastInEditor, target, pos, offset, sc, so, ec, eo, r, is;
-
-			if (window.getSelection) {
-				// IE9 and non-IE
-				sel = window.getSelection();
-				if (sel.getRangeAt && sel.rangeCount) {
-					r = sel.getRangeAt(0);
-
-					sc = r.startContainer;
-					so = r.startOffset;
-					ec = r.startContainer;
-					eo = r.startOffset;
-
-
-					if(r.startContainer.isDelimiter)
-					{
-						sc.textContent = "";
-						sc.isDelimiter = false;
-						so = 0;
-						if(sc == ec)
-							eo = 0;
-					}
-					if(r.endContainer.isDelimiter)
-					{
-						ec.textContent = "";
-						ec.isDelimiter = false;
-						eo = 0;
-					}
-					r = setCaretAt(sc, so, ec, eo);
-
-					r.deleteContents();
-
-					// Range.createContextualFragment() would be useful here but is
-					// only relatively recently standardized and is not supported in
-					// some browsers (IE9, for one)
-					el = document.createElement("div");
-					el.innerHTML = html;
-					frag = document.createDocumentFragment();
-
-					while ( (node = el.firstChild) ) {
-						preLastNode = lastNode;
-						lastNode = frag.appendChild(node);
-						if(removeFormat)
-							this.removeFormat(lastNode);
-					}
-					var firstNode = frag.firstChild;
-
-					if(r.startContainer.nodeType == 1 &&
-						(r.startOffset >= r.startContainer.childNodes.length) &&
-						r.startContainer.childNodes[r.startOffset-1] &&
-						r.startContainer.childNodes[r.startOffset-1].tagName == 'BR')
-
-						r = setCaretAt(r.startContainer, r.startOffset-1)
-
-					r.insertNode(frag);
-
-					// Preserve the selection
-					if (lastNode) {
-						if(lastNode.nextSibling && lastNode.nextSibling.textContent == '' && !keepLastBr)
-							lastNode.parentNode.removeChild(lastNode.nextSibling);
-						if(lastNode.nextSibling && lastNode.nextSibling.tagName == 'BR' && !keepLastBr)
-							lastNode.parentNode.removeChild(lastNode.nextSibling);
-
-						t = lastNode;
-						while(t.parentNode && t.parentNode != this.$.editor)
-						{
-							is = t.is
-							t = t.parentNode;
-						}
-
-						offset = 0;
-						//if(!is && t.parentNode == this.$.editor && !t.nextSibling)
-						//	t.parentNode.appendChild(target = newEmptyParagraph());
-						//else
-						//{
-							pos = getLastCaretPosition(lastNode);
-							if(!pos)
-								target = nextNode(lastNode, true);
-							else
-							{
-								target = pos.container;
-								offset = pos.offset;
-							}
-						//}
-
-						return setCaretAt(target, offset);
-					}
-				}
-			} else if ( (sel = document.selection) && sel.type != "Control") {
-				// IE < 9
-				document.selection.createRange().pasteHTML(html);
-				/*
-				var originalRange = sel.createRange();
-				originalRange.collapse(true);
-				sel.createRange().pasteHTML(html);
-				if (selectPastedContent) {
-					range = sel.createRange();
-					range.setEndPoint("StartToStart", originalRange);
-					range.select();
-				}
-				*/
-			}
-
-			this._updateValue();
-
-			return range;
-		},
 
 		// to use instead of execCommand('insertHTML') - modified from code by Tim Down
 		insertHTMLCmd : function (html) {
@@ -1997,11 +904,11 @@
 			{
 				nn = sc;
 				while(nn && nn != this.$.editor && nn != ec) {
-					if(!isInLightDom(nn, this.$.editor)) {
+					if(!utils.isInLightDom(nn, this.$.editor)) {
 						alert('Creation of bulleted list on ranges containing custom elements is not supported due to a but in Chrome (see Chromium bug 571420). As a workaround, create the bulleted list and drag the element there instead.');
 						return false;
 					}
-					nn = nextNode(nn);
+					nn = utils.nextNode(nn);
 				}
 			}
 
@@ -2080,8 +987,6 @@
 						{
 							that._execCommand(actualCmd, false, val);
 							that.$.editor.focus();
-
-							//that.selectionForget();
 						}
 					}
 
@@ -2122,7 +1027,7 @@
 		},
 
 		selectionSave : function () {
-			var range = getSelectionRange();
+			var range = utils.getSelectionRange();
 
 			if(range && this.isOrIsAncestorOf(this.$.editor, range.startContainer))
 				this._selectionRange = range;
@@ -2131,7 +1036,7 @@
 		selectionRestore : function (noForceSelection) {
 			var range, sel, sc, ec;
 
-			range = getSelectionRange();
+			range = utils.getSelectionRange();
 
 			if(range && this.isOrIsAncestorOf(this.$.editor, range.startContainer))
 			{
@@ -2164,35 +1069,12 @@
 			{
 				// if no selection, go to offset 0 of first child, creating one if needed
 				if(!this.$.editor.childNodes.length)
-					setCaretAt(this.$.editor.appendChild(newEmptyParagraph()), 0);
+					utils.setCaretAt(this.$.editor.appendChild(utils.newEmptyParagraph()), 0);
 				else
-					setCaretAt(this.$.editor.childNodes[0], 0);
+					utils.setCaretAt(this.$.editor.childNodes[0], 0);
 			}
 
 			this._selectionRange = range;
-
-			return range;
-		},
-
-		selectionForget : function() {
-			this._selectionRange = null;
-		},
-
-		getSelectionCoords : function() {
-			var c;
-
-			// don't disconnect editorobserver here as this will break delimiters
-			c = getSelectionCoords();
-
-			return c;
-		},
-
-		selectionSelectElement : function(el) {
-			var range = document.createRange();
-			range.selectNode(el);
-			var sel = window.getSelection();
-			sel.removeAllRanges();
-			sel.addRange(range);
 
 			return range;
 		},
@@ -2222,13 +1104,13 @@
 				// this is "timeout" undo, following up on last action that otherwise wouldn't be pushed by "regular" undo since it's not followed up by an action soon enough
 				this.customUndo.pushUndo(); 
 
-				r = getSelectionRange();
+				r = utils.getSelectionRange();
 
 				if(!r)
 					return;
 				
-				if(isDescendantOf(r.startContainer, this.$.editor))
-					return this.fire('scroll-into-view', this.getSelectionCoords());
+				if(utils.isDescendantOf(r.startContainer, this.$.editor))
+					return this.fire('scroll-into-view', utils.getSelectionCoords());
 			}.bind(this), 200);
 
 			var val, sameContent, d, r;
@@ -2271,9 +1153,9 @@
 			this.removeActionBorder();
 
 			if(from == this.$.editor)
-				v = recursiveInnerHTML(from)
+				v = utils.recursiveInnerHTML(from)
 			else
-				v = recursiveOuterHTML(from)
+				v = utils.recursiveOuterHTML(from)
 
 			if(from == this.$.editor)
 			{
@@ -2298,37 +1180,6 @@
 			this.selectionSave();
 		},
 
-		getCaretCharacterOffset : function getCaretCharacterOffset() {
-			// modified from code by Tim Down http://stackoverflow.com/users/96100/tim-down
-			var element = this.$.editor;
-			var caretOffset = 0;
-			var doc = element.ownerDocument || element.document;
-			var win = doc.defaultView || doc.parentWindow;
-			var sel;
-			if (typeof win.getSelection != "undefined") {
-				sel = win.getSelection();
-				if (sel.rangeCount > 0) {
-					var range = win.getSelection().getRangeAt(0);
-					var preCaretRange = range.cloneRange();
-					preCaretRange.selectNodeContents(element);
-					preCaretRange.setEnd(range.endContainer, range.endOffset);
-					caretOffset = preCaretRange.toString().length;
-				}
-			} else if ( (sel = doc.selection) && sel.type != "Control") {
-				var textRange = sel.createRange();
-				var preCaretTextRange = doc.body.createTextRange();
-				preCaretTextRange.moveToElementText(element);
-				preCaretTextRange.setEndPoint("EndToEnd", textRange);
-				caretOffset = preCaretTextRange.text.length;
-			}
-
-			this.selection = {
-				caretOffset : caretOffset
-			}
-
-			return caretOffset;
-		},
-
 		// params: slc - range start node, elc - range end node
 		// if slc != elc will select from before slc to after elc
 		// otherwise will set caret after slc
@@ -2348,9 +1199,9 @@
 				return range;
 			}
 
-			ns = nextNode(slc, false);
-			while(ns && ns.parentNode && getTopCustomElementAncestor(ns, top) && !(isInLightDom(ns, top) && ns.nodeType == 3))
-				ns = nextNode(ns, false);
+			ns = utils.nextNode(slc, false);
+			while(ns && ns.parentNode && utils.getTopCustomElementAncestor(ns, top) && !(utils.isInLightDom(ns, top) && ns.nodeType == 3))
+				ns = utils.nextNode(ns, false);
 
 			if(slc.is && ns == slc.nextSibling)
 			{
@@ -2361,44 +1212,10 @@
 					console.error('Custom element is missing a text wrapper: ', slc.previousSibling, slc, slc.nextSibling)
 					throw Error('Custom element is missing a text wrapper: ' + tc.tag);
 				}
-				return setCaretAt(ns, /^\u0020/.test(ns.textContent) ? 1 : 0);
+				return utils.setCaretAt(ns, /^\u0020/.test(ns.textContent) ? 1 : 0);
 			}
 
-			return setCaretAt(ns, 0);
-		},
-
-		moveCaretBeforeOrWrap : function(slc, elc, top) {
-			var pos, ns, sel = window.getSelection(), range = document.createRange(), isSibling = true;
-
-			if(slc == elc)
-			{
-				range.setStartBefore(slc);
-				range.setEndBefore(slc);
-				sel.removeAllRanges();
-				sel.addRange(range);
-
-				return range;
-			}
-
-			ns = prevNodeDeep(slc, false);
-			isSibling = Polymer.dom(ns).parentNode == Polymer.dom(slc).parentNode;
-			while(ns && ns != top && getTopCustomElementAncestor(ns, top) && !(isInLightDom(ns, top) && ns.nodeType == 3))
-			{
-				ns = prevNodeDeep(ns, false);
-				if(isSibling)
-					isSibling = Polymer.dom(ns).parentNode == Polymer.dom(slc).parentNode;
-
-				tc = ns.previousSibling;
-
-				if(/\u0020$/.test(tc.textContent))
-					setCaretAt(ns, 1);
-			}
-
-			pos = getLastCaretPosition(ns);
-			if(!pos)
-				pos = { container : ns, offset : getChildPositionInParent(ns) }
-
-			return setCaretAt(pos.container, pos.offset);
+			return utils.setCaretAt(ns, 0);
 		},
 
 		undo : function() {
@@ -2412,28 +1229,25 @@
 			this.selectionSave();
 		},
 
-	  _onAnimationFinish: function() {
-		  if (this._showing) {
-		  } else {
+		_onAnimationFinish: function() {
+			if (!this._showing)
 			  this.$.toolbar.classList.remove('fixit');
-		  }
-	  },
-	  show: function() {
-		  //this.$.toolbar.style.display = 'inline-block';
-		  this.$.toolbar.classList.add('fixit');
-		  this._showing = true;
-		  this.playAnimation('entry');
-		  this.set('isToolbarHidden', false)
-	  },
-	  hide: function() {
+		},
+		show: function() {
+			//this.$.toolbar.style.display = 'inline-block';
+			this.$.toolbar.classList.add('fixit');
+			this._showing = true;
+			this.playAnimation('entry');
+			this.set('isToolbarHidden', false)
+		},
+		hide: function() {
+			this._showing = false;
+			this.playAnimation('exit');
+		},
 
-		  this._showing = false;
-		  this.playAnimation('exit');
-
-	  },
-	  hideToolbar: function(){
-		  this.hide();
-	  },
+		hideToolbar: function(){
+			this.hide();
+		},
 
 		viewModeChanged : function() {
 			if(this.viewMode == 1)
@@ -2525,1108 +1339,12 @@
 			Polymer.NeonAnimationRunnerBehavior
 		],
 
-	  listeners: {
+		listeners: {
 		  'neon-animation-finish': '_onAnimationFinish'
-	  },
+		},
 
 
 	})
-
-	// custom undo engine
-	function CustomUndoEngine(editor, options)  {
-		var undoRecord = [],
-			redoRecord = [],
-			lastRestoredStateContent,
-			getValue = options.getValue || function() { return editor.innerHTML },
-			undoInProgress;
-
-		if(!options) options = {};
-		if(!options.maxUndoItems) options.maxUndoItems = 50;
-		if(typeof options.timeout == 'undefined') options.timeout = 15000;
-
-		var undoCommand = function() {
-			var sel, r, lastUndo, lur, currState;
-
-			if(!undoRecord.length)
-				return;
-
-			currState = undoRecord[undoRecord.length - 1];
-
-			if(undoRecord.length > 1)
-				redoRecord.push(undoRecord.pop());
-
-			lastUndo = undoRecord[undoRecord.length - 1];
-
-			if(!lastUndo || (lastUndo.content == currState.content && undoRecord.length > 1))
-				return;
-
-			restoreState(lastUndo);
-
-			lastRestoredStateContent = lastUndo.content;
-		}
-
-		var redoCommand = function(e) {
-			var sel, r, lastRedo = redoRecord.pop();
-
-			if(lastRedo)
-			{
-				restoreState(lastRedo);
-				//pushUndo(true);
-				undoRecord.push(lastRedo);
-				lastRestoredStateContent = lastRedo.content;
-			}
-		}
-
-		var restoreState = function(state)
-		{
-			var r;
-
-			undoInProgress = true;
-			r = state.restore(true); // true means to restore caret state
-			undoInProgress = false;
-
-			if(options.onRestoreState && r)
-				options.onRestoreState(r.startContainer);
-		}
-
-		var pushUndo = function(force) { //, onlyUpdateRangeMemo) {
-			var r, sel = window.getSelection(), startMemo, endMemo, sc, ec, so, eo, t,
-				innerHTML, onlyUpdateRangeMemo, prevUndo;
-
-			if(undoInProgress)
-				return;
-
-			innerHTML = getValue();
-			onlyUpdateRangeMemo = false;
-
-			prevUndo = undoRecord.length && undoRecord[undoRecord.length - 1];
-
-			if(prevUndo && prevUndo.content == innerHTML)
-				onlyUpdateRangeMemo = true;
-
-			while(undoRecord.length >= options.maxUndoItems)
-				undoRecord.shift();
-
-			if(prevUndo && onlyUpdateRangeMemo)
-			{
-				prevUndo.updateRange();
-				lastRestoredStateContent = null;
-			}
-			else
-				undoRecord.push(new UndoItem(editor, innerHTML, prevUndo));
-
-			// console.log(undoRecord.length, redoRecord.length);
-
-			if(!force && !onlyUpdateRangeMemo && redoRecord.length > 0 && lastRestoredStateContent != innerHTML)
-				redoRecord = [];
-		};
-
-
-		editor.addEventListener('keydown', function(e) {
-			if(e.keyCode == 90 && e.ctrlKey) // is ^z
-			{
-				undoCommand();
-				e.preventDefault();
-			}
-			if(e.keyCode == 89 && e.ctrlKey) // is ^y
-			{
-				redoCommand();
-				e.preventDefault();
-			}
-		})
-
-		if(options.timeout)
-			setInterval(pushUndo, options.timeout);
-
-		//pushUndo(true);
-
-		return {
-			pushUndo : pushUndo,
-			undo : undoCommand,
-			redo : redoCommand,
-			undoRecord : undoRecord,
-			redoRecord : redoRecord,
-		}
-	}
-
-	// dom/range utility functions
-
-	var recursiveInnerHTML = function(el, skipNodes) {
-		skipNodes = skipNodes || [];
-
-		if(!((el.is ? Polymer.dom(el) : el).childNodes.length))
-			return "";
-
-		return Array.prototype.map.call((el.is ? Polymer.dom(el) : el).childNodes, function(node) {
-				if(node.isDelimiter)
-					return "";
-				if(skipNodes && skipNodes.indexOf(node) > -1)
-					return "";
-
-				if((node.is ? Polymer.dom(node) : node).childNodes.length)
-					return recursiveOuterHTML(node, skipNodes);
-				else
-					return tagOutline(node);
-			}).join('');
-	}
-
-	// by Nathan P. Cole from http://stackoverflow.com/questions/3158274/what-would-be-a-regex-for-valid-xml-names
-	function isXMLTagName ( tag ) // returns true if meets cond. 1-5 above
-	{
-		var t = !/^[xX][mM][lL].*/.test(tag); // condition 3
-		t = t && /^[a-zA-Z_].*/.test(tag);  // condition 2
-		t = t && /^[a-zA-Z0-9_\-\.]+$/.test(tag); // condition 4
-		return t;
-	}
-	var isCustomElementName = (function(n) {
-		var cache = {};
-		return function(tagName) {
-			var c = cache[tagName];
-			if(c)
-				return c;
-			else
-				return cache[tagName] = isXMLTagName(tagName) && !!document.createElement(tagName).is;
-		}
-	})();
-
-	var cloneCustomElement = function(el) {
-		var n = document.createElement(el.tagName), a;
-		for(i = 0; i < el.attributes.length; i++)
-		{
-			a = el.attributes[i];
-			n.setAttribute(a.name, a.value);
-		}
-		n.innerHTML = recursiveInnerHTML(el);
-		return n;
-	}
-
-	var tagOutline = function(el){ // effectively outerHTML - innerHTML
-		var nn = el.cloneNode(false),
-			d = document.createElement('div'),
-			classList;
-
-		if(el.isDelimiter) return '';
-
-		if(nn.classList)
-		{
-			var classList = Array.prototype.map.call(nn.classList, function(n){return n});
-
-			classList.forEach(function(cl) { if(isCustomElementName(cl)) nn.classList.remove(cl); });
-			nn.classList.remove('style-scope');
-			nn.removeAttribute('contenteditable');
-			if(!nn.classList.length) nn.removeAttribute("class");
-		}
-
-
-		d.appendChild(nn);
-
-		while(nn.childNodes.length)
-			nn.removeChild(nn.childNodes[0]);
-
-		return d.innerHTML;
-	}
-
-	var recursiveOuterHTML = function(node, skipNodes){
-		var outerHTML, innerHTML, childNodes, res;
-
-		if(node.isDelimiter && node.nodeType == 3)
-			return node.textContent.replace(/\s/g, '');
-
-		if(skipNodes && skipNodes.indexOf(node) > -1)
-			return "";
-
-		if(node.nodeType == 3)
-			return node.textContent;
-
-		childNodes = node.is ? Polymer.dom(node).childNodes : node.childNodes;
-		if(!childNodes.length)
-			return tagOutline(node);
-
-		innerHTML = (node.is && node.originalInnerHTML) ? node.originalInnerHTML : Array.prototype.map.call(childNodes, function(n) { return recursiveOuterHTML(n, skipNodes) }).join('');
-
-		res = tagOutline(node)
-		if(innerHTML)
-			res = res.replace(/(\<[^\>]+\>)/, function(m) { return m + innerHTML })
-
-		return res;
-	}
-
-	// if node is in light dom tree will return the node,
-	// otherwise will return the closest parent custom element that is in light dom
-	var getClosestLightDomTarget = function(node, top) {
-		var customParents = [], cn, n = node, i, goDeeper;
-
-		while(n && n != top && n != document)
-		{
-			if(isInLightDom(n, top))
-				return n;
-
-			n = n.parentNode;
-		}
-
-		return n;
-	}
-
-	var isInLightDom = function(node, top) { // is in light dom relative to top, i.e. top is considered the light dom root like a scoped document.body
-		if(!node)
-			return false;
-
-		if(node.parentNode == top)
-			return true;
-
-		if(node != top && node != document.body)
-			return isInLightDom(Polymer.dom(node).parentNode, top);
-
-		return false;
-	}
-
-	// returns topmost custom element or null below or equal to `top`
-	var getTopCustomElementAncestor = function(node, top) {
-		var res = null;
-		if(!top) top = document.body;
-
-		while(node && node != top)
-		{
-			if(node.is)
-				res = node;
-
-			if(Polymer.dom(node).parentNode != node.parentNode && !isInLightDom(node, top))
-				node = Polymer.dom(node).getOwnerRoot().host;
-			else
-				node = node.parentNode;
-		}
-
-		return (node == top) ? res : null;
-	}
-
-	// DomPathMemo - remember and restore child via an array of childNode order path - used in undo
-	var getDomPathMemo = function(child, ancestor) {
-		return new DomPathMemo(child, ancestor);
-	}
-
-	var DomPathMemo = function(child, ancestor) {
-		this.ancestor = ancestor;
-		this.positionArray = getChildPathFromTop(child, ancestor);
-	}
-
-	DomPathMemo.prototype.restore = function() {
-		return getChildFromPath(this.positionArray, this.ancestor);
-	};
-
-	var RangeMemo = function(root) {
-		var r = getSelectionRange(), sc, ec, so,eo,cps, cpe, lps, lpe, cn, n;
-
-		this.root = root;
-
-		if(r) {
-			sc = r.startContainer;
-			ec = r.endContainer;
-			so = r.startOffset;
-			eo = r.endOffset;
-		}
-
-		if(r && sc.proxyTarget) // same name new animal
-			sc = ec = sc.proxyTarget.nextSibling, so = eo = 0;
-
-		if(!r || !isDescendantOf(sc, root) || (sc != ec && !isDescendantOf(ec, root)))
-		{
-			this.startPos = this.endPos = [];
-			this.startOffset = this.endOffset = 0;
-
-			return;
-		}
-
-		if(!isDescendantOf(sc, root) || !isDescendantOf(ec, root))
-			return null;
-
-		if(sc != root && !isInLightDom(sc, root))
-			sc = getTopCustomElementAncestor(sc, root).nextSibling, so = 0;
-		if(ec != root && !isInLightDom(ec, root))
-			ec = getTopCustomElementAncestor(ec, root).nextSibling, eo = 0;
-
-		this.delimitersBeforeStart = 0;
-		
-		n = (sc.nodeType == 3 || sc.is) ? sc : sc.childNodes[so];
-		n = n ? n.previousSibling : null;
-		for(; n; n = n.previousSibling)
-			this.delimitersBeforeStart += n.isDelimiter ? 1 : 0; //&& ((n.nextSibling && n.nextSibling.is) || (n.previousSibling && n.previousSibling.is)) ? 1 : 0;
-
-		this.delimitersBeforeEnd = 0;
-		n = (ec.nodeType == 3 || ec.is) ? ec : ec.childNodes[eo]
-		n = n ? n.previousSibling : null;
-		for(; n; n = n.previousSibling)
-			this.delimitersBeforeEnd += n.isDelimiter ? 1 : 0; // && ((n.nextSibling && n.nextSibling.is) || (n.previousSibling && n.previousSibling.is)) ? 1 : 0;
-		
-		if(ec.isDelimiter) this.endIsDelimiter = true;
-		
-		cps = getChildPathFromTop(sc, root);
-		cpe = getChildPathFromTop(ec, root);
-				
-		// non-normalized text nodes will become one after restore. not normalizing here because it's not undo's job
-		for(n = sc.previousNode; n && n.nodeType == 3; n = n.previousNode)
-			cps[cps.length - 1]--;
-		
-		for(n = ec.previousNode; n && n.nodeType == 3; n = n.previousNode)
-			cpe[cpe.length - 1]--;
-		
-
-		if(sc.nodeType == 3 && sc.textContent.length == 0)
-			this.startIsEmpty = true;
-
-		this.startIsText == sc.nodeType == 3
-		this.endIsText == ec.nodeType == 3
-		
-		this.root = root;
-		this.startPos = cps;
-		this.endPos = cpe;
-		this.startOffset = so;
-		this.endOffset = eo;
-	}
-	
-	RangeMemo.prototype.clone = function(rangeMemo) {
-		var c = new RangeMemo();
-		c.root = this.root;
-		c.startPos = this.startPos;
-		c.endPos = this.endPos;
-		c.startOffset = this.startOffset;
-		c.endOffset = this.endOffset;
-		
-		c.delimitersBeforeStart = this.delimitersBeforeStart;
-		c.delimitersBeforeEnd = this.delimitersBeforeEnd;
-
-		c.startIsText = this.startIsText;
-		c.endIsText = this.endIsText;
-		
-		return c;
-	}
-	RangeMemo.prototype.isEqual = function(domPathMemo) {
-		var i;
-
-		if(this.root != domPathMemo.root)
-			return false;
-
-		if(this.startOffset != domPathMemo.startOffset || this.endOffset != domPathMemo.endOffset)
-			return false;
-
-		for(i = 0; i < this.startPos.length; i++)
-			if(this.startPos[i] != domPathMemo.startPos[i])
-				return false;
-
-		for(i = 0; i < this.endPos.length; i++)
-			if(this.endPos[i] != domPathMemo.endPos[i])
-				return false;
-
-		return true;
-	}
-	RangeMemo.prototype.restore = function(doSetCaret)
-	{
-		var s = window.getSelection(),
-			r = document.createRange(),
-			sc, ec, n, delimiter;
-		
-		sc = getChildFromPath(this.startPos, this.root, 1);
-		ec = getChildFromPath(this.endPos, this.root, 1);
-		
-		if(!sc || !ec)
-			return null;
-
-		n = sc.firstChild;
-		
-		for(; n; n = n.nextSibling)
-			if(n.is)
-			{
-				if(!n.previousSibling || n.previousSibling.nodeType != 3)
-					n.parentNode.insertBefore(delimiter = document.createTextNode(DELIMITER), n);
-
-				if(!n.nextSibling)
-					n.parentNode.appendChild(delimiter = document.createTextNode(DELIMITER), n);
-				else
-				if(n.nextSibling.nodeType != 3)
-					n.parentNode.insertBefore(delimiter = document.createTextNode(DELIMITER), n.nextSibling);
-				
-				if(delimiter) delimiter.isDelimiter;
-				delimiter = null;
-			}
-		
-		// console.log('%s delimiters, pos without:', this.delimitersBeforeStart, this.startPos[this.startPos.length-1]);
-
-		this.startPos.push(this.startPos.pop() + this.delimitersBeforeStart);
-		this.endPos.push(this.endPos.pop() + this.delimitersBeforeEnd);
-		
-		sc = getChildFromPath(this.startPos, this.root);
-		ec = getChildFromPath(this.endPos, this.root);
-		
-		if(!sc || !ec || sc.is || ec.is)
-			return null; // there probably was a previous, better range
-		
-		r.setStart(sc, this.startOffset);
-		r.setEnd(ec, this.endOffset);
-		
-		if(doSetCaret)
-		{
-			s.removeAllRanges();
-			s.addRange(r);
-		}
-
-		return r;
-	}
-
-	var UndoItem = function(root, content, prevUndoItem) {
-		var m = {};
-
-		this.root = root;
-		this.rangeHistory = [];
-		this.content = content;
-
-		this.updateRange();
-
-		if(!this.rangeHistory.length && prevUndoItem)
-			this.rangeHistory = prevUndoItem.rangeHistory(function(rm) { return rm.clone(); });
-
-		if(!this.rangeHistory.length)
-			this.rangeHistory = [ new UndoItem(root) ];
-	}
-
-	UndoItem.prototype.updateRange = function() {
-		var rm = new RangeMemo(this.root);
-
-		if(!rm)
-			return;
-
-		// skip accidential 0 positions when rangeHistory already contains some other location.
-		if(this.rangeHistory.length && (rm.startOffset == 0 && !rm.startPos.length || rm.startIsEmpty))
-//			(r.startPos.length == 1 && r.startPos[0] == 0 ))
-			return;
-
-		if(!this.rangeHistory.length || !rm.isEqual(this.rangeHistory[this.rangeHistory.length - 1]))
-			this.rangeHistory.push(rm);
-
-		//console.log("updated range", rm)
-	}
-
-	UndoItem.prototype.restore = function(doSetCaret) {
-		var i = this.rangeHistory.length - 1, r;
-
-		this.root.innerHTML = this.content;
-		Polymer.dom.flush();
-
-		while(i >= 0)
-			if(r = this.rangeHistory[i--].restore(doSetCaret))
-				return r;
-	}
-
-	var getChildPositionInParent = function(child, withDelimiters) {
-		var i, cn, p, delimiters = 0;
-		if(!child || child == document.body)
-			return null;
-
-		p = Polymer.dom(child).parentNode;
-		cn = (p.is ? Polymer.dom(p) : p).childNodes;
-		for(i=0; cn[i] != child && i < cn.length; i++)
-			delimiters += (cn[i] != child && cn[i].isDelimiter) ? 1 : 0;
-
-		//console.log("delimiters:", delimiters)
-
-		return cn[i] == child ? i - (withDelimiters ? 0 : delimiters) : null;
-	}
-
-	var getChildPathFromTop = function(child, top, withDelimiters) {
-		var t, p;
-
-		if(!child || (child == document.body && top != document.body) )
-			return null;
-		if(child == top)
-			return [];
-
-		p = child.parentNode;
-		if(Polymer.dom(child).parentNode != p && !isInLightDom(p, top))
-			p = Polymer.dom(child).parentNode;
-
-		t = getChildPathFromTop(p, top, withDelimiters);
-		if(!t)
-			return null;
-		t.push(getChildPositionInParent(child, withDelimiters));
-		return t;
-	}
-
-	var getChildFromPath = function(pathArr, top, descend)
-	{
-		var res = top, i = 0, next;
-
-		descend = descend || 0;
-		
-		if(!pathArr)
-			return null;
-
-		while(i < pathArr.length - descend)
-		{
-			if(pathArr[i] || pathArr[i] === 0)
-				next = (res.is ? Polymer.dom(res) : res).childNodes[pathArr[i]];
-
-			if(!next)
-				return null; // res;
-
-			res = next;
-			
-			i++;
-		};
-
-		return res;
-	}
-
-	var caretPositionFromPoint = function(x, y)
-	{
-		var res = {};
-		if (document.caretPositionFromPoint) {
-			res.range = document.caretPositionFromPoint(x, y);
-			if(res.range)
-			{
-				res.node = res.range.offsetNode;
-				res.offset = res.range.offset;
-			}
-		} else if (document.caretRangeFromPoint) {
-			res.range = document.caretRangeFromPoint(x, y);
-			if(res.range)
-			{
-				res.node = res.range.startContainer;
-				res.offset = res.range.startOffset;
-			}
-		}
-
-		return res.range ? res : null;
-	}
-
-	var setCaretAt = function(startTarget, startOffset, endTarget, endOffset) {
-		var sel = window.getSelection(),
-			range = document.createRange();
-
-		if(!endTarget)
-		{
-			endTarget = startTarget;
-			endOffset = startOffset;
-		}
-
-		range.setStart(startTarget, startOffset);
-		range.setEnd(endTarget, endOffset);
-		if(startOffset == endOffset)
-			range.collapse(false); // false means collapse to end point
-		sel.removeAllRanges();
-		sel.addRange(range);
-
-		return range;
-	};
-
-	function nextNode(node, excludeChildren) {
-		if(node.is)
-			node = Polymer.dom(node);
-
-		if(!excludeChildren && node && (Polymer.dom(node).childNodes && Polymer.dom(node).childNodes.length)) {
-			return node.firstChild;
-		} else {
-			while (node && node != top && !Polymer.dom(node).nextSibling) {
-				node = Polymer.dom(node).parentNode;
-			}
-			if (!node) {
-				return null;
-			}
-			return Polymer.dom(node).nextSibling;
-		}
-	}
-
-	function prevNode(node) {
-		var ni;
-		if(node.previousSibling)
-			return node.previousSibling;
-		else
-			return node.parentNode;
-	}
-
-	function prevNodeDeep(node, top, opts) {
-		var pn;
-
-		if(!opts) opts = {};
-		//node = node.is ? node : Polymer.dom(node);
-		if(!Polymer.dom(node).previousSibling)
-		{
-			pn = Polymer.dom(node).parentNode;
-			if(!opts.skipAncestors)
-				return pn;
-			else
-			{
-				while(pn && pn != top && !Polymer.dom(pn).previousSibling)
-					pn = Polymer.dom(pn).parentNode;
-
-				if(!pn || pn == top)
-					return pn;
-
-				pn = Polymer.dom(pn).previousSibling;
-			}
-		}
-		else
-			pn = Polymer.dom(node).previousSibling
-
-		if(pn.nodeType == 3)
-			return pn;
-
-		while(Polymer.dom(pn).lastChild && (!opts.atomicCustomElements || !pn.is))
-			pn = Polymer.dom(pn).lastChild;
-
-		return pn;
-	}
-
-	function getSelectionRange() {
-		var sel, range;
-		if (window.getSelection) {
-			sel = window.getSelection();
-			if (sel.getRangeAt && sel.rangeCount) {
-				range = sel.getRangeAt(0);
-			}
-		} else if (document.selection && document.selection.createRange) {
-			range = document.selection.createRange();
-		}
-
-		return range;
-	}
-
-	var canHaveChildren = (function() {
-		var cache = {};
-		return function(node) {
-			if(!node || node.nodeType != 1 || !node.tagName)
-				return false;
-
-			if(node.is)
-				return true;
-
-			if(node && typeof node.canHaveChildren == 'boolean')
-				return cache[node.tagName] = node.canHaveChildren
-			if(node && typeof node.canHaveChildren == 'function')
-				return cache[node.tagName] = node.canHaveChildren();
-
-			return cache[node.tagName] = node.nodeType === 1 && node.ownerDocument.createElement(node.tagName).outerHTML.indexOf("></") > 0;
-		}
-	})();
-
-	var getFirstCaretPosition = function(node) {
-		var n, res;
-
-		if(node.nodeType == 3)
-			return { container : node, offset : 0 };
-
-		if(node.childNodes.length)
-			while(!res && n < node.childNodes.length)
-				res = getFirstCaretPosition(node.childNodes[n]);
-
-		return res;
-	};
-
-
-	var getLastCaretPosition = function(node, offset) {
-		var lastContainer, pos;
-
-		if(!node)
-			return ni
-
-		if(node.nodeType == 1 && (offset || offset == 0))
-			node = Polymer.dom(node).childNodes[offset];
-
-		if(!node || (node.nodeType == 1 && !canHaveChildren(node)))
-			if(offset)
-				return { container : node, offset : offset }
-			else
-				return null;
-
-		if(node.nodeType == 1)
-		{
-			if(Polymer.dom(node).childNodes.length)
-			{
-				lastContainer = node.childNodes[node.childNodes.length-1];
-				while(!(pos = getLastCaretPosition(lastContainer)) && lastContainer.previousSibling)
-					lastContainer = lastContainer.previousSibling;
-			}
-
-			return pos || { container : node, offset : node.nodeType == 3 ? node.textContent.length : 0 };
-		}
-		else
-			return { container : node, offset : node.textContent.length }
-	};
-
-	/*
-		splits a node at offset
-
-		params:
-
-		node - the node to split
-		offset - in the splitted node,
-		limit - the root of the split.
-	*/
-	var splitNode = function(node, offset, limit) {
-		var parent = limit.parentNode,
-			parentOffset = getChildPositionInParent(limit),
-			doc = node.ownerDocument,
-			left,
-			leftRange = doc.createRange();
-
-		leftRange.setStart(parent, parentOffset);
-		leftRange.setEnd(node, offset);
-		left = leftRange.extractContents();
-		parent.insertBefore(left, limit);
-
-		visitNodes(limit.previousSibling, function(el) {  // hard-reattach custom elements lest they lose their powers
-			var h;
-			if(el.is)
-			{
-				h = document.createElement('div'); // other ways don't cause the element to get reinitialized - the whole element must be completely rewritten
-				h.innerHTML = recursiveOuterHTML(el);
-				el.parentNode.insertBefore(h.firstChild, el);
-				el.parentNode.removeChild(el);
-			}
-		});
-
-		left.normalize();
-		limit.normalize();
-
-		return limit;
-	}
-
-	var getElementPosition = function(element, fromElement) {
-		var top = 0, left = 0, width = 0, height = 0, cs, i;
-			fromElement = fromElement || document.body;
-
-		if(!element ||  element.nodeType != 1)
-			return null;
-
-		cs = element.getBoundingClientRect(); // getComputedStyle(element);
-
-		width = numerify(cs.width) + numerify(cs.borderLeftWidth) + numerify(cs.borderRightWidth);
-		height = numerify(cs.height) + numerify(cs.borderTopWidth) + numerify(cs.borderBottomWidth);
-
-		top += element.offsetTop || 0;
-		left += element.offsetLeft || 0;
-		element = element.offsetParent;
-
-		while(element && isDescendantOf(element, fromElement))
-		{
-			cs = element.getBoundingClientRect(); // getComputedStyle(element);
-			top += element.offsetTop || 0;
-			left += element.offsetLeft || 0;
-			element = element.offsetParent;
-		}
-
-		return {
-			x: left, y: top, width : width, height : height
-		};
-	};
-
-	function isDescendantOf(child, ancestor) {
-		var pp;
-
-		while(child && child != document.body)
-		{
-			pp = Polymer.dom(child).parentNode;
-			if(child.parentNode == ancestor || (pp && pp.parentNode == ancestor))
-				return true;
-			else
-				child = (child.parentNode == pp ? child.parentNode : (isInLightDom(child, ancestor) ? pp : Polymer.dom(child).getOwnerRoot().host));
-
-		}
-		return false;
-	}
-
-
-	// modified code by Tim Down http://stackoverflow.com/questions/6846230/coordinates-of-selected-text-in-browser-page
-	// returns {x : x, y : y} of the current coordinates
-	var getSelectionCoords = (function () {
-		span = document.createElement("span");
-		span.appendChild( document.createTextNode("\u200b") );
-		span.classList.add('__moignore'); // to be ignored by mutation observer
-
-		return function _getSelectionCoords(win)
-		{
-			win = win || window;
-			var doc = win.document, offsetParent, oldVal;
-			var sel = doc.selection, range, rects, rect, delimiters = [];
-			var x = 0, y = 0, spanParent, sid, eid;
-			if (sel) {
-				if (sel.type != "Control") {
-					range = sel.createRange();
-					range.collapse(true);
-					x = range.boundingLeft;
-					y = range.boundingTop;
-				}
-			} else if (win.getSelection) {
-				sel = win.getSelection();
-				if (sel.rangeCount) {
-					range = sel.getRangeAt(0).cloneRange();
-					/*if (range.getClientRects) {
-						range.collapse(true);
-						rects = range.getClientRects();
-						if (rects.length > 0) {
-							rect = rects[0];
-						}
-						if(rect)
-						{
-							x = rect.left;
-							y = rect.top;
-						}
-					}*/
-					// Fall back to inserting a temporary element
-					if (x == 0 && y == 0) {
-						//var span = doc.createElement("span");
-						if (span.getClientRects) {
-							//var spanParent = span.parentNode;
-
-							sid = range.startContainer.isDelimiter;
-							eid = range.endContainer.isDelimiter;
-
-							range.insertNode(span);
-							//rect = span.getClientRects()[0];
-							//x = rect.left;
-							//y = rect.top;
-							y = span.offsetTop;
-							x = span.offsetLeft;
-
-							offsetParent = span;
-							while(offsetParent = offsetParent.offsetParent)
-							{
-								y += offsetParent.offsetTop
-								x += offsetParent.offsetLeft
-							}
-
-							(spanParent = span.parentNode).removeChild(span);
-
-							// Glue any broken text nodes back together
-							spanParent.normalize();
-
-							range.startContainer.isDelimiter = sid;
-							range.endContainer.isDelimiter = eid;
-							
-							spanParent.noChange = true;
-						}
-					}
-				}
-			}
-			//console.log({ x: x, y: y });
-			return { x: x, y: y };
-		}
-	})()
-
-	function caretIsAtContainerEnd() {
-		var r = getSelectionRange(),
-			maxOffset = (r.startContainer.length || (r.startContainer.childNodes && r.startContainer.childNodes.length))
-			i;
-
-		if(r.startOffset >= maxOffset) return true;
-
-		if(r.startContainer.nodeType == 3)
-			return /^\s*$/.test(r.startContainer.textContent.substr(r.startOffset, maxOffset));
-
-		return false
-	}
-
-	function caretIsAtContainerStart() {
-		var r = getSelectionRange(),
-			i;
-
-		if(r.startOffset == 0) return true;
-
-		if(r.startContainer.nodeType == 3)
-			return /^\s*$/.test(r.startContainer.textContent.substr(0, r.startOffset));
-
-		return false
-	}
-
-	function visitNodes(root, visitor, opts, meta) {
-		var n = root;
-
-		meta = meta || {};
-		meta.numericPath = meta.numericPath || [];
-
-		if(!opts) opts = {};
-
-		if(!opts.noRoot) visitor(n, meta)
-		if(!n.childNodes || !n.childNodes.length)
-		  return;
-
-	    opts.noRoot = false;
-
-
-		Array.prototype.forEach.call((n.is ? Polymer.dom(n) : n).childNodes, function(el, i) {
-			meta.numericPath.push(i);
-			visitNodes(el, visitor, opts, meta)
-			meta.numericPath.pop(i);
-		});
-	}
-
-	function isSpecialElement(el) {
-		return el && el.is && el;
-	}
-
-	function selfOrLeftmostDescendantIsSpecial(el) {
-		var n;
-
-		if(!el)
-			return el;
-
-		if(isSpecialElement(el))
-			return el;
-
-		// skip empty text nodes
-		n = el.firstChild;
-		while(n && (n.nodeType == 3 && !n.textContent))
-			n = n.nextSibling;
-
-		// go recursive
-		if(n)
-			return selfOrLeftmostDescendantIsSpecial(n);
-	}
-
-	function isParagraph(el) {
-		return el && el.tagName == 'SPAN' && el.classList.contains('paragraph');
-	}
-
-	function isEmptyParagraph(el) {
-		return el && el.matchesSelector && el.matchesSelector('span.paragraph') && el.firstChild && el.firstChild.tagName == 'BR';
-	}
-
-	function newEmptyParagraph(nobr) { var el; el = document.createElement('span'); if(!nobr) el.appendChild(document.createElement('br')); el.classList.add("paragraph"); return el };
-
-	function wrapInParagraph(el) {
-		var el, p = newEmptyParagraph(true);
-		el.parentNode.insertBefore(p, el);
-		el.parentNode.removeChild(el);
-		p.appendChild(el)
-		return p;
-	};
-
-	function mergeNodes(left, right, setCaretAtMergePoint) {
-		var caretPos, ret, delimiters = 0, t;
-
-		ret = caretPos = getLastCaretPosition(left);
-
-		if(left.isDelimiter && !/\S/.test(left.textContent))
-		{
-			left.textContent = DELIMITER;
-			delimiters++
-		}
-		else
-		if(!left.isDelimiter && right.isDelimiter && !/\S/.test(right.textContent))
-		{
-			right.textContent = DELIMITER;
-			delimiters++;
-		}
-		
-		if(left.nodeType == 1) // left <-- right
-		{
-
-			if(!canHaveChildren(left))
-				left = left.parentNode
-
-			if(right.nodeType == 1) // element - element
-			{
-				while(right.firstChild)
-				{
-					if(right.firstChild.is)
-					{
-						// got to do this to force custom elements rendered after merge
-						h = recursiveOuterHTML(right.firstChild);
-						t = document.createElement('div');
-						right.removeChild(right.firstChild);
-						left.appendChild(t); 
-						t.outerHTML = h;
-					}
-					else
-						left.appendChild(right.removeChild(right.firstChild));
-				}
-
-				right.parentNode.removeChild(right);
-			}
-			else					// element - text
-				left.appendChild(right.parentNode.removeChild(right));
-
-			if(setCaretAtMergePoint)
-				setCaretAt(caretPos.container, caretPos.offset);
-
-			ret = left;
-		}
-		else
-		{
-			caretPos.container = right; // offset won't change because it's still the length of left
-
-			if(right.nodeType == 1)	// left -> right
-			{
-				if(right.firstChild)
-					right.insertBefore(left.parentNode.removeChild(left), right.firstChild);
-				else
-					right.appendChild(left.parentNode.removeChild(left));
-			}
-			else 				// text - text
-			{
-				right.textContent = left.textContent + right.textContent;
-				left.parentNode.removeChild(left);
-			}
-
-			ret = right;
-		}
-
-		if(setCaretAtMergePoint)
-			setCaretAt(caretPos.container, caretPos.offset - delimiters);
-		
-		return ret;
-	}
-
-
-	function dangerousDelete(ev, range) { // cursor is on edge of a light element inside custom component and user clicked delete/backspace which will probably destroy the component
-		var tcea, sc, so, scparent, top, np,
-			key = ev && (ev.keyCode || ev.which);
-
-		if(!ev || ev.type != 'keydown' || !(key == 8 || key == 46))
-			return;
-
-		if(range.startContainer != range.endContainer || range.startOffset != range.endOffset)
-			return;
-
-		sc = range.startContainer;
-		scparent = sc.parentNode
-		so = range.startOffset;
-		top = this.$.editor;
-
-		tcea = getTopCustomElementAncestor(sc, top);
-
-		//if(!tcea) // || isInLightDom(scparent, top)) // not in custom element or is child of another parent within light dom
-		//	return;
-
-		if  (tcea && (
-				(key == 8 && so == 0) // bakspace @ start of a dangerous container
-			||
-				(
-					key == 46 &&
-					(
-						(sc.nodeType == 3 && so >= sc.length  && !sc.nextSibling) ||
-						(sc.nodeType != 3 && so >= sc.childNodes.length - 1) // delete @ end of a dangerous container
-					)
-				)
-			))
-			ev.preventDefault(); // preventDefault returns undefined
-
-		np = this.getElementAfterCaret({skip : 'br'});
-		if(key == 46 && np && np.nodeType == 1 && np.is)
-			ev.preventDefault();
-
-		np = this.getElementBeforeCaret({ atomicCustomElements : true });
-		if(key == 8 && np && np.nodeType == 1 && np.is)
-			ev.preventDefault();
-
-	}
-
-	var numerify = function (x){
-		if(typeof x == 'undefined' || !x)
-			return 0;
-
-		if(typeof x == 'number')
-			return x;
-
-		return Number(x.replace ? x.replace(/[^\d\.]/g, '') : x);
-	};
 
 	
 	// polyfill ie11 and older buggy Node.prototype.normalize()
