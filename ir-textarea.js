@@ -629,9 +629,9 @@
 
 			  // for now, forbid explicitly to drop into custom elements. (for custom targets only - built-in text drop is still possible! - e.g., it's ok to move text into a caption inside a gallery)
 			  if(tpce)
-				this.moveCaretAfterOrWrap(tpce, null, this.$.editor);
+				utils.setCaretAt(tpce.nextSibling, 0);
 
-			  this.pasteHtmlAtCaret(html);
+			  paste.pasteHtmlAtCaret.call(this, html);
 			  actualTarget.parentNode.removeChild(actualTarget);
 
 			  moveOccured = true;
@@ -1233,6 +1233,7 @@
 			if (!this._showing)
 			  this.$.toolbar.classList.remove('fixit');
 		},
+
 		show: function() {
 			//this.$.toolbar.style.display = 'inline-block';
 			this.$.toolbar.classList.add('fixit');
@@ -1240,6 +1241,7 @@
 			this.playAnimation('entry');
 			this.set('isToolbarHidden', false)
 		},
+
 		hide: function() {
 			this._showing = false;
 			this.playAnimation('exit');
@@ -1249,7 +1251,10 @@
 			this.hide();
 		},
 
-		viewModeChanged : function() {
+		viewModeChanged : function(n, o) {
+			if(typeof o == 'undefined')
+				return;
+
 			if(this.viewMode == 1)
 				Polymer.dom(this.$.preview).innerHTML = this.value;
 			else
