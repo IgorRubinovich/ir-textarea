@@ -21,20 +21,27 @@
 
 			this.__actionData = {};
 
+			/*
 			"mousedown,mouseup,keydown,keyup,keypress,drop".split(',')
 				.forEach(function(evType)
 				{
-					that.$.editor.addEventListener(evType, this.userInputHandler.bind(this));
-				}.bind(this));
+					//that.$.editor.addEventListener(evType, this.userInputHandler.bind(this));
+					this.customUndo.pushUndo();
+				}.bind(this));*/
 			
 			
 			// custom user input handlers
-			this.bindHandlers("keydown,keyup", inputHandlers.previewHotKey);
-			this.bindHandlers("keydown,keyup,mousedown,mouseup", inputHandlers.clearActionData);
-			this.bindHandlers("keydown,keyup", inputHandlers.enterKey);
-			this.bindHandlers("keydown,keyup", inputHandlers.navigationKeys);
-			this.bindHandlers("mousedown,mouseup", inputHandlers.dragAndDrop);
-			this.bindHandlers("keydown,keyup,keypress", deletes.handler);
+			this.bindHandlers("keydown,keyup", inputHandlers.previewHotKey, this.$.editor);
+			this.bindHandlers("keydown,keyup,mousedown,mouseup", inputHandlers.clearActionData, this.$.editor);
+			this.bindHandlers("keydown,keyup", inputHandlers.enterKey, this.$.editor);
+			this.bindHandlers("keydown,keyup", inputHandlers.navigationKeys, this.$.editor);
+			this.bindHandlers("mousedown,mouseup", inputHandlers.dragAndDrop, this.$.editor);
+			this.bindHandlers("keydown,keyup,keypress", deletes.handler, this.$.editor);
+			
+			// don't do this unless you want every action recorded in undo
+			// this.bindHandlers("mousedown,mouseup,keydown,keyup,keypress", function() { this.customUndo.pushUndo(); }.bind(this));
+			
+			this.bindHandlers("mousedown,mouseup,keydown,keyup,keypress", function() { this.selectionSave(); }.bind(this));
 
 			// resize handler
 			this.$.resizeHandler.addEventListener('mousedown', function(ev) { ev.preventDefault(); }); // capturing phase
@@ -96,7 +103,7 @@
 		attached: function(){
 			this.insertPlugins();
 
-			this.configureToolbar()
+			this.configureToolbar();
 
 			Object.keys(this.promptProcessors).forEach(function(pp) {
 				var el = document.getElementById(this.promptProcessors[pp]);
@@ -126,7 +133,7 @@
 
 			this.connectEditorObserver();
 
-			this._initialValue = this.$.editor.innerHTML = this.getCleanValue();
+			this.set('value', this._initialValue = this.$.editor.innerHTML = this.getCleanValue());
 		},
 
 		connectEditorObserver : function()
@@ -268,7 +275,7 @@
 			if(this.__actionData.lastAction)
 				return this.__actionData.lastAction = null;
 
-			if(this.__actionData.showMenuFor != target) // show menu next time
+			if(this.__actionData.showMenuFor != this.__actionData.target) // show menu next time
 				return this.__actionData.showMenuFor = actionTarget;
 
 			cm.disabled = false;
@@ -363,7 +370,8 @@
 		  this.__actionData.type = type;
 
 		  this.async(function() {
-			utils.setCaretAt(this.__actionData.deleteTarget.nextSibling, 0);
+			if(this.__actionData.deleteTarget)
+				utils.setCaretAt(this.__actionData.deleteTarget.nextSibling, 0);
 		  });
 
 		  this.customUndo.pushUndo(false, false);
@@ -383,8 +391,10 @@
 			if(ad.target && ad.target.id =='resizable-element')
 				 ad.id = '';
 
-			ad.target = ad.deleteTarget = ad.lastAction = ad.type = null;
+			if(ad.type == 'resize') ad.showMenuFor = null;
 
+			ad.target = ad.deleteTarget = ad.lastAction = ad.type = null;
+			
 			if(ad.id =='resizable-element') ad.id = '';
 		},
 
@@ -450,6 +460,7 @@
 				this.resizeTargetStop(true);
 
 			that.__actionData.resizeTarget = target;
+			that.__actionData.type = 'resize';
 
 			document.addEventListener('mouseup', this.resizeTargetStop.bind(this));
 			document.addEventListener('click', this.resizeTargetStop.bind(this));
@@ -457,7 +468,7 @@
 			cbr = target.getBoundingClientRect();
 			if(target.tagName == 'IMG')
 			{
-				target._aspect = cbr.height / cbr.width;
+				target.ratio = cbr.height / cbr.width;
 			}
 
 			if(!target.id)
@@ -466,7 +477,6 @@
 			this.setResizeHandlerPosition();
 			
 			resizeHandler = function (event) {
-
 				//var target = event.target,
 				var bcr, stu,
 				computedStyle = target.getBoundingClientRect(),
@@ -479,18 +489,17 @@
 				sh = Number(target.style.height.replace(/px/, '') || 0) || computedStyle.height,
 				ratio, w, h;
 
-				if(!target.ratio) // keep the initial ratio on target, as interactible gets reсreated on every resize start
-					target.ratio = target._aspect; //sh/sw;;
+				//if(!target.ratio) // keep the initial ratio on target, as interactible gets reсreated on every resize start
+				//	target.ratio = target._aspect; //sh/sw;;
 
 				//if(target._aspect)
 				ratio = target.ratio;
 
 				w = event.rect.width;
-				h = ratio * w;
+				h = ratio ? ratio * w : event.rect.height;
 
 				if(target.tagName == 'IMG' && h / ratio > target.width)
 					h = target.width * ratio;
-
 
 				stu = function(w, h)
 				{
@@ -519,6 +528,8 @@
 
 				that.setResizeHandlerPosition();
 				
+				
+				event.stopPropagation();
 				// translate when resizing from top or left edges
 				//x += event.dy; //y += event.deltaRect.top;
 				//console.log(x);
@@ -858,12 +869,14 @@
 
 		// to use instead of execCommand('insertHTML') - modified from code by Tim Down
 		insertHTMLCmd : function (html) {
-			var ef = html.match(/\<p[^\>]+\>/) ? ["p"] : [];
-			var r, after;
-
-			this.pasteHtmlWithParagraphs(html);
-
-			this._updateValue()
+			this.selectionRestore();
+			// this.customUndo.pushUndo();
+			paste.pasteHtmlWithParagraphs.call(this,html);
+			Polymer.dom.flush();
+			//this._updateValue();
+			/*setTimeout(function() {
+				// this.customUndo.pushUndo();
+			}.bind(this), 50);*/
 		},
 
 
@@ -1088,6 +1101,7 @@
 			if(this._updateValueTimeout)
 				clearTimeout(this._updateValueTimeout);
 
+			
 			//console.log((new Date().getTime()) - this._updateValueTime)
 			if(!this._updateValueTime || (new Date().getTime()) - this._updateValueTime > 300)
 			{
@@ -1095,11 +1109,14 @@
 				// this is "regular" undo push invoked by a quick sequence of actions
 				this.customUndo.pushUndo(); 
 				this._updateValueTime = new Date().getTime();
+				// console.log('updating value - action');
 			}
 
 			//this.customUndo.pushUndo();
 			this._updateValueTimeout = setTimeout(function() {
 				var p;
+
+				// console.log('updating value - timeout');
 				
 				// this is "timeout" undo, following up on last action that otherwise wouldn't be pushed by "regular" undo since it's not followed up by an action soon enough
 				this.customUndo.pushUndo(); 

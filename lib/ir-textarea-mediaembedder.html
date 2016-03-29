@@ -1,9 +1,6 @@
-/** 
+<!-- 
 	media embedder.
-	adds embed-aspect-ratio (wrapperClass) wrapper around the tag.
-
-	since the output contains no custom components,
-	it's the responsibility of the component user to declare appropriate classes such as follows:
+	adds <embedded-media></embedded-media> wrapper around the tag.
 	
 	/* css from http://fettblog.eu/blog/2013/06/16/preserving-aspect-ratio-for-embedded-iframes/) */
 	.embed-aspect-ratio
@@ -21,7 +18,7 @@
 		left: 0; top: 0;	
 	}
 	
-*/
+-->
 
 <dom-module id="ir-textarea-mediaembedder">
 	<style>
@@ -34,17 +31,17 @@
 		
 	</style>
 	<template>
-		<paper-dialog on-iron-overlay-opened="focusInput" id="dialog" auto-fit-on-attach>
+		<paper-dialog on-iron-overlay-opened="focusInput" id="dialog">
 			<h2>Paste your embed code below</h2>
 			<div>
 				<div class="layout vertical">
-					<textarea rows="7" cols="40" id="input" value="{{ embedCode::keyup }}"></textarea>
+					<textarea id="embedCode" rows="7" cols="40" id="input"></textarea>
 					<paper-checkbox checked="{{ noWrapper }}">no wrapper</paper-checkbox>
 				</div>
 			</div>
 			<div class="buttons">
-				<paper-button dialog-dismiss>Cancel</paper-button>
-				<paper-button dialog-confirm on-tap="accept">OK</paper-button>
+				<paper-button on-tap="cancel">Cancel</paper-button>
+				<paper-button on-tap="accept">OK</paper-button>
 			</div>
 		</paper-dialog>
 	</template>
@@ -68,43 +65,44 @@
 		
 		focusInput : function()  
 		{
-			this.$.input.focus();
+			this.$.embedCode.focus();
 		},
 		
 		acceptOnEnter : function(e) {
 			if((e.which || e.keyCode) == 13)
 				this.accept();
 		},
-	
+
+		cancel : function(e) {
+			this.$.dialog.close();
+		},
+
 		accept : function() {
 			var value, d, w, h;
-			
-			value = this.embedCode;
-			
-			value = HTMLtoXML(value).trim();
-			
-			d = document.createElement('div');
+
+			value = this.$.embedCode.value.trim();
 			
 			if(!value)
 				return this._promptCallback('');;
 
-			value = "<embedded-media>" + value + "</embedded-media>";
-			
-			d.innerHTML = value;
+			//this.async(function() {
+			//	
+			//});
+
+			this.$.dialog.close();
 			
 			if(this._promptCallback)
-				this._promptCallback(value);
+				this._promptCallback("<embedded-media>" + value + "</embedded-media>");
 				
-			this.set('embedCode', '');
+			this.$.embedCode.value = '';
 
 			this._promptCallback = null;							
 
-			this.$.dialog.close();
 		},
 		
 		prompt : function(callback) {
 			this._promptCallback = callback;
-			this.open();
+			this.$.dialog.open();
 		},		
 
 		behaviors: [

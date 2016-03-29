@@ -12,27 +12,37 @@ window.ir.textarea.CustomUndoEngine = (function() {
 
 		this.root = root;
 
-		if(r) {
-			sc = r.startContainer;
-			ec = r.endContainer;
-			so = r.startOffset;
-			eo = r.endOffset;
-		}
+		if(!r)
+			return;
+
+		sc = r.startContainer;
+		ec = r.endContainer;
+		so = r.startOffset;
+		eo = r.endOffset;
 
 		if(r && sc.proxyTarget) // same name new animal
 			sc = ec = sc.proxyTarget.nextSibling, so = eo = 0;
+			
+		if(!sc)
+			return;
 
-		if(sc.childNodes && sc.childNodes.length && sc.childNodes[so].nodeType == 3)
+		if(sc.childNodes && sc.childNodes.length && sc.childNodes[so] && sc.childNodes[so].nodeType == 3)
 		{
 			sc = sc.childNodes[so];
 			so = 0;
 		}			
-		if(ec.childNodes && ec.childNodes.length && ec.childNodes[eo].nodeType == 3)
+		if(ec.childNodes && ec.childNodes.length && ec.childNodes[eo] && ec.childNodes[eo].nodeType == 3)
 		{
 			ec = ec.childNodes[eo];
 			eo = 0;
 		}
-			
+		
+		if(!utils.isDescendantOf(sc, root, true) || !utils.isDescendantOf(ec, root, true))
+			return this.isOutOfRange = true;
+	
+		if(!sc || !ec)
+			return this.isOutOfRange = true;
+		
 		if(!r || !utils.isDescendantOf(sc, root) || (sc != ec && !utils.isDescendantOf(ec, root)))
 		{
 			this.startPos = this.endPos = [];
@@ -42,7 +52,7 @@ window.ir.textarea.CustomUndoEngine = (function() {
 		}
 
 		if(!utils.isDescendantOf(sc, root) || !utils.isDescendantOf(ec, root))
-			return null;
+			return this.isOutOfRange = true;
 
 		if(sc != root && !utils.isInLightDom(sc, root))
 			sc = utils.getTopCustomElementAncestor(sc, root).nextSibling, so = 0;
@@ -50,6 +60,9 @@ window.ir.textarea.CustomUndoEngine = (function() {
 			ec = utils.getTopCustomElementAncestor(ec, root).nextSibling, eo = 0;
 
 		this.delimitersBeforeStart = 0;
+		
+		if(!sc || !ec)
+			return this.isOutOfRange = true;
 		
 		n = (sc.nodeType == 3 || sc.is) ? sc : sc.childNodes[so];
 		n = n ? n.previousSibling : null;
@@ -110,6 +123,9 @@ window.ir.textarea.CustomUndoEngine = (function() {
 		if(this.root != domPathMemo.root)
 			return false;
 
+		if(this.outOfRange != domPathMemo.outOfRange)
+			return;
+		
 		if(this.startOffset != domPathMemo.startOffset || this.endOffset != domPathMemo.endOffset)
 			return false;
 
@@ -186,7 +202,7 @@ window.ir.textarea.CustomUndoEngine = (function() {
 		this.updateRange();
 
 		if(!this.rangeHistory.length && prevUndoItem)
-			this.rangeHistory = prevUndoItem.rangeHistory(function(rm) { return rm.clone(); });
+			this.rangeHistory = prevUndoItem.rangeHistory.map(function(rm) { return rm.clone(); });
 
 		if(!this.rangeHistory.length)
 			this.rangeHistory = [ new UndoItem(root) ];
@@ -195,7 +211,7 @@ window.ir.textarea.CustomUndoEngine = (function() {
 	UndoItem.prototype.updateRange = function() {
 		var rm = new RangeMemo(this.root);
 
-		if(!rm)
+		if(rm.isOutOfRange)
 			return;
 
 		// skip accidential 0 positions when rangeHistory already contains some other location.

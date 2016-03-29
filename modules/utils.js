@@ -11,6 +11,9 @@ window.ir.textarea.utils = (function() {
 	utils.recursiveInnerHTML = function(el, skipNodes) {
 		skipNodes = skipNodes || [];
 
+		if(el.originalInnerHTML)
+			return el.originalInnerHTML;
+		
 		if(!((el.is ? Polymer.dom(el) : el).childNodes.length))
 			return "";
 
@@ -459,9 +462,13 @@ window.ir.textarea.utils = (function() {
 		};
 	};
 
-	utils.isDescendantOf = function(child, ancestor) {
+	// check whether child is descendant of ancestor, set orEqual to true to consider ancestor as a descendant
+	utils.isDescendantOf = function(child, ancestor, orEqual) {
 		var pp;
 
+		if(child == ancestor)
+			return orEqual;
+		
 		while(child && child != document.body)
 		{
 			pp = Polymer.dom(child).parentNode;

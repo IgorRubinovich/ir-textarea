@@ -94,6 +94,10 @@ window.ir.textarea.inputHandlers = (function() {
 			var r, sc, se, so, eo;
 
 			r = utils.getSelectionRange();
+			
+			if(!r)
+				return;
+			
 			if(r.startContainer.nodeType == 3 || !r.startContainer.childNodes.length) sc = r.startContainer, so = r.startOffset; else sc = r.startContainer.childNodes[r.startOffset], so = 0;
 			if(r.endContainer.nodeType == 3 || !r.endContainer.childNodes.length) ec = r.endContainer, eo = r.startOffset; else ec = r.startContainer.childNodes[r.startOffset], eo = 0;
 

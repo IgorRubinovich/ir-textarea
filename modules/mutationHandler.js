@@ -230,18 +230,25 @@ window.ir.textarea.editorMutationHandler =
 						t._cleanValue = t.textContent;
 					else
 					{
-						cn = (t.is ? Polymer.dom(t) : t).childNodes;
-						cv = "";
-						if(cn.length)
-							cv = Array.prototype.map.call(cn, function(ch) {
-								if(t.isDelimiter && (t.nodeType != 3 || /\S/.test(t.textContent)))
-								{
-									t._cleanValue = '';
-									t.isDelimiter = false;
-								}
-								return ch._cleanValue || (ch._cleanValue = this.getCleanValue(ch))
-							}.bind(this)).join('');
 
+						if(t.originalInnerHTML)							
+							cv = t.originalInnerHTML;
+						else
+						{
+							cn = (t.is ? Polymer.dom(t) : t).childNodes;
+							cv = "";
+						
+							if(cn.length)
+								cv = Array.prototype.map.call(cn, function(ch) {
+									if(ch.isDelimiter && (ch.nodeType != 3 || /\S/.test(t.textContent)))
+									{
+										t._cleanValue = '';
+										t.isDelimiter = false;
+									}
+									return ch._cleanValue || (ch._cleanValue = this.getCleanValue(ch))
+								}.bind(this)).join('');
+						}
+						
 						if(t != this.$.editor)
 						{
 							toutline = utils.tagOutline(t);

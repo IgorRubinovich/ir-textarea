@@ -89,7 +89,7 @@ window.ir.textarea.deletes = (function() {
 					else
 					if(sc.nodeType == 3 && sc.textContent.length == 1 && so == 0 && sc.nextSibling && sc.nextSibling.is)
 					{
-						sc.textContent = DELIMITER;
+						sc.textContent = utils.DELIMITER;
 						utils.setCaretAt(sc, 1);
 						ev.preventDefault();
 					}

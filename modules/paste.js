@@ -133,6 +133,13 @@ window.ir.textarea.paste = (function() {
 			if(!this.$.editor.childNodes.length)
 				r = utils.setCaretAt(this.$.editor.appendChild(utils.newEmptyParagraph()), 0);
 			
+			// sometimes startOffset == number of child nodes
+			if(r.startContainer == this.$.editor && r.startContainer.nodeType == 1 && r.startOffset == r.startContainer.childNodes.length)
+			{
+				r.startContainer.appendChild(document.createTextNode(''));
+				r = utils.setCaretAt(r.startContainer.childNodes[r.startOffset], 0);
+			}
+
 			// remove 'br' if is direct child of $.editor
 			if(r.startContainer == this.$.editor && r.startContainer.nodeType == 1 && r.startContainer.childNodes[r.startOffset].nodeType == 1 && r.startContainer.childNodes[r.startOffset].tagName == 'BR')
 			{
@@ -211,7 +218,6 @@ window.ir.textarea.paste = (function() {
 			}
 
 			// wrap bare nodes
-
 			container = first;
 			// find first praragraph or non-text, non-inline container. it could have been the editor but we wrapped bare nodes earlier
 			while(!utils.isContainer(container))
@@ -377,6 +383,9 @@ window.ir.textarea.paste = (function() {
 						if(lastNode.nextSibling && lastNode.nextSibling.tagName == 'BR' && !keepLastBr)
 							lastNode.parentNode.removeChild(lastNode.nextSibling);
 
+						if(lastNode.is && !lastNode.nextSibling)
+							lastNode.parentNode.appendChild(document.createTextNode(utils.DELIMITER))
+						
 						t = lastNode;
 						while(t.parentNode && t.parentNode != this.$.editor)
 						{
