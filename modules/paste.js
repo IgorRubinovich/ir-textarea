@@ -398,14 +398,14 @@ window.ir.textarea.paste = (function() {
 						//	t.parentNode.appendChild(target = newEmptyParagraph());
 						//else
 						//{
-							pos = utils.getLastCaretPosition(lastNode);
-							if(!pos)
-								target = utils.nextNode(lastNode, true);
-							else
-							{
-								target = pos.container;
-								offset = pos.offset;
-							}
+						pos = utils.getLastCaretPosition(lastNode);
+						if(!pos)
+							target = utils.nextNode(lastNode, true);
+						else
+						{
+							target = pos.container;
+							offset = pos.offset;
+						}
 						//}
 
 						return utils.setCaretAt(target, offset);

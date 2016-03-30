@@ -747,6 +747,30 @@ window.ir.textarea.utils = (function() {
 
 		return Number(x.replace ? x.replace(/[^\d\.]/g, '') : x);
 	};
+	
+	utils.swapScripts =function(d) {
+			var clone, attrs, pn;
+			
+			var s = Polymer.dom(d).querySelectorAll('script'), i;
+			
+			for(i = 0; i < s.length; i++)
+			{
+				clone = document.createElement('script');
+				clone.appendChild(document.createTextNode(s[i].textContent));
+				attrs = Array.prototype.slice.call(s[i].attributes);
+				attrs.forEach(function(a) { clone.setAttribute(a.name, a.value); });
+
+				pn = Polymer.dom(s[i]).parentNode; //Polymer.dom(s[i]).parentNode;
+
+				if(!pn)
+					return;
+
+				Polymer.dom(pn).insertBefore(clone, s[i]);
+				Polymer.dom(pn).removeChild(s[i]);
+			}
+			
+			return s.length;
+		}
 
 	
 	return utils;

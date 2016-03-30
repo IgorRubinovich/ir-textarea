@@ -225,11 +225,11 @@
 				},
 				actionableTags = [menuGroups.resizeable, menuGroups.floatable, menuGroups.removeable].join(",");
 
+			cm.disabled = true;
+
 			if(Polymer.dom(ev).path.filter(function(el) { return el.is == 'paper-dialog' }).length) // a simplish way to allow setup dialogs
 				return;
 			
-			cm.disabled = true;
-
 			target = actionTarget = utils.getClosestLightDomTarget(target, this.$.editor);
 
 			parentCustomEl = utils.getTopCustomElementAncestor(target, this.$.editor);
@@ -391,9 +391,10 @@
 			if(ad.target && ad.target.id =='resizable-element')
 				 ad.id = '';
 
-			if(ad.type == 'resize') ad.showMenuFor = null;
+			if(ad.resizeOccured)
+				ad.showMenuFor = null;
 
-			ad.target = ad.deleteTarget = ad.lastAction = ad.type = null;
+			ad.resizeOccured = ad.target = ad.deleteTarget = ad.lastAction = ad.type = null;
 			
 			if(ad.id =='resizable-element') ad.id = '';
 		},
@@ -524,12 +525,13 @@
 				//if(bcr.width != w || bcr.height !=)
 				stu(bcr.width, bcr.height);
 
-				that.__actionData.dragTarget = null; // resize takes over drag
+			that.setResizeHandlerPosition();				
 
-				that.setResizeHandlerPosition();
-				
-				
+				that.__actionData.dragTarget = null; // resize takes over drag
+				that.__actionData.resizeOccured = true;
+
 				event.stopPropagation();
+				
 				// translate when resizing from top or left edges
 				//x += event.dy; //y += event.deltaRect.top;
 				//console.log(x);
@@ -1273,7 +1275,7 @@
 				return;
 
 			if(this.viewMode == 1)
-				Polymer.dom(this.$.preview).innerHTML = this.value;
+				this.$.preview.innerHTML = this.value;
 			else
 			if(this.viewMode == 0)
 				this.selectionRestore();
