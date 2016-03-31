@@ -188,7 +188,7 @@ window.ir.textarea.editorMutationHandler =
 			var cycles = 0,	cycleLabel = new Date().getTime();
 
 			effectiveChanges.forEach(function(mr) {
-				var t = mr, done, cv, cn, ocv, toutline, altp;
+				var t = mr, done, cv, cn, ocv, toutline, altp, tcea;
 
 				if(t.isDelimiter && (t.nodeType != 3 || /\S/.test(t.textContent)))
 					t.isDelimiter = false;
@@ -198,6 +198,10 @@ window.ir.textarea.editorMutationHandler =
 
 				if(t != this.$.editor && !utils.isInLightDom(t, this.$.editor))
 					return;
+
+				tcea = utils.getTopCustomElementAncestor(t, this.$.editor);
+				if(tcea && tcea != t && tcea.originalInnerHTML)
+					return;					
 
 				ocv = t._cleanValue;
 

@@ -98,14 +98,19 @@ window.ir.textarea.utils = (function() {
 
 		if(node.nodeType == 3)
 			return node.textContent;
+		
+		if(node.is && node.originalInnerHTML)
+			innerHTML = node.originalInnerHTML;
+		else
+		{
+			childNodes = node.is ? Polymer.dom(node).childNodes : node.childNodes;
+			if(!childNodes.length)
+				return utils.tagOutline(node);
 
-		childNodes = node.is ? Polymer.dom(node).childNodes : node.childNodes;
-		if(!childNodes.length)
-			return utils.tagOutline(node);
-
-		innerHTML = (node.is && node.originalInnerHTML) ? node.originalInnerHTML : Array.prototype.map.call(childNodes, function(n) { 
-			return utils.recursiveOuterHTML(n, skipNodes) 
-		}).join('');
+			innerHTML = (node.is && node.originalInnerHTML) ? node.originalInnerHTML : Array.prototype.map.call(childNodes, function(n) { 
+				return utils.recursiveOuterHTML(n, skipNodes) 
+			}).join('');
+		}
 
 		res = utils.tagOutline(node)
 		if(innerHTML)

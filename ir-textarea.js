@@ -20,15 +20,6 @@
 			this.changed = true;
 
 			this.__actionData = {};
-
-			/*
-			"mousedown,mouseup,keydown,keyup,keypress,drop".split(',')
-				.forEach(function(evType)
-				{
-					//that.$.editor.addEventListener(evType, this.userInputHandler.bind(this));
-					this.customUndo.pushUndo();
-				}.bind(this));*/
-			
 			
 			// custom user input handlers
 			this.bindHandlers("keydown,keyup", inputHandlers.previewHotKey, this.$.editor);
@@ -38,21 +29,21 @@
 			this.bindHandlers("mousedown,mouseup", inputHandlers.dragAndDrop, this.$.editor);
 			this.bindHandlers("keydown,keyup,keypress", deletes.handler, this.$.editor);
 			
+			// paste
+			this.bindHandlers('paste', paste.pasteHandler, this.$.editor);
+			//this.$.editor.addEventListener('copy', function() {console.log('hi copy')} );
+
 			// don't do this unless you want every action recorded in undo
 			// this.bindHandlers("mousedown,mouseup,keydown,keyup,keypress", function() { this.customUndo.pushUndo(); }.bind(this));
 			
-			this.bindHandlers("mousedown,mouseup,keydown,keyup,keypress", function() { this.selectionSave(); }.bind(this));
+			this.bindHandlers("mousedown,mouseup,keydown,keyup,keypress", this.selectionSave, this.$.editor);
 
 			// resize handler
-			this.$.resizeHandler.addEventListener('mousedown', function(ev) { ev.preventDefault(); }); // capturing phase
-			this.$.resizeHandler.addEventListener('mousemove', function(ev) { ev.preventDefault(); }); // capturing phase
+			this.$.resizeHandler.addEventListener('mousedown', function(ev) { ev.preventDefault(); });
+			this.$.resizeHandler.addEventListener('mousemove', function(ev) { ev.preventDefault(); });
 
 			// context menu
-			this.$.editor.addEventListener('click', this.contextMenuShow.bind(this), true); // capturing phase
-
-			// paste
-			this.$.editor.addEventListener('paste', paste.pasteHandler.bind(this));
-			//this.$.editor.addEventListener('copy', function() {console.log('hi copy')} );
+			this.bindHandlers('click', this.contextMenuShow, this.$.editor, true); // capturing phase
 
 			var defs = {};
 			window.ir.textarea.commands
@@ -78,6 +69,9 @@
 																		getValue : this.getCleanValue.bind(this),
 																		//contentFrame : '[content]', // '[content]<span class="paragraph"><br></span>',
 																		timeout : false,
+																		isDisabled : function() {
+																			return this.disabled;
+																		}.bind(this),
 																		onRestoreState : function(el) {
 																			this.selectionSave()
 																			this.fire('scroll-into-view', el);
@@ -85,17 +79,25 @@
 																	}))
 		},
 		
-		// bind all eventTypes to all given handlers
-		bindHandlers : function(eventTypes, handlers, target)
+		// bind all `eventTypes` to all given `handlers` on `target`
+		bindHandlers : function(eventTypes, handlers, target, capturingPhase)
 		{
 			if(typeof eventTypes == 'string') eventTypes = eventTypes.split(',');
 			if(!(handlers instanceof Array)) handlers = [handlers];
+			var wrappedHandlers = handlers.map(function(h) {
+				return function(ev) {
+					if(this.disabled)
+						return;
+					
+					return h.call(this, ev);
+				}.bind(this);
+			}.bind(this));
 			
 			if(!target) target = this;
 			
 			eventTypes.forEach(function(et) { 
-				handlers.forEach(function(h) {
-					target.addEventListener(et, h.bind(this));
+				wrappedHandlers.forEach(function(h) {
+					target.addEventListener(et, h, capturingPhase);
 				}.bind(this))
 			}.bind(this));
 		},
@@ -132,18 +134,26 @@
 			}
 
 			this.connectEditorObserver();
-
-			this.set('value', this._initialValue = this.$.editor.innerHTML = this.getCleanValue());
+			
+			this.set('value', this._initialValue = this.$.editor.innerHTML = this.getCleanValue());			
 		},
 
 		connectEditorObserver : function()
 		{
+			if(this.editorMutationObserver.isConnected)
+				return;
+			
 			this.editorMutationObserver.observe(this.$.editor, this.editorMutationObserverConfig);
+			this.editorMutationObserver.isConnected = true;
 		},
 
 		disconnectEditorObserver : function()
 		{
+			if(!this.editorMutationObserver.isConnected) // may  be called more than once without extra checking
+				return;
+			
 			this.editorMutationObserver.disconnect();
+			this.editorMutationObserver.isConnected = false;
 		},
 
 		configureToolbar : function() {
@@ -195,11 +205,13 @@
 
 			})
 		},
+		
+		eventCameFromDialog : function (ev) {
+			return ev.path && Polymer.dom(ev).path.filter(function(el) { return el.is == 'paper-dialog' }).length // a simplish way to allow setup dialogs
+			
+		},
 
 		userInputHandler : function (ev) {
-			if(ev.path && Polymer.dom(ev).path.filter(function(el) { return el.is == 'paper-dialog' }).length) // a simplish way to allow setup dialogs
-				return;
-				
 			var altTarget, noMoreSave, el, toDelete, keyCode = ev.keyCode || ev.which, t,
 				forcedelete, r, done, localRoot, last, n, nn, pn, pos, firstRange, merge, sc, ec, so, eo, toMerge, previewShortcutListener;
 
@@ -209,10 +221,9 @@
 		
 			this.selectionSave();
 			this.selectionRestore(true);
-
+			
 			this._updateValue();
 		},
-
 
 		contextMenuShow : function(ev) {
 			var cm = this.$.contextMenu, target = ev.target, flowTarget, captionWrapper,
@@ -225,23 +236,17 @@
 				},
 				actionableTags = [menuGroups.resizeable, menuGroups.floatable, menuGroups.removeable].join(",");
 
+			if(this.isDisabled)
+				return;
+				
 			cm.disabled = true;
 
-			if(Polymer.dom(ev).path.filter(function(el) { return el.is == 'paper-dialog' }).length) // a simplish way to allow setup dialogs
-				return;
-			
 			target = actionTarget = utils.getClosestLightDomTarget(target, this.$.editor);
 
 			parentCustomEl = utils.getTopCustomElementAncestor(target, this.$.editor);
 
 			if(parentCustomEl)
-			{
-				
-				p = Polymer.dom(ev).path;
-				for(i = 0; i <= p.length && p[i] != parentCustomEl; i++)
-					if(p[i].is == 'paper-dialog')
-						return;
-
+			{			
 				ev.stopPropagation();
 				ev.stopImmediatePropagation();
 			}
@@ -334,7 +339,24 @@
 			}
 			
 		  if(parentCustomEl && typeof parentCustomEl.setup == 'function')
-			cm.options.push({label: 'Setup...', value : parentCustomEl, action : parentCustomEl.setup.bind(parentCustomEl)});
+			cm.options.push({label: 'Setup...', value : parentCustomEl, action : function() { 
+					this.disconnectEditorObserver(); // got to do this or the observer will keep listening for internal changes
+					//parentCustomEl.setup.bind(parentCustomEl);
+					
+					cm.disabled = true;
+					this.disabled = true;
+					this.clearActionData();
+					
+					parentCustomEl.setup();
+					
+					if(!parentCustomEl.closeListener)
+						parentCustomEl.closeListener = parentCustomEl.addEventListener('iron-overlay-closed', function() {
+							this.disabled = false;
+							cm.disabled = false;
+							this.connectEditorObserver();
+						}.bind(this));
+				}.bind(this)
+			});
 
 		  cm._openGroup(ev);
 		},
@@ -369,10 +391,10 @@
 		  this.__actionData.deleteTarget = utils.getTopCustomElementAncestor(target, this.$.editor) || this.__actionData.deleteTarget;
 		  this.__actionData.type = type;
 
-		  this.async(function() {
+		  setTimeout(function() {
 			if(this.__actionData.deleteTarget)
 				utils.setCaretAt(this.__actionData.deleteTarget.nextSibling, 0);
-		  });
+		  }.bind(this), 50);
 
 		  this.customUndo.pushUndo(false, false);
 
@@ -1044,8 +1066,11 @@
 		selectionSave : function () {
 			var range = utils.getSelectionRange();
 
-			if(range && this.isOrIsAncestorOf(this.$.editor, range.startContainer))
+			if(range && !range.startContainer.is && this.isOrIsAncestorOf(this.$.editor, range.startContainer))
+			{
 				this._selectionRange = range;
+				this.undoStarted = true;
+			}
 		},
 
 		selectionRestore : function (noForceSelection) {
@@ -1091,6 +1116,8 @@
 
 			this._selectionRange = range;
 
+			this.undoStarted = true;
+			
 			return range;
 		},
 
@@ -1107,9 +1134,12 @@
 			//console.log((new Date().getTime()) - this._updateValueTime)
 			if(!this._updateValueTime || (new Date().getTime()) - this._updateValueTime > 300)
 			{
-				this.selectionRestore(!noForceSelection);
+				this.selectionRestore(noForceSelection);
 				// this is "regular" undo push invoked by a quick sequence of actions
-				this.customUndo.pushUndo(); 
+				
+				if(this.undoStarted)
+					this.customUndo.pushUndo();
+				
 				this._updateValueTime = new Date().getTime();
 				// console.log('updating value - action');
 			}
@@ -1121,7 +1151,8 @@
 				// console.log('updating value - timeout');
 				
 				// this is "timeout" undo, following up on last action that otherwise wouldn't be pushed by "regular" undo since it's not followed up by an action soon enough
-				this.customUndo.pushUndo(); 
+				if(this.undoStarted)
+					this.customUndo.pushUndo();
 
 				r = utils.getSelectionRange();
 

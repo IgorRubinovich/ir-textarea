@@ -10,6 +10,8 @@ window.ir.textarea.CustomUndoEngine = (function() {
 	var RangeMemo = function(root) {
 		var r = utils.getSelectionRange(), sc, ec, so,eo,cps, cpe, lps, lpe, cn, n;
 
+		this.isOutOfRange = true;
+		
 		this.root = root;
 
 		if(!r)
@@ -36,12 +38,12 @@ window.ir.textarea.CustomUndoEngine = (function() {
 			ec = ec.childNodes[eo];
 			eo = 0;
 		}
-		
+
 		if(!utils.isDescendantOf(sc, root, true) || !utils.isDescendantOf(ec, root, true))
-			return this.isOutOfRange = true;
+			return;
 	
 		if(!sc || !ec)
-			return this.isOutOfRange = true;
+			return;
 		
 		if(!r || !utils.isDescendantOf(sc, root) || (sc != ec && !utils.isDescendantOf(ec, root)))
 		{
@@ -93,12 +95,15 @@ window.ir.textarea.CustomUndoEngine = (function() {
 
 		this.startIsText == sc.nodeType == 3
 		this.endIsText == ec.nodeType == 3
-		
+
 		this.root = root;
 		this.startPos = cps;
 		this.endPos = cpe;
 		this.startOffset = so;
 		this.endOffset = eo;
+		
+		if(this.startPos && this.endPos)
+			this.isOutOfRange = false;
 	}
 	
 	RangeMemo.prototype.clone = function(rangeMemo) {
@@ -128,7 +133,7 @@ window.ir.textarea.CustomUndoEngine = (function() {
 		
 		if(this.startOffset != domPathMemo.startOffset || this.endOffset != domPathMemo.endOffset)
 			return false;
-
+		
 		for(i = 0; i < this.startPos.length; i++)
 			if(this.startPos[i] != domPathMemo.startPos[i])
 				return false;
@@ -205,7 +210,7 @@ window.ir.textarea.CustomUndoEngine = (function() {
 			this.rangeHistory = prevUndoItem.rangeHistory.map(function(rm) { return rm.clone(); });
 
 		if(!this.rangeHistory.length)
-			this.rangeHistory = [ new UndoItem(root) ];
+			this.rangeHistory = [ new RangeMemo(root) ];
 	}
 
 	UndoItem.prototype.updateRange = function() {
@@ -245,11 +250,14 @@ window.ir.textarea.CustomUndoEngine = (function() {
 				redoRecord = [],
 				lastRestoredStateContent,
 				getValue = options.getValue || function() { return editor.innerHTML },
-				undoInProgress;
+				undoInProgress,
+				isDisabled;
 
 			if(!options) options = {};
 			if(!options.maxUndoItems) options.maxUndoItems = 50;
 			if(typeof options.timeout == 'undefined') options.timeout = 15000;
+			
+			isDisabled = options.isDisabled || function() {};
 
 			var undoCommand = function() {
 				var sel, r, lastUndo, lur, currState;
@@ -290,8 +298,11 @@ window.ir.textarea.CustomUndoEngine = (function() {
 
 				undoInProgress = true;
 				r = state.restore(true); // true means to restore caret state
-				undoInProgress = false;
-
+				
+				this.setTimeout(function() {
+					undoInProgress = false;
+				}, 300);
+				
 				if(options.onRestoreState && r)
 					options.onRestoreState(r.startContainer);
 			}
@@ -299,7 +310,10 @@ window.ir.textarea.CustomUndoEngine = (function() {
 			var pushUndo = function(force) { //, onlyUpdateRangeMemo) {
 				var r, sel = window.getSelection(), startMemo, endMemo, sc, ec, so, eo, t,
 					innerHTML, onlyUpdateRangeMemo, prevUndo;
-
+				
+				if(isDisabled())
+					return;
+				
 				if(undoInProgress)
 					return;
 
@@ -332,11 +346,17 @@ window.ir.textarea.CustomUndoEngine = (function() {
 			editor.addEventListener('keydown', function(e) {
 				if(e.keyCode == 90 && e.ctrlKey) // is ^z
 				{
+					if(isDisabled())
+						return;
+					
 					undoCommand();
 					e.preventDefault();
 				}
 				if(e.keyCode == 89 && e.ctrlKey) // is ^y
 				{
+					if(isDisabled())
+						return;
+					
 					redoCommand();
 					e.preventDefault();
 				}
