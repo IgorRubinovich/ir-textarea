@@ -13,6 +13,10 @@
 		
 	console.log('ir-textarea');
 	Polymer({
+		is : 'ir-textarea-delimiter'
+		
+	});
+	Polymer({
 		is : 'ir-textarea',
 		ready : function() {
 			var that = this, commands = this.commands.split(/,/);
@@ -416,6 +420,8 @@
 			if(ad.resizeOccured)
 				ad.showMenuFor = null;
 
+			interact.stop();
+			
 			ad.resizeOccured = ad.target = ad.deleteTarget = ad.lastAction = ad.type = null;
 			
 			if(ad.id =='resizable-element') ad.id = '';
@@ -500,6 +506,8 @@
 			this.setResizeHandlerPosition();
 			
 			resizeHandler = function (event) {
+				this.disabled = true;
+
 				//var target = event.target,
 				var bcr, stu,
 				computedStyle = target.getBoundingClientRect(),
@@ -531,11 +539,11 @@
 					target.style.height = h + 'px';
 
 					// in case it's a custom element
-					target.width = w;
-					target.height = h;
+					//target.width = w;
+					//target.height = h;
 
 					target.style.webkitTransform = target.style.transform = 'translate(' + x + 'px,' + y + 'px)';
-
+					
 					target.setAttribute("width", w);
 					target.setAttribute("height", h);
 				};
@@ -562,6 +570,8 @@
 			resizeEndHandler = function() {
 			  var t, st, numW, numH;
 
+				this.disabled = false;
+			  
 				that.__actionData.resizeTarget.removeAttribute('data-x');
 				that.__actionData.resizeTarget.removeAttribute('data-y');
 
@@ -578,9 +588,10 @@
 					//that.clearActionData();
 					that.__actionData.lastAction = "resize";
 				}
-
+				interact.stop();
 			}
 
+			//interact(target).resizable({
 			interact('#'+target.id).resizable({
 				edges: { left: true, right: true, bottom: true, top: true }
 			})
@@ -1123,6 +1134,9 @@
 
 		_updateValue : function(noForceSelection) {
 			var hadChanged = this.changed;
+
+			if(this.disabled)
+				return;
 			
 			if(this.isGettingCoordinates)
 				return;
@@ -1310,6 +1324,8 @@
 			else
 			if(this.viewMode == 0)
 				this.selectionRestore();
+			
+			this.diabled = this.viewMode != 0;
 		},
 
 		properties : {

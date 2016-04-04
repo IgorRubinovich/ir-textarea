@@ -61,30 +61,36 @@ window.ir.textarea.utils = (function() {
 		return n;
 	}
 
-	utils.tagOutline = function(el){ // effectively outerHTML - innerHTML
-		var nn = el.cloneNode(false),
-			d = document.createElement('div'),
-			classList;
+	// effectively outerHTML - innerHTML
+	utils.tagOutline = function(el) {
+		var d = document.createElement('div'),
+			classList, props, cn, divclone, i, tn;
 
 		if(el.isDelimiter) return '';
 
+		if(el.nodeType == 3) return el.textContent;
+		
+		nn = document.createElement('div');
+		
+		if(el.attributes)
+			Array.prototype.forEach.call(el.attributes, function(a) { if(a.value != '') nn.setAttribute(a.name, a.value) });
+
+		nn.removeAttribute('contenteditable');
+
 		if(nn.classList)
 		{
-			var classList = Array.prototype.map.call(nn.classList, function(n){return n});
-
-			classList.forEach(function(cl) { if(utils.isCustomElementName(cl)) nn.classList.remove(cl); });
+			// remove Polymer style scopers
+			Array.prototype.forEach.call(nn.classList, function(cl) { if(utils.isCustomElementName(cl)) nn.classList.remove(cl); });
 			nn.classList.remove('style-scope');
-			nn.removeAttribute('contenteditable');
-			if(!nn.classList.length) nn.removeAttribute("class");
-		}
-
-
+		}		
+		
+		if(!nn.classList.length) nn.removeAttribute("class");
+		
 		d.appendChild(nn);
 
-		while(nn.childNodes.length)
-			nn.removeChild(nn.childNodes[0]);
+		tn = el.tagName.toLowerCase();
 
-		return d.innerHTML;
+		return d.innerHTML.replace(/div/i, tn).replace(/div>$/, tn + ">");
 	}
 
 	utils.recursiveOuterHTML = function(node, skipNodes){
@@ -414,23 +420,29 @@ window.ir.textarea.utils = (function() {
 			parentOffset = utils.getChildPositionInParent(limit),
 			doc = node.ownerDocument,
 			left,
-			leftRange = doc.createRange();
+			leftRange = doc.createRange(), clone;
 
 		leftRange.setStart(parent, parentOffset);
 		leftRange.setEnd(node, offset);
 		left = leftRange.extractContents();
 		parent.insertBefore(left, limit);
 
+		//Polymer.dom.flush();
+		
 		utils.visitNodes(limit.previousSibling, function(el) {  // hard-reattach custom elements lest they lose their powers
 			var h;
 			if(el.is)
 			{
-				h = document.createElement('div'); // other ways don't cause the element to get reinitialized - the whole element must be completely rewritten
-				h.innerHTML = utils.recursiveOuterHTML(el);
-				el.parentNode.insertBefore(h.firstChild, el);
+				//h = document.createDocmentFragment(); // other ways don't cause the element to get reinitialized - the whole element must be completely rewritten
+				//h.innerHTML = utils.recursiveOuterHTML(el);
+				//el.parentNode.insertBefore(h.firstChild, el);
+				clone = Polymer.dom(el).cloneNode(false);
+				Polymer.dom(clone).innerHTML = utils.recursiveInnerHTML(el);
+				el.parentNode.insertBefore(clone, el);
 				el.parentNode.removeChild(el);
+				Polymer.dom.flush();
 			}
-		});
+		})
 
 		left.normalize();
 		limit.normalize();
@@ -776,8 +788,26 @@ window.ir.textarea.utils = (function() {
 			
 			return s.length;
 		}
+		
+	var debounceCache = {};
+	utils.debounce = function(f, ms, prevTimeout) {
+		var save, t, refName = prevTimeout;
+		
+		save = typeof refName == 'string';
+		if(save)
+			prevTimeout = debounceCache[prevTimeout];
 
-	
+		if(prevTimeout)
+			clearTimeout(prevTimeout);
+
+		t = setTimeout(f, ms);
+		
+		if(save)
+			debounceCache[refName] = t;
+
+		return t;
+	};
+
 	return utils;
 })();
 

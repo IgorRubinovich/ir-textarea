@@ -299,9 +299,9 @@ window.ir.textarea.CustomUndoEngine = (function() {
 				undoInProgress = true;
 				r = state.restore(true); // true means to restore caret state
 				
-				this.setTimeout(function() {
-					undoInProgress = false;
-				}, 300);
+				utils.debounce(function() {
+						undoInProgress = false;
+					}, 300, "undoInProgress");
 				
 				if(options.onRestoreState && r)
 					options.onRestoreState(r.startContainer);
@@ -336,7 +336,7 @@ window.ir.textarea.CustomUndoEngine = (function() {
 				else
 					undoRecord.push(new UndoItem(editor, innerHTML, prevUndo));
 
-				// console.log(undoRecord.length, redoRecord.length);
+				console.log("undo onlyUpdateRangeMemo: %s; undoRecord: %s, redoRecord: %s", onlyUpdateRangeMemo, undoRecord.length, redoRecord.length);
 
 				if(!force && !onlyUpdateRangeMemo && redoRecord.length > 0 && lastRestoredStateContent != innerHTML)
 					redoRecord = [];

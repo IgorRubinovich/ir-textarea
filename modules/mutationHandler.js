@@ -208,7 +208,7 @@ window.ir.textarea.editorMutationHandler =
 				if(t != this.$.editor)
 					t._cleanValue = this.getCleanValue(t);
 
-				if(ocv == t)
+				if(t != this.$.editor && ocv == t._cleanValue)
 					return;
 
 				while(!done) // update parents

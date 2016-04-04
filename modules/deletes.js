@@ -126,14 +126,16 @@ window.ir.textarea.deletes = (function() {
 				{
 					if(utils.getTopCustomElementAncestor(sc, this.$.editor) && sc.nodeType == 3 && !sc.previousSibling && so == 0)
 						return ev.preventDefault();
-					else
+					
+					/*else
 					if(sc.nodeType == 3 && sc.textContent.length == 1 && so == 1 && sc.nextSibling && sc.nextSibling.is)
 					{
 						sc.textContent = utils.DELIMITER;
 						utils.setCaretAt(sc, 1);
 						ev.preventDefault();
 					}
-					else
+					else*/
+					
 					if((sc.isDelimiter || (sc.nodeType == 3 && so == 0)) && sc.previousSibling && sc.previousSibling.is)
 					{
 						forcedelete = toDelete = sc.previousSibling;
