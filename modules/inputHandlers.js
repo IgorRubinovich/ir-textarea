@@ -98,10 +98,27 @@ window.ir.textarea.inputHandlers = (function() {
 			if(!r)
 				return;
 			
-			if(r.startContainer.nodeType == 3 || !r.startContainer.childNodes.length) sc = r.startContainer, so = r.startOffset; else sc = r.startContainer.childNodes[r.startOffset], so = 0;
-			if(r.endContainer.nodeType == 3 || !r.endContainer.childNodes.length) ec = r.endContainer, eo = r.startOffset; else ec = r.startContainer.childNodes[r.startOffset], eo = 0;
+			if(r.startContainer.nodeType == 3 || !r.startContainer.childNodes.length) 
+				sc = r.startContainer, so = r.startOffset; 
+			else 
+				sc = r.startContainer.childNodes[r.startOffset], so = 0;
+
+			if(r.endContainer.nodeType == 3 || !r.endContainer.childNodes.length) 
+				ec = r.endContainer, eo = r.startOffset; 
+			else 
+				ec = r.startContainer.childNodes[r.startOffset], eo = 0;
 
 			var keyCode = ev.which || ev.keyCode;
+
+			if([38,40].indexOf(keyCode) > -1 && ev.type == 'keyup') // up/down keys
+			{				
+				if(sc && sc.is && keyCode == 38) // up
+					setCaretAt(sc.previousSibling, 0)
+				else
+				if(ec && ec.is && keyCode == 40) // down
+					setCaretAt(ec.nextSibling, 0)
+			}
+			else
 			if([37,39].indexOf(keyCode) > -1) // left/right keys
 			{
 				// left

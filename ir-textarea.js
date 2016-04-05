@@ -78,7 +78,6 @@
 																		}.bind(this),
 																		onRestoreState : function(el) {
 																			this.selectionSave()
-																			this.fire('scroll-into-view', el);
 																		}.bind(this)
 																	}))
 		},
@@ -196,7 +195,7 @@
 				tbar.setPosition();
 				
 				//if(that.actionTarget)
-				//	that.setResizeHandlerPosition();
+				that.setResizeHandlerPosition();
 			});
 
 			mediator.subscribe('showToolbar', function( arg ){
@@ -402,7 +401,7 @@
 
 		  this.customUndo.pushUndo(false, false);
 
-		  this.fire('scroll-into-view', utils.getSelectionCoords());
+		  this.scrollIntoView();
 
 		  this.addActionBorder();
 		},
@@ -1081,6 +1080,8 @@
 			{
 				this._selectionRange = range;
 				this.undoStarted = true;
+				
+				this.scrollIntoView();
 			}
 		},
 
@@ -1131,6 +1132,13 @@
 			
 			return range;
 		},
+		
+		scrollIntoView : function() {
+			this.debounce('scroll-into-view', function() {
+				this.fire('scroll-into-view', utils.getSelectionCoords())
+				this.setResizeHandlerPosition();
+			}, 100);
+		},
 
 		_updateValue : function(noForceSelection) {
 			var hadChanged = this.changed;
@@ -1174,7 +1182,7 @@
 					return;
 				
 				if(utils.isDescendantOf(r.startContainer, this.$.editor))
-					return this.fire('scroll-into-view', utils.getSelectionCoords());
+					return this.scrollIntoView();
 			}.bind(this), 200);
 
 			var val, sameContent, d, r;
