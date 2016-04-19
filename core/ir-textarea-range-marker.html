@@ -87,7 +87,7 @@
 			},
 			
 			observerConnect : function() {
-				this.mo.observe(this.$.marker, this.moconfig);
+				this.mo.observe(this.containerElement, this.moconfig);
 			},
 			
 			observerDisconnect : function() {
@@ -107,7 +107,7 @@
 				this.observerDisconnect();				
 
 				while(m.childNodes.length)
-					this.parentNode.insertBefore(m.firstChild, this);
+					parentNode.insertBefore(m.firstChild, this);
 				
 				this.observerConnect();
 
@@ -131,8 +131,8 @@
 				{
 					c.insertBefore(this, c.childNodes[o]);
 
-					if(this != this.parentNode.lastChild && this.realContainer.nodeType != 3)
-						this.set('realOffset', this.realOffset++);					
+					if(this != parentNode.lastChild && this.realContainer.nodeType != 3)
+						this.set('realOffset', this.realOffset + 1);					
 				}
 				else
 					c.appendChild(this);
@@ -164,14 +164,18 @@
 					return;
 
 				if(this != this.parentNode.lastChild && this.realContainer.nodeType != 3)
-					this.set('realOffset', this.realOffset--);
+				{
+					console.log('subtracting this.realOffset for ', this.realOffset, this.crealContainer);
+					this.realOffset--;
+				}
+
 					
 				pn = this.parentNode;
 				pn.removeChild(this);
-				pn.normalize();
 				
 				this.setAt(this.realContainer, this.realOffset, true);
-				
+					
+				//this.updateFromCurrentRange();
 				//this.update();
 			},
 			
@@ -183,13 +187,16 @@
 			},
 
 			adjust : function() {			
-				var hide, n, p, tcea, editable, tc, offsetChild, c, o, ce, ceo;
+				var hide, n, p, tcea, editable, tc, offsetChild, c, o, ce, ceo, rc, ro;
 				
 				r = utils.getSelectionRange();
-				
-				if(this.boundToRange == 'end' && r.collapsed)
+
+				if(!r || (this.bindToRange == 'end' && r.collapsed))
 					return;
 				
+				//if(!this.visible && this.realContainer && this.realContainer.nodeType == 3)
+				//	return;
+
 				ce = this.containerElement;
 				ceo = this.containerElementOffset;
 				
@@ -222,7 +229,15 @@
 				{
 					c = ce.childNodes[ceo];
 
-					if(!c || c.is || (c.nodeType != 3 && !utils.canHaveChildren(c)) || (c.nodeType == 3 && /^\s*$/.test(c.textContent)))
+					rc = this.realContainer;
+					if(rc == c && !rc.is && rc.firstChild && rc.firstChild.nodeType == 3)
+						rc = c.firstChild
+					
+					if(	!c || 
+						c.is || 
+						(c.nodeType != 3 && !utils.canHaveChildren(c)) || // not container
+						(c.previousSibling && c.previousSibling.is && rc != c.firstChild) || 	  // after CE
+						(c.nodeType == 3 && /^\s*$/.test(c.textContent))) // empty text node
 						this.show();
 				}
 				
@@ -232,7 +247,6 @@
 			pushRange : function(ev) {
 				var tpce, cetnstart, cetnend, pd, nn, n, c, p;
 
-				
 				if(this.bindToRange == 'end')
 					this.hide();
 				
@@ -243,11 +257,7 @@
 					return;
 				
 				this.hide();
-				
-				n = ce.childNodes[ceo - 1];
-				c = ce.childNodes[ceo];
-				p = ce.childNodes[ceo + 1];
-				
+
 				// inside custom element with c set to contenteditable
 				tpce = utils.getTopCustomElementAncestor(c, this.editor);
 				if(tpce && tpce != c)
@@ -279,7 +289,7 @@
 				else
 				if(ev.keyCode == 39) // right
 				{
-					//this.hide();
+					// this.hide();
 
 					nn = this.nextPosition(this.realContainer, this.realOffset);
 					//console.log(`right: ${this.bindToRange} ${ev.type} from ${this.realContainer.textContent}, ${this.realOffset} to ${nn.container.textContent}, ${nn.offset}`);
@@ -308,14 +318,111 @@
 				//utils.setCaretAt(this.realContainer, this.realOffset);
 
 			},
+			
 			nextPosition : function(container, offset, fromNode) {
-				var c = container, o = offset, ce, indexOf = utils.getChildPositionInParent, isWhitespace;
+				var c = container, o = offset, ce, indexOf = utils.getChildPositionInParent, isWhitespace, tcea;
+
+				if(!c)
+					return;
+					
+				if(fromNode)
+				{
+					if(c.childNodes[o] == fromNode)
+						return this.nextPosition(c, o + 1, fromNode);
+					else
+					if(c != this.editor && fromNode && utils.isDescendantOf(fromNode, container))
+					{					
+						if(tcea = utils.getTopCustomElementAncestor(c, this.editor))
+							c = tcea;
+
+						return this.nextPosition(parentNode(c), indexOf(c), c);
+					}
+				}
 				
 				if(!c)
 					return null;
 				
 				if(c.isCaret)
 					this.nextPosition(c.hostMarker.realContainer, c.hostMarker.realOffset, true);
+				
+				// marker at end of editor - no change
+				if(c == this.editor)
+					if(o >= this.editor.childNodes.length)
+						return { container : c, offset : o };
+					else
+						return this.nextPosition(c.childNodes[o], 0, fromNode);
+				
+				
+				if(c.nodeType != 3 && o >= c.childNodes.length && utils.canHaveChildren(c))
+					return this.nextPosition(parentNode(c), indexOf(c) + 1, fromNode);
+				
+				// text node
+					// marker is in text node
+					isWhitespace = /^\s*$/.test(c.textContent);
+					if(c.nodeType == 3)
+					{
+						//if(c.textContent && isWhitespace)
+						//	return recursive ? { container : c, offset : o } : this.nextPosition(c.parentNode, indexOf(c) + 1, true);
+						if(isWhitespace && fromNode && fromNode.is) //!c.textContent)
+							return fromNode ? { container : c, offset : o } : null;
+						// start/mid
+						if(o < c.textContent.length)
+							return fromNode ?  { container : c, offset : 0 } : null;
+						// end
+						else
+							return this.nextPosition(parentNode(c), indexOf(c) + 1, c);
+					}
+
+					// marker is at (not in) text node
+					if((!fromNode || !fromNode.is) && !c.is && c.childNodes && c.childNodes[o] && c.childNodes[o].nodeType == 3)
+					{
+						if(!c.childNodes[o].textContent.length)
+							return this.nextPosition(c, o+1, c);
+						else
+							return { container : c.childNodes[o], offset : 0 }
+					}
+
+				// element
+					// custom
+					if(c.is)
+						if(fromNode)
+							return { container : parentNode(c), offset : indexOf(c) }
+						else
+						// has editable light dom children
+						if(ce = Polymer.dom(c).querySelector('[contenteditable]'))
+							return this.nextPosition(ce, 0, fromNode);
+						// doesn't have any
+						else
+							return this.nextPosition(parentNode(c), indexOf(c) + 1, c)
+
+							
+					if(fromNode && fromNode.is && c != this.editor)
+						return { container : parentNode(c), offset : indexOf(c) };
+					
+					// container
+					if(c.firstChild)
+						return this.nextPosition(c.firstChild, 0, c);
+					else
+					if(fromNode && utils.canHaveChildren(c))
+						return { container : c, offset : 0 }
+					else
+						return this.nextPosition(parentNode(c), indexOf(c) + 1, c);
+						
+					// non-container
+					if(fromNode)
+						return { container : parentNode(c), offset : indexOf(c) }
+					else
+						return this.nextPosition(parentNode(c), indexOf(c) + 1, c);
+					
+			},
+			previousPosition : function(container, offset, fromNode) {
+				var c = container, o = offset, ce, indexOf = utils.getChildPositionInParent, isWhitespace;
+				
+				if(!c)
+					return null;
+				
+				if(c.isCaret)
+					this.previousPosition(c.hostMarker.realContainer, c.hostMarker.realOffset, true);
 				
 				// marker at end of editor - no change
 				if(c == this.editor)
@@ -338,7 +445,7 @@
 						if(isWhitespace && fromNode && fromNode.is) //!c.textContent)
 							return { container : c, offset : o };
 						// start/mid
-						if(o < c.textContent.length)
+						if(o < c.textContent.length) 
 							return { container : c, offset : fromNode ? 0 : o + 1 }
 						// end
 						else
@@ -346,7 +453,7 @@
 					}
 
 					// marker is at (not in) text node
-					if(fromNode && c.childNodes[o] && c.childNodes[o].nodeType == 3)
+					if(fromNode && !fromNode.is && !c.is && c.childNodes && c.childNodes[o] && c.childNodes[o].nodeType == 3)
 						return { container : c.childNodes[o], offset : 0 }
 
 				// element
@@ -416,7 +523,7 @@
 
 				//if(!container.parentNode)
 				//	return;
-				
+
 				chm	= container && container.hostMarker;
 				
 				if(chm && chm != this)
@@ -431,6 +538,14 @@
 				else
 				if(!chm)
 				{
+					/*if(container)
+					{
+						if(container.parentNode)
+							container.parentNode.normalize();
+						else
+							container.normalize();
+					}*/					
+				
 					this.set('container', container);
 					this.set('offset', offset);
 					this.set('realContainer', container);
@@ -439,16 +554,8 @@
 					this.set('containerElementOffset', !container || container == this.editor ? offset : utils.getChildPositionInParent(container, true));
 				}
 
-				if(this.realContainer.isCaret)
-					console.log("this.realContainer.isCaret!")
-				if(this.realContainer)
-				{
-					if(this.realContainer.parentNode)
-						this.realContainer.parentNode.normalize();
-					else
-						this.realContainer.normalize();
-				}
-
+				//if(this.realContainer.isCaret)
+				//	console.log("this.realContainer.isCaret!")
 				this.set('tagOutline', utils.tagOutline(this.containerElement));
 
 				if(setRange)
@@ -467,6 +574,14 @@
 				// console.log(this.bindToRange + " " + this.tagOutline + " " + this.offset)
 			},			
 		})
+		
+			
+		function parentNode(node) {
+			if(Polymer.dom(node).parentNode != node.parentNode && !utils.isInLightDom(node, top))
+				return Polymer.dom(node).parentNode;
+			else
+				return node.parentNode;
+		}
 	})();
 </script>
 			
