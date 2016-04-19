@@ -23,16 +23,18 @@
 
 			this.changed = true;
 
+			this.$.range.editor = this.$.editor;
+			
 			this.__actionData = {};
 			
 			// custom user input handlers
-			this.bindHandlers("keydown,keyup", inputHandlers.previewHotKey, this.$.editor);
+			/*this.bindHandlers("keydown,keyup", inputHandlers.previewHotKey, this.$.editor);
 			this.bindHandlers("keydown,keyup,mousedown,mouseup", inputHandlers.clearActionData, this.$.editor);
 			this.bindHandlers("keydown,keyup", inputHandlers.enterKey, this.$.editor);
 			this.bindHandlers("keydown,keyup", inputHandlers.navigationKeys, this.$.editor);
 			this.bindHandlers("mousedown,mouseup", inputHandlers.dragAndDrop, this.$.editor);
 			this.bindHandlers("keydown,keyup,keypress", deletes.handler, this.$.editor);
-			
+			*/
 			// paste
 			this.bindHandlers('paste', paste.pasteHandler, this.$.editor);
 			//this.$.editor.addEventListener('copy', function() {console.log('hi copy')} );
@@ -106,6 +108,8 @@
 		},
 
 		attached: function(){
+			var val;
+			
 			this.insertPlugins();
 
 			this.configureToolbar();
@@ -138,7 +142,11 @@
 
 			this.connectEditorObserver();
 			
-			this.set('value', this._initialValue = this.$.editor.innerHTML = this.getCleanValue());			
+			this.$.editor.innerHTML = this.getCleanValue().replace(/\t+/g, '');
+			this.$.editor.normalize();
+			this._initialValue = this.getCleanValue();
+			
+			this.set('value', this._initialValue); // tab custom element anyone?
 		},
 
 		connectEditorObserver : function()
@@ -239,7 +247,7 @@
 				},
 				actionableTags = [menuGroups.resizeable, menuGroups.floatable, menuGroups.removeable].join(",");
 
-			if(this.isDisabled)
+			if(this.isDisabled || target.isCaret)
 				return;
 				
 			cm.disabled = true;
@@ -396,7 +404,7 @@
 
 		  setTimeout(function() {
 			if(this.__actionData.deleteTarget)
-				utils.setCaretAt(this.__actionData.deleteTarget.nextSibling, 0);
+				utils.setCaretAt.call(this.$.range, this.__actionData.deleteTarget, 0);
 		  }.bind(this), 50);
 
 		  this.customUndo.pushUndo(false, false);

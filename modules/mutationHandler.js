@@ -6,8 +6,6 @@ window.ir.textarea.editorMutationHandler =
 	(function() {
 		var utils = window.ir.textarea.utils;
 		
-		var DELIMITER = utils.DELIMITER;
-	
 		return function(mrecs) {
 			this.disconnectEditorObserver();
 
@@ -37,50 +35,7 @@ window.ir.textarea.editorMutationHandler =
 				// ignore if node appears more than once in this record - until we actually analyze the record types
 				if(mrt.observerCycle == this.observerCycle)
 					return;
-
 				mrt.observerCycle = this.observerCycle;
-
-				if(mrt.nodeType == 3)
-				{
-					// process delimiters "detached" from their custom element
-					if(mrt.isDelimiter && !((mrt.previousSibling && mrt.previousSibling.is) || (mrt.nextSibling && mrt.nextSibling.is)))
-					{
-						mrt.isDelimiter = false;
-						if(/\u00a0/.test(mrt.textContent))
-						{
-							mrt.textContent = mrt.textContent.replace(/\u00a0/g, '');
-							if(mrt == sc)
-								utils.setCaretAt(sc, Math.min(so, mrt.textContent.length));
-						}
-					}
-					else
-					// clear .isDelimiter of non-empty nodes
-					if(mrt.isDelimiter && /\S/.test(mrt.textContent))
-					{
-						mrt.textContent = mrt.textContent.replace(/\u00a0/g, '');
-						mrt.isDelimiter = false;
-						if(sc == mrt) // && mrt.isDelimiter && !mrt.isInTransition && so != 1)
-							utils.setCaretAt(sc, 1);
-					}
-					else
-					if(!mrt.textContent.length)
-						mrt.parentNode.removeChild(mrt);
-
-					if(mrt.textContent.length)
-						effectiveChanges.push(mr.target);
-
-					return;
-				}
-
-				if(mrt.nodeType != 1)
-					return;
-
-				mrt.isDelimiter = false;
-				
-				if(mr.addedNodes.length)
-					Array.prototype.forEach.call(mr.addedNodes, function(n) { effectiveChanges.push(n) });
-				else
-					effectiveChanges.push(mr.target);
 
 				if(mr.type == 'childList')
 					utils.visitNodes(mrt, function(n) {
@@ -89,10 +44,8 @@ window.ir.textarea.editorMutationHandler =
 						if(n != this.$.editor && !utils.isInLightDom(n, this.$.editor) || !Polymer.dom(n).parentNode)
 							return;
 						if(n.is && customEls.indexOf(n) == -1)
-						{
 							customEls.push(n);
-							n.setAttribute('contenteditable', false);
-						}
+							//n.setAttribute('contenteditable', false);
 					}.bind(this));
 			}.bind(this));
 
@@ -105,74 +58,6 @@ window.ir.textarea.editorMutationHandler =
 				if(pe)
 				{
 					pe.normalize();
-
-					ps = ce.previousSibling;
-					ns = ce.nextSibling;
-
-					// pad before
-					if(!ps || ps.nodeType != 3) // no text element before
-					{
-						ps = pe.insertBefore(created = document.createTextNode(DELIMITER), ce);
-						created.isDelimiter = true;
-					}
-					else // a whitespace text element before
-					if(ps.nodeType == 3)
-					{
-						if(!/\S/.test(ps.textContent))
-						{
-							if(ps.previousSibling && ps.previousSibling.nodeType == 3)
-								ps = mergeNodes(ps.previousSibling, ps, true);
-
-							if(ps.textContent != DELIMITER && !/\S/.test(ps.textContent))
-								ps.textContent = DELIMITER;
-
-							ps.isDelimiter = true;
-						}
-						if(sc == ps && ps.isDelimiter && !ps.isInTransition && so != 1 && r.collapsed)
-							utils.setCaretAt(ps, 1);
-					}
-
-					if(!created && ps.isDelimiter && /\S/.test(ps.textContent)) // remove the padding space if node is not whitespace-only anymore
-					{
-						ps.textContent = ps.textContent.replace(/[\u200b\u00a0\s]/g, '')
-						ps.isDelimiter = false;
-						if(sc == ps)
-							utils.setCaretAt(ps, Math.min(so, ps.textContent.length))
-					}
-
-					created = null;
-
-					// pad after
-					if(!ns || ns.nodeType != 3)
-					{
-						ns = pe[ns ? 'insertBefore' : 'appendChild'](created = document.createTextNode(DELIMITER), ns);
-						created.isDelimiter = true;
-					}
-					else
-					if(ns.nodeType == 3)
-					{
-						if(!/\S/.test(ns.textContent))
-						{
-							if(ns.nextSibling && ns.nextSibling.nodeType == 3)
-								ns = mergeNodes(ns.nextSibling,ns,true);
-
-							if(ns.textContent != DELIMITER && !/\S/.test(ns.textContent))
-								ns.textContent = DELIMITER;
-
-							ns.isDelimiter = true;
-						}
-						if(ec == ns && ns.isDelimiter && !ns.isInTransition && so != 1 && r.collapsed)
-							utils.setCaretAt(ns, 1);
-					}
-
-					if(!created && ns.isDelimiter && /\S/.test(ns.textContent))
-					{
-						if(/[\u200b\u00a0\s]/.test(ns.textContent))
-							ns.textContent = ns.textContent.replace(/[\u200b\u00a0\s]/g, '')
-						ns.isDelimiter = false;
-						if(ec == ns)
-							utils.setCaretAt(ns, Math.min(eo, ns.textContent.length))
-					}
 
 					ce.setAttribute('contenteditable', false);
 

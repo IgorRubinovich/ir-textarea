@@ -64,13 +64,18 @@ window.ir.textarea.utils = (function() {
 	// effectively outerHTML - innerHTML
 	utils.tagOutline = function(el) {
 		var d = document.createElement('div'),
-			classList, props, cn, divclone, i, tn;
+			classList, props, cn, divclone, i, tn, canHaveChildren, res;
 
-		if(el.isDelimiter) return '';
+		if(!el) return '';
+		if(el.isCaret) return '';
 
 		if(el.nodeType == 3) return el.textContent;
 		
-		nn = document.createElement('div');
+		if(canHaveChildren = utils.canHaveChildren(el))
+			nn = document.createElement('div');
+		else
+			nn = el.cloneNode();
+
 		
 		if(el.attributes)
 			Array.prototype.forEach.call(el.attributes, function(a) { if(a.value != '') nn.setAttribute(a.name, a.value) });
@@ -88,9 +93,14 @@ window.ir.textarea.utils = (function() {
 		
 		d.appendChild(nn);
 
-		tn = el.tagName.toLowerCase();
+		tn = el.tagName ? el.tagName.toLowerCase() : "";
 
-		return d.innerHTML.replace(/div/i, tn).replace(/div>$/, tn + ">");
+		if(canHaveChildren)
+			res = d.innerHTML.replace(/div/i, tn).replace(/div>$/, tn + ">");
+		else
+			res = d.innerHTML;
+		
+		return res;
 	}
 
 	utils.recursiveOuterHTML = function(node, skipNodes){
@@ -141,11 +151,11 @@ window.ir.textarea.utils = (function() {
 		return n;
 	}
 
-	utils.isInLightDom = function(node, top) { // is in light dom relative to top, i.e. top is considered the light dom root like a scoped document.body
+	utils.isInLightDom = function(node, top, includeTop) { // is in light dom relative to top, i.e. top is considered the light dom root like a scoped document.body
 		if(!node)
 			return false;
 
-		if(node.parentNode == top)
+		if(node.parentNode == top || (includeTop && node == top))
 			return true;
 
 		if(node != top && node != document.body)
@@ -173,17 +183,37 @@ window.ir.textarea.utils = (function() {
 		return (node == top) ? res : null;
 	}
 
-	utils.getChildPositionInParent = function(child, withDelimiters) {
-		var i, cn, p, delimiters = 0;
+	utils.getChildPositionInParent = function(child, withDelimiters, withoutCaret) {
+		var i, cn, p, pos = 0, caret = 0;
 		if(!child || child == document.body)
 			return null;
 
-		p = Polymer.dom(child).parentNode;
-		cn = (p.is ? Polymer.dom(p) : p).childNodes;
-		for(i=0; cn[i] != child && i < cn.length; i++)
-			delimiters += (cn[i] != child && cn[i].isDelimiter) ? 1 : 0;
+		if(child.isCaret)
+		{
+			p = child.hostMarker.parentNode;
+			cn = p.childNodes;
+		}
+		else
+		if(Polymer.dom(child).getOwnerRoot() == Polymer.dom(child.parentNode).getOwnerRoot())
+		{
+			p = child.parentNode;
+			cn = p.childNodes;
+		}
+		else
+		{
+			p = Polymer.dom(child).parentNode;
+			cn = Polymer.dom(p).childNodes
+		}
+		
+		if(!p)
+			return null;
+		
+		i = -1;
+		while(cn[++i] != child)
+			if(cn[i].isCaret)
+				caret = 1;
 
-		return cn[i] == child ? i - (withDelimiters ? 0 : delimiters) : null;
+		return i - (withoutCaret ? caret : 0);
 	}
 
 	utils.getChildPathFromTop = function(child, top, withDelimiters) {
@@ -256,6 +286,8 @@ window.ir.textarea.utils = (function() {
 		var sel = window.getSelection(),
 			range = document.createRange();
 
+		console.log('setting caret at:', startTarget, startOffset);
+			
 		if(!endTarget)
 		{
 			endTarget = startTarget;
@@ -264,10 +296,15 @@ window.ir.textarea.utils = (function() {
 
 		range.setStart(startTarget, startOffset);
 		range.setEnd(endTarget, endOffset);
-		if(startOffset == endOffset)
-			range.collapse(false); // false means collapse to end point
+
+		if(startTarget == endTarget && startOffset == endOffset)
+			range.collapse(true); // false means collapse to end point
+
 		sel.removeAllRanges();
 		sel.addRange(range);
+		
+		if(this.isCaret)
+			this.update();
 
 		return range;
 	};
@@ -330,20 +367,6 @@ window.ir.textarea.utils = (function() {
 		return pn;
 	}
 
-	utils.getSelectionRange = function() {
-		var sel, range;
-		if (window.getSelection) {
-			sel = window.getSelection();
-			if (sel.getRangeAt && sel.rangeCount) {
-				range = sel.getRangeAt(0);
-			}
-		} else if (document.selection && document.selection.createRange) {
-			range = document.selection.createRange();
-		}
-
-		return range;
-	}
-
 	utils.canHaveChildren = (function() {
 		var cache = {};
 		return function(node) {
@@ -361,16 +384,23 @@ window.ir.textarea.utils = (function() {
 			return cache[node.tagName] = node.nodeType === 1 && node.ownerDocument.createElement(node.tagName).outerHTML.indexOf("></") > 0;
 		}
 	})();
+	
+	utils.setAtFirstCaret = function(node) {
+		var p = utils.getFirstCaretPosition();
+		utils.setCaret(p.containt, p.offset)
+	},
 
 	utils.getFirstCaretPosition = function(node) {
-		var n, res;
+		var n, res, cn;
 
 		if(node.nodeType == 3)
 			return { container : node, offset : 0 };
 
-		if(node.childNodes.length)
+		cn = node.is ? node.childNodes : Polymer.dom(childNodes);
+		
+		if(cn.length)
 			while(!res && n < node.childNodes.length)
-				res = getFirstCaretPosition(node.childNodes[n]);
+				res = getFirstCaretPosition(cn[n]);
 
 		return res;
 	};
@@ -575,7 +605,7 @@ window.ir.textarea.utils = (function() {
 			return { x: x, y: y };
 		}
 	})()
-
+	
 	utils.caretIsAtContainerEnd = function() {
 		var r = getSelectionRange(),
 			maxOffset = (r.startContainer.length || (r.startContainer.childNodes && r.startContainer.childNodes.length))
@@ -807,6 +837,60 @@ window.ir.textarea.utils = (function() {
 
 		return t;
 	};
+	
+	utils.getSelectionRange = function() {
+		var sel, range;
+		if (window.getSelection) {
+			sel = window.getSelection();
+			if (sel.getRangeAt && sel.rangeCount) {
+				range = sel.getRangeAt(0);
+			}
+		} else if (document.selection && document.selection.createRange) {
+			range = document.selection.createRange();
+		}
+
+		return range ? utils.normalizeRange(range) : null;
+	}
+	
+	utils.normalizeRange = function(r) {
+		r = utils.shortcutRange(r);
+		
+		if(r.sc.isCaret)
+		{
+			r.nsc = r.nec = r.sc._host;
+			r.nso = r.neo = utils.getChildPositionInParent(r.sc._host);
+			
+			return r
+		}
+		
+		if(r.sc.nodeType == 3 || !r.sc.childNodes[r.so] || r.sc.childNodes[r.so].is) 
+			r.nsc = r.sc, r.nso = r.so; 
+		else 
+			r.nsc = r.sc.childNodes[r.so], r.nso = 0;
+		
+		if(r.ec.nodeType == 3 || !r.ec.childNodes[r.eo] || r.ec.childNodes[r.eo].is) 
+			r.nec = r.endContainer, r.neo = r.eo; 
+		else 
+			r.nec = r.sc.childNodes[r.so], r.neo = 0;
+
+		return r;
+	}
+
+	utils.shortcutRange = function(range) {
+		range.sc = range.startContainer;
+		range.so = range.startOffset;
+		range.ec = range.endContainer;
+		range.eo = range.endOffset;
+		
+		return range;
+	}
+	
+	// returns firstChild if it's the only one
+	utils.singleChildNode = function(el) {
+		if(el.childNodes && el.childNodes.length == 1)
+			return el.firstChild
+			
+	}
 
 	return utils;
 })();

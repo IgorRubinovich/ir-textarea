@@ -1,0 +1,167 @@
+<dom-module id="ir-textarea-range">
+	<template>
+		<h1>caret debug</h1>
+		<table border=1 width="100%">
+			<tr>
+				<td></td>
+				<td>tagOutline</td>
+				<td>offset</td>
+				<td>real offset</td>
+				<td>container element offset</td>
+				<td>visible</td>
+			</tr>
+			<tr>
+				<td>Start</td>
+				<td>{{ startTagOutline }}</td>
+				<td>{{ startOffset }}</td>
+				<td>{{ startRealOffset }}</td>
+				<td>{{ startContainerElementOffset }}</td>
+				<td>{{ startIsVisible }}</td>
+			</tr>
+			<tr>
+				<td>End</td>
+				<td>{{ endTagOutline }}</td>
+				<td>{{ endOffset }}</td>
+				<td>{{ endRealOffset }}</td>
+				<td>{{ endContainerElementOffset }}</td>
+				<td>{{ endIsVisible }}</td>
+				</tr>
+		</table>
+
+		<ir-textarea-range-marker 
+			id="start" 
+			bind-to-range="start" 
+			tag-outline="{{ startTagOutline }}" 
+			container="{{ startContainer }}" 
+			offset="{{ startOffset }}"
+			real-offset="{{ startRealOffset }}"
+			container-element-offset="{{ startContainerElementOffset }}"
+			visible="{{ startIsVisible }}"
+		>
+		</ir-textarea-range>
+		<ir-textarea-range-marker 
+			id="end" 
+			bind-to-range="end" 
+			tag-outline="{{ endTagOutline }}" 
+			container="{{ endContainer }}" 
+			offset="{{ endOffset }}"
+			real-offset="{{ endRealOffset }}"
+			container-element-offset="{{ endContainerElementOffset }}"
+			visible="{{ endIsVisible }}"
+		>
+		</ir-textarea-range>
+	</template>
+</dom-module>
+
+<script>
+	(function() {
+		var utils = ir.textarea.utils;
+
+		Polymer({
+			is : "ir-textarea-range",
+			properties : {
+				editor : {
+					type : Object,
+					observer : "editorChanged"
+				},
+				collapsed : {
+					type : Boolean
+				}
+			},
+			editorChanged : function() {
+				this.$.start.editor = this.editor;
+				this.$.end.editor = this.editor;
+				
+				this.bindHandlers('mousedown,mouseup,keydown,keyup,keypress', this.inputHandler, this.editor);
+			},
+			setStartAt : function(c, o) {
+				this.$.start.setAt(c, o);
+			},
+			setEndAt : function(c, o) {
+				//this.$.end.setAt(c, o);
+			},
+			setAt : function(sc, so, ec, eo) {
+				this.collapsed = !(ec && (ec != sc || so != eo));
+				
+				this.setStartAt(sc, so);				
+				if(!this.collapsed)
+					this.setEndAt(sc, so);
+			},
+			update : function() {
+				this.$.start.update();
+				this.$.end.update();
+				this.set('collapsed', this.$.start.container == this.$.end.container && this.$.start.offset && this.$.end.container);
+			},
+			updateFromCurrentRange : function() {
+				this.$.start.updateFromCurrentRange();
+				this.$.end.updateFromCurrentRange();				
+			},
+			adjust : function() {
+				this.$.start.adjust();
+				this.$.end.adjust();
+			},
+			ready : function() {
+				this.isCaret = true;
+				this._host = this;
+				//this.$.start._host = this;
+				//this.$.end.isCaret = true;
+				
+				this.listeners = {};
+				
+				this.originalInnerHTML = '';
+				
+				/*this.mo = new MutationObserver(this.mutationHandler.bind(this)),
+				this.moconfig = {
+						childList : true,
+						subtree : true,
+						characterData : true,
+						characterDataOldValue : true,
+						attributes : true
+					}*/
+			},
+			
+			inputHandler : function(ev) {
+				var keyCode = ev.which;
+				//if(ev.type == 'keydown' && [33,34,35,36,37,38,39,40].indexOf(keyCode) == -1)
+				//	return
+				
+				if([8,46,35,36,37,39].indexOf(keyCode) > -1) // backspace/del/end/start/left/right
+				{
+					if(ev.type == 'keyup')
+						ev.preventDefault();
+						
+					if(ev.type == 'keydown')
+					{
+						this.$.start.pushRange(ev);
+						// this.$.end.pushRange(ev);
+					}
+				}
+
+				this.update();
+			},
+			
+			// bind all `eventTypes` to all given `handlers` on `target`
+			bindHandlers : function(eventTypes, handlers, target, capturingPhase)
+			{
+				if(typeof eventTypes == 'string') eventTypes = eventTypes.split(',');
+				if(!(handlers instanceof Array)) handlers = [handlers];
+				var wrappedHandlers = handlers.map(function(h) {
+					return function(ev) {
+						if(this.disabled)
+							return;
+						
+						return h.call(this, ev);
+					}.bind(this);
+				}.bind(this));
+				
+				if(!target) target = this;
+				
+				eventTypes.forEach(function(et) { 
+					wrappedHandlers.forEach(function(h) {
+						target.addEventListener(et, h, capturingPhase);
+					}.bind(this))
+				}.bind(this));
+			}
+		});
+	})();
+</script>

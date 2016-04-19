@@ -73,6 +73,9 @@ Issues and pull requests are most welcome. Fork it [here](https://github.com/Igo
 <script src="./modules/deletes.js"></script>
 <script src="./modules/inputHandlers.js"></script>
 
+<link rel="import" href="./core/ir-textarea-range.html">
+<link rel="import" href="./core/ir-textarea-range-marker.html">
+
 
 <script src="../interact/interact.js"></script>
 <script src="https://rawgit.com/taye/interact.js/unstable/dist/interact.js"></script>
@@ -309,6 +312,8 @@ Issues and pull requests are most welcome. Fork it [here](https://github.com/Igo
 			<textarea id="htmlTextArea" value="{{ value }}"></textarea>
 		</div>
 	</iron-pages>
+	<ir-textarea-range id="range"></ir-textarea-range>
+	
 	<ir-textarea-mediaeditor id="mediaEditor" on-iron-overlay-closed="selectionRestore" on-accepted="_updateValue"></ir-textarea-mediaeditor>
 	<ir-textarea-mediaembedder id="mediaEmbedder" on-iron-overlay-closed="selectionRestore" wrapper-class="{{ wrapperClass }}" on-accepted="_updateValue"></ir-textarea-mediaembedder>
 	<ir-textarea-linkeditor id="linkEditor"  on-iron-overlay-closed="selectionRestore" on-accepted="_updateValue"></ir-textarea-linkeditor>

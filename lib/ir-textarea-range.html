@@ -1,0 +1,159 @@
+<dom-module id="ir-textarea-caret">
+	<style>
+		#caret {
+			background : violet;
+			padding-left : 1px;
+			apadding-right : 1px;
+			outline : none;
+		}
+	</style>
+	<template><span id="caret"
+				contenteditable
+				
+				on-focus="observerConnect"
+				on-blur="observerDisconnect"
+				
+				></span></template>	
+</dom-module>
+<script>
+	(function() {
+		var utils = ir.textarea.utils;
+
+		Polymer({
+			is : "ir-textarea-caret",
+			properties : {
+				editor : {
+					type : Object
+				}
+			},
+			ready : function() {
+				this.isCaret = true;
+				this._host = this;
+				this.$.caret._host = this;
+				this.$.caret.isCaret = true;
+				
+				this.originalInnerHTML = '';
+				
+				this.mo = new MutationObserver(this.mutationHandler.bind(this)),
+				this.moconfig = {
+						childList : true,
+						subtree : true,
+						characterData : true,
+						characterDataOldValue : true,
+						attributes : true
+					}
+
+			},
+			
+			observerConnect : function() {
+				this.mo.observe(this.$.caret, this.moconfig);
+			},
+			
+			observerDisconnect : function() {
+				this.mo.disconnect();
+			},
+			
+			mutationHandler : function() {
+				var c = this.$.caret, firstInserted, lastInserted, fc, thisNode = Polymer.dom(this).node;
+				
+				if(this.ignoreMutation)
+					return this.ignoreMutation = false;
+
+				if(!c.childNodes.length)
+				{
+					this.ignoreMutation = true;
+
+					return;
+				}
+
+				firstInserted = c.firstChild;
+
+				if(c.childNodes.length == 1 && c.firstChild.nodeType == 3 && !firstInserted.textContent)
+					return firstInserted.isDelimiter = true;					
+
+				while(c.firstChild)
+				{
+					fc = c.firstChild;
+					if(fc.nodeType != 1 || !fc.matchesSelector('.__moignore'))
+					{						
+						if(fc.nodeType == 3) fc.isDelimiter = false;
+						lastInserted = Polymer.dom(this).parentNode.insertBefore(c.firstChild, thisNode);
+					}
+					else
+						c.removeChild(fc);
+				}
+	
+				if(lastInserted && lastInserted.nodeType == 3) // && this.hasCaret())
+				{
+					utils.setCaretAtEndOf(lastInserted);
+					this.hide();
+				}
+				
+				//this.checkSiblings(lastInserted);
+			},
+			
+			update : function() {
+				var r = utils.getSelectionRange(), sc, so, nsc, nso, nn, p, pullCaret, editable;
+			
+				
+				if(!r || !r.collapsed)
+				{
+					this.hide();
+					return this.coords;
+				}
+				
+				if(r.startContainer._host == this)
+					return;
+				
+				nsc = sc = r.startContainer;
+				nso = so = r.startOffset;
+				
+				// "normalize" container to actual node in case it's not text
+				if(sc.nodeType == 1 && sc.childNodes[so] && !sc.is)
+				{
+					nsc = sc.childNodes[so];
+					nso = 0;
+				}
+				
+				// normalize parent and  get selection again
+				nsc.parentNode.normalize();
+				r = utils.getSelectionRange();
+				sc = r.startContainer;
+				so = r.startOffset;
+				
+				// if normalized container is caret return
+				if(nsc._host == this)
+					pullCaret = true;
+				else
+				// if caret is at 0 position in editor
+				if(nsc == this.editor && so == 0)
+				{
+					if(sc == nsc.firstChild)
+						;
+					else
+					{
+						sc.appendChild(this);
+						sc = this;
+						so = 0;
+					}	
+				}
+				else
+				// if caret is in a custom element...
+				if(nsc = utils.getTopCustomElementAncestor(nsc, this.editor))
+				{
+					editable = (sc.nodeType == 3 ? sc.parentNode : sc).getAttribute('contenteditable');
+					editable = editable && editable != 'false';
+					
+					// and in a contenteditable subelement in CE's light dom, do nothing
+					// otherwise target position before the CE
+					if(!(utils.isInLightDom(sc, this.editor) && editable))
+					{
+						sc = nsc;
+						so = 0;
+					}
+				}
+
+				// and now to some manipulations
+
+				
+				// position that is                           CE /    non-existant (beyond length)    / 
