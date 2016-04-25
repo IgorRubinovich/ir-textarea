@@ -226,7 +226,7 @@
 		},
 		IS : 		function(el) { return el && el.is },
 		CONT : 		function(el) { return utils.canHaveChildren(el) },
-		INLINECONT: function(el) { return utils.isInlineElement(el) && utils.canHaveChildren(el) && !utils.isParagraph(el) },
+		INLINECONT: function(el) { return el && utils.isInlineElement(el) && utils.canHaveChildren(el) && !utils.isParagraph(el) },
 
 		TRANS : 	function(el) { return el && el.tagName && ['UL', 'TABLE', 'TBODY', 'TH', 'TR'].indexOf(el.tagName) > -1 }, // add more
 		CONTED : 	function(el) { // also matches text node immediately under contenteditable

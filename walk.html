@@ -54,6 +54,14 @@ This code may only be used under the MIT license found at http://opensource.org/
 			<td>here</td>
 		</tr>
 	</table>
+	
+	<span class="paragraph"><table border>
+			<tr>
+				<td>table inside</td>
+				<td>paragraph</td>
+			</tr>
+		</table>
+	</span>
 
 	</div>
 	<table>
@@ -66,6 +74,7 @@ This code may only be used under the MIT license found at http://opensource.org/
 			<td><div id="elclone"></div></td>
 		</tr>
 	</table>
+	
 	<button onclick="updateRules()">update rules</button>
 	<button onclick="updateAndRun()">run all</button>
 	<button onclick="resetUI()">reset UI</button>
@@ -158,10 +167,8 @@ This code may only be used under the MIT license found at http://opensource.org/
 	}
 
 	var rulesetsDef = {
-			defaultBehaviorPoints : "TEXT||INLINECONT,INLINECONT||INLINECONT,INLINECONT>TEXT",
 			stopPoints : 			"EDITOR>IS,*>EMPTYTEXT,IS||!TEXT,TEXT||!NCBLOCK,EMPTYTEXT||NCBLOCK,P>IS,CONTED>TEXT,NCBLOCK||NCBLOCK",
-			skipPoints :    		"TEXT||TRANS,IS>>!CONTED,*>>EDITOR,*||SHADOW,P||TEXT,INLINECONT||TEXT,INLINECONT>INLINECONT,TRANS>|*"
-
+			skipPoints :    		"TEXT|TRANS,IS>>!CONTED,*>>EDITOR,*||SHADOW,P||TEXT,INLINECONT||TEXT,INLINECONT>INLINECONT,TRANS>|*"
 	}
 	var rulesets = new ir.textarea.CaretRulesets(rulesetsDef, document.getElementById('editor'));
 
@@ -273,7 +280,7 @@ This code may only be used under the MIT license found at http://opensource.org/
 			return { container : c, offset : o + 1}
 
 		if(c == e.nextSibling || (c == e && o == e.childNodes.length))
-			return { container : c, offset : e.childNodes.length };
+			return { container : e, offset : e.childNodes.length };
 
 		n = c;
 		
@@ -282,12 +289,15 @@ This code may only be used under the MIT license found at http://opensource.org/
 			
 			if(!n)
 				return null;
-			
+				
 			m = n.previousSibling || nutils.parentNode(n);
+
+			if(m == editor || (n == e && o == e.childNodes.length))
+				return { container : c, offset : o };
 
 			// non-end of textNode
 			if(n.nodeType == 3 && /\S/.test(n.textContent) && !rulesets.skipPoints(null, n))
-				return { container : n, offset : (m.firstChild == n && Symbols.INLINECONT(m) ? 1 : 0) }
+				return { container : n, offset : Symbols.INLINECONT(m) ? 1 : 0 }
 			
 			if(m != c && m.nodeType == 3 && m.textContent && !rulesets.skipPoints(null, n))
 				return { container : m, offset : 0 };
@@ -337,13 +347,12 @@ This code may only be used under the MIT license found at http://opensource.org/
 		n = c;
 		while(n && n != e) {
 			n = nutils.prevNode(n);
+			m = n.previousSibling || nutils.parentNode(n);
 			
 			if(n.nodeType == 3 && !rulesets.skipPoints(null, n))
-				return { container : n, offset : n.textContent.length - (m && m.firstChild == n && Symbols.INLINECONT(m) ? 1 : 0) };
-
-			m = n.previousSibling || nutils.parentNode(n);
+				return { container : n, offset : n.textContent.length - (Symbols.INLINECONT(m) ? 1 : 0) };
 					
-			if(m.nodeType == 3 && m.textContent && /\S/.test(m.textContent) && utils.isInLightDom(m, e))
+			if(m && m.nodeType == 3 && m.textContent && /\S/.test(m.textContent) && utils.isInLightDom(m, e))
 				return { container : m, offset : m.textContent.length - (m && m.nextSibling == n && Symbols.INLINECONT(n) ? 1 : 0) };
 			
 			// a stop
