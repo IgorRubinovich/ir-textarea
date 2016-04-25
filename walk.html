@@ -1,0 +1,608 @@
+<!doctype html>
+<!--
+@license
+Copyright (c) 2015 Igor Rubinovich <igor.rubinovich@gmail.com>. All rights reserved.
+This code may only be used under the MIT license found at http://opensource.org/licenses/MIT
+-->
+<html>
+<head>
+
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <script src="../bower_components/webcomponentsjs/webcomponents-lite.js"></script>
+  <link rel="import" href="../bower_components/ir-gallery/ir-gallery.html">
+
+  <script src="bower_components/ir-textarea/modules/utils.js"></script>
+  <script src="bower_components/ir-textarea/modules/caretRules.js"></script>
+
+
+  <style>
+	body { background-color : #eaeaea; padding : 25px }
+	button { border-radius : 3px; min-width : 60px; height : 30px; font-size : 12px }
+	.caret { display : inline-block; height : 1em; border : #fafafa 1px solid; padding : 4px; background : red; color : white; font-family : Arial; font-size : 10px }
+	span.paragraph { display : block; border : blue 1px solid }
+	#editor { 
+		box-shadow : 0 0 3px lightblue; margin : 0 0 25px 0; padding : 25px; background-color : white 
+		white-space: pre-wrap;       /* css-3 */
+		white-space: -moz-pre-wrap;  /* Mozilla, since 1999 */
+		white-space: -pre-wrap;      /* Opera 4-6 */
+		white-space: -o-pre-wrap;    /* Opera 7 */
+		word-wrap: break-word;       /* Internet Explorer 5.5+ */
+	}
+	#elclone { max-height : 100px; overflow : hidden; }
+  </style>  
+</head>
+<body>
+	<div 
+		id="editor" 
+		onkeyup="keyHandler(event)" 
+		onkeydown="keyHandler(event)" 
+		contenteditable
+	><ir-gallery contenteditable="false"><img src="http://i00.i.aliimg.com/wsphoto/v0/1855197662_1/2015-%D7%A0%D7%99%D7%95-%D7%97%D7%99%D7%95%D7%AA-%D7%9E%D7%97%D7%9E%D7%93-%D7%9B%D7%9C%D7%91-%D7%A6%D7%A2%D7%A6%D7%95%D7%A2-%D7%9B%D7%93%D7%95%D7%A8-jin-mao-%D7%91%D7%99%D7%9E%D7%91%D7%95-%D7%93%D7%95%D7%91%D7%95%D7%9F-%D7%A1%D7%9E%D7%95%D7%99%D7%93-%D7%9E%D7%95%D7%A6%D7%A8%D7%99%D7%9D-%D7%9C%D7%9B%D7%9C%D7%91%D7%99%D7%9D-%D7%92%D7%95%D7%A8-%D7%A7%D7%98%D7%9F.jpg" style="display: inline-block; position: relative; width: 247px; height: 186.859px; transform: translate(0px, 0px);" width="247" height="186.859375"></ir-gallery>
+		Some text <b><i>italic in bold</i>some bold</b> without paragraph ending with two brs<br><br><ir-gallery contenteditable="false" theme="blackfriday" style="display: inline-block;"><div class="caption-wrapper"><img src="https://storage17.tunefiles.com/files/thumbs/2014/07/26/1406397346ad30f-original-1.jpg" style="display: inline-block; position: relative; width: 218px; height: 166.313px; transform: translate(0px, 0px);" width="218" height="166.3125"><div class="caption" contenteditable="true">hi caption</div></div></ir-gallery><ir-gallery contenteditable="false"><img src="http://i00.i.aliimg.com/wsphoto/v0/1855197662_1/2015-%D7%A0%D7%99%D7%95-%D7%97%D7%99%D7%95%D7%AA-%D7%9E%D7%97%D7%9E%D7%93-%D7%9B%D7%9C%D7%91-%D7%A6%D7%A2%D7%A6%D7%95%D7%A2-%D7%9B%D7%93%D7%95%D7%A8-jin-mao-%D7%91%D7%99%D7%9E%D7%91%D7%95-%D7%93%D7%95%D7%91%D7%95%D7%9F-%D7%A1%D7%9E%D7%95%D7%99%D7%93-%D7%9E%D7%95%D7%A6%D7%A8%D7%99%D7%9D-%D7%9C%D7%9B%D7%9C%D7%91%D7%99%D7%9D-%D7%92%D7%95%D7%A8-%D7%A7%D7%98%D7%9F.jpg" style="display: inline-block; position: relative; width: 247px; height: 186.859px; transform: translate(0px, 0px);" width="247" height="186.859375"></ir-gallery>
+		<span class="paragraph">a short paragraph a short paragraph a short paragraph <b>some bold in a short paragraph <i> some italic in bold in a short paragraph </i></b>a short paragraph a short paragraph a short paragraph a short paragraph a short paragraph a short paragraph a short paragraph a short paragraph a short paragraph a short paragraph a short paragraph </span>
+		<span class="paragraph"><ir-gallery contenteditable="false"><img src="http://i00.i.aliimg.com/wsphoto/v0/1855197662_1/2015-%D7%A0%D7%99%D7%95-%D7%97%D7%99%D7%95%D7%AA-%D7%9E%D7%97%D7%9E%D7%93-%D7%9B%D7%9C%D7%91-%D7%A6%D7%A2%D7%A6%D7%95%D7%A2-%D7%9B%D7%93%D7%95%D7%A8-jin-mao-%D7%91%D7%99%D7%9E%D7%91%D7%95-%D7%93%D7%95%D7%91%D7%95%D7%9F-%D7%A1%D7%9E%D7%95%D7%99%D7%93-%D7%9E%D7%95%D7%A6%D7%A8%D7%99%D7%9D-%D7%9C%D7%9B%D7%9C%D7%91%D7%99%D7%9D-%D7%92%D7%95%D7%A8-%D7%A7%D7%98%D7%9F.jpg" style="display: inline-block; position: relative; width: 247px; height: 186.859px; transform: translate(0px, 0px);" width="247" height="186.859375"></ir-gallery> a gallery immediately under a paragraph</span>
+		
+	<table border>
+		<tr>
+			<td>some</td>
+			<td>tabled</td>
+		</tr>
+		<tr>
+			<td>data</td>
+			<td>here</td>
+		</tr>
+	</table>
+
+	</div>
+	<table>
+		<tr><td hidden>defaultBehaviorPoints</td><td>stopPoints</td><td>skipPoints</td><td>log</td><td>caret is at</td></tr>
+		<tr>
+			<td hidden><textarea cols=30 rows=5 id="defaultBehaviorPoints"></textarea></td>
+			<td><textarea cols=30 rows=5 id="stopPoints"></textarea></td>
+			<td><textarea cols=30 rows=5 id="skipPoints"></textarea></td>
+			<td><textarea cols=30 rows=5 id="logspace"></textarea></td>
+			<td><div id="elclone"></div></td>
+		</tr>
+	</table>
+	<button onclick="updateRules()">update rules</button>
+	<button onclick="updateAndRun()">run all</button>
+	<button onclick="resetUI()">reset UI</button>
+	<button onclick="testFlow()">test flow</button>
+	<button onclick="testRuleMatching()">test rule mat ching</button>
+	&nbsp;&nbsp;&nbsp;
+	<button onclick="go('backward', true)", true>&lt;&lt;</button>
+	<button onclick="go('backward')">&lt;</button>
+	<button onclick="stopFastGo()">?</button>
+	<button onclick="go('forward')">&gt;</button>
+	<button onclick="go('forward', true)">&gt;&gt;</button>
+	&nbsp;&nbsp;&nbsp;
+	<button onclick="document.getElementById('logspace').value = ''">clear log</button>
+
+	
+</body>
+
+  <script>  
+  	var utils = ir.textarea.utils;
+
+	var nutils = {}
+	
+	var logspace = document.querySelector('#logspace');
+	function log()
+	{
+		var i = 0;
+		while(i < arguments.length)
+			logspace.value += arguments[i++] + "\n";
+		
+		logspace.scrollTop = logspace.scrollHeight;
+	}
+	
+	// utils
+	
+	nutils.nextNode = function(node, excludeChildren) {
+		if(node.is)
+			node = Polymer.dom(node);
+
+		if(!excludeChildren && node && (Polymer.dom(node).childNodes && Polymer.dom(node).childNodes.length)) {
+			return node.firstChild;
+		} else {
+			while (node && node != top && !Polymer.dom(node).nextSibling) {
+				node = Polymer.dom(node).parentNode;
+			}
+			if (!node) {
+				return null;
+			}
+			return Polymer.dom(node).nextSibling;
+		}
+	}
+
+	nutils.prevNode = function(node, top, opts) {
+		var pn;
+
+		if(!opts) opts = {};
+
+		if(!Polymer.dom(node).previousSibling)
+		{
+			pn = Polymer.dom(node).parentNode;
+			if(!opts.skipAncestors)
+				return pn;
+			else
+			{
+				while(pn && pn != top && !Polymer.dom(pn).previousSibling)
+					pn = Polymer.dom(pn).parentNode;
+
+				if(!pn || pn == top)
+					return pn;
+
+				pn = Polymer.dom(pn).previousSibling;
+			}
+		}
+		else
+			pn = Polymer.dom(node).previousSibling
+
+		if(pn.nodeType == 3)
+			return pn;
+
+		while(Polymer.dom(pn).lastChild && (!opts.atomicCustomElements || !pn.is))
+			pn = Polymer.dom(pn).lastChild;
+
+		return pn;
+	}
+	
+	nutils.parentNode = function(node) {
+		if(Polymer.dom(node).parentNode != node.parentNode && !utils.isInLightDom(node, top))
+			return Polymer.dom(node).parentNode;
+		else
+			return node.parentNode;
+	}
+
+	var rulesetsDef = {
+			defaultBehaviorPoints : "TEXT||INLINECONT,INLINECONT||INLINECONT,INLINECONT>TEXT",
+			stopPoints : 			"EDITOR>IS,*>EMPTYTEXT,IS||!TEXT,TEXT||!NCBLOCK,EMPTYTEXT||NCBLOCK,P>IS,CONTED>TEXT,NCBLOCK||NCBLOCK",
+			skipPoints :    		"TEXT||TRANS,IS>>!CONTED,*>>EDITOR,*||SHADOW,P||TEXT,INLINECONT||TEXT,INLINECONT>INLINECONT,TRANS>|*"
+
+	}
+	var rulesets = new ir.textarea.CaretRulesets(rulesetsDef, document.getElementById('editor'));
+
+	// ui
+	// document.querySelector("#defaultBehaviorPoints").value = rulesetsDef.defaultBehaviorPoints
+	document.querySelector("#stopPoints").value = rulesetsDef.stopPoints
+	document.querySelector("#skipPoints").value = rulesetsDef.skipPoints
+
+	// prepare whitespace
+	
+	setTimeout(function() {
+		var e = document.querySelector('#editor');
+		utils.visitNodes(e, function(n) { 
+			if(n.nodeType == 3 && utils.isInLightDom(n, e) && !Symbols.TRANS(nutils.parentNode(n)))
+				n.textContent = n.textContent.replace(/\s/g, '\xa0'); 
+		});
+	}, 100);
+	
+	function updateRules() {
+		rulesetsDef.defaultBehaviorPoints = document.querySelector("#defaultBehaviorPoints").value;
+		rulesetsDef.stopPoints = document.querySelector("#stopPoints").value;
+		rulesetsDef.skipPoints = document.querySelector("#skipPoints").value;
+		rulesets = new ir.textarea.CaretRulesets(rulesetsDef, document.getElementById('editor'));
+	}
+	
+	var sel;
+	
+	function resetUI() {
+		var e;
+		Array.prototype.forEach.call(document.querySelectorAll('.caret'), function(n) { n.parentNode.removeChild(n); })
+		e = document.querySelector('#editor');
+		e.normalize();
+	}
+	
+	function updateAndRun() {
+		resetUI();
+		updateRules();
+		testFlow();
+		testRuleMatching();
+	}
+	
+	// tests
+	function testFlow() {
+		var e, n, match, 
+			forwardNodes = [],
+			backwardNodes = [],
+			fn, bn, i; //, m;
+		
+		log('TESTING Bidirectional DOM flow');
+		
+		e = m = document.getElementById('editor');
+		n = m.firstChild;
+
+		// forward flow
+		while(n && n != e.nextSibling)
+		{
+			forwardNodes.push(n);
+			
+			if(nutils.prevNode(nutils.nextNode(n)) != n)
+				console.error('prev(next(node)) don\'t match');
+
+			n = nutils.nextNode(n);
+		}
+		
+		// backward flow
+		n = nutils.prevNode(n);
+		while(n && n != e)
+		{
+			backwardNodes.push(n);
+			
+			n = nutils.prevNode(n);
+		}
+		
+		log(forwardNodes.length + ' forward nodes.\n');
+		log(backwardNodes.length + ' backward nodes.\n');
+		log('end of walk, comparing')
+		
+		i = 0;
+		forwardNodes.reverse();
+		while((bn = backwardNodes.pop()) == (fn = forwardNodes.pop()) && bn)
+			i++;
+		
+		if(backwardNodes.length)
+			log("Mismatch:", i, bn);
+		else
+			log("PASSED");
+	}
+	
+	var Symbols = ir.textarea.CaretRulesets.Symbols;
+
+	function forward(container, offset)
+	{
+		var c = container, o = offset, m, n, match, skipMatch,
+			e = document.getElementById('editor');
+
+		if(c == e.lastChild && c.nodeType == 3 && o == c.textContent.length)
+			return { container : c, offset : c.textContent.length }
+			
+		if((c == e && c.childNodes[o]))
+		{
+			c = c.childNodes[o];
+			o = 0;
+		}
+
+		if(!c)
+			return;
+			
+		if(c.nodeType == 3 && o < c.textContent.length)
+			return { container : c, offset : o + 1}
+
+		if(c == e.nextSibling || (c == e && o == e.childNodes.length))
+			return { container : c, offset : e.childNodes.length };
+
+		n = c;
+		
+		while(n && n != e.nextSibling) {
+			n = nutils.nextNode(n);
+			
+			if(!n)
+				return null;
+			
+			m = n.previousSibling || nutils.parentNode(n);
+
+			// non-end of textNode
+			if(n.nodeType == 3 && /\S/.test(n.textContent) && !rulesets.skipPoints(null, n))
+				return { container : n, offset : (m.firstChild == n && Symbols.INLINECONT(m) ? 1 : 0) }
+			
+			if(m != c && m.nodeType == 3 && m.textContent && !rulesets.skipPoints(null, n))
+				return { container : m, offset : 0 };
+			
+			// a stop
+			if(match = rulesets.stopPoints(m, n))
+			{
+				skipMatch = rulesets.skipPoints(m, n);
+				if(!skipMatch)
+				{
+					if(n.nodeType == 3)
+						return { container : n, offset : 0 }
+
+					return { container : n, offset : 0, caretRule : match }
+				}
+				else
+					log(match, " blocked by  ", skipMatch)
+			}		
+			//n = nutils.nextNode(n);
+		}
+
+		// end
+		return { container : e, offset : e.childNodes.length };
+	}
+
+	function backward(container, offset)
+	{
+		var c = container, o = offset, m, n, match,
+			e = document.getElementById('editor');
+		
+		if(c == e && c.childNodes[o])
+		{
+			c = c.childNodes[o];
+			o = 0;
+		}	
+
+		if(c == e.firstChild && o == 0)
+			return { container : c, offset : o };		
+		
+		// non-beginning of textnode
+		if(c.nodeType == 3 && o > 0)
+			return { container : c, offset : o - 1 }
+
+		if(c == e && o == 0)
+			return { container : c, offset : 0 };
+			
+		n = c;
+		while(n && n != e) {
+			n = nutils.prevNode(n);
+			
+			if(n.nodeType == 3 && !rulesets.skipPoints(null, n))
+				return { container : n, offset : n.textContent.length - (m && m.firstChild == n && Symbols.INLINECONT(m) ? 1 : 0) };
+
+			m = n.previousSibling || nutils.parentNode(n);
+					
+			if(m.nodeType == 3 && m.textContent && /\S/.test(m.textContent) && utils.isInLightDom(m, e))
+				return { container : m, offset : m.textContent.length - (m && m.nextSibling == n && Symbols.INLINECONT(n) ? 1 : 0) };
+			
+			// a stop
+			if(match = rulesets.stopPoints(m, n))
+			{
+				if(!rulesets.skipPoints(m, n))
+				{
+					if(n.nodeType == 3)
+						return { container : n, offset : n.textContent.length }
+
+					return { container : n, offset : 0, caretRule : match }
+				}
+			}		
+			// n = nutils.prevNode(n);
+		}
+
+		// end
+		return { container : e, offset : e.childNodes.length };
+	}
+
+	
+	document.getElementById('editor').addEventListener('mousedown', mouseHandler, true)
+	document.getElementById('editor').addEventListener('mouseup', function(ev) {
+		if(!this.preventNextDefault)
+			return
+		
+		ev.stopPropagation();
+		ev.stopImmediatePropagation();
+		
+		this.preventNextDefault = false
+	}, true);
+
+	
+	function mouseHandler(ev) {
+		var c, o, cp;
+
+		
+		
+		if(ev.target.nodeType == 3)
+			return;
+
+		//c = ev.target; // nutils.parentNode(ev.target);
+		//o = 0; // utils.getChildPositionInParent(ev.target);
+		
+		cp = utils.caretPositionFromPoint(ev.clientX, ev.clientY);
+
+		o = cp.offset;
+		c = cp.node;
+		
+		if(!c)
+			return;
+		
+		if(!utils.isInLightDom(c, e))
+		{
+			c = utils.getTopCustomElementAncestor(c, e);
+			o = 0;
+		}
+		
+		go({ container : c, offset : o});
+		
+		ev.preventDefault();
+		ev.stopPropagation();
+		ev.stopImmediatePropagation();
+		
+		this.preventNextDefault = true;
+	}
+	
+	function keyHandler(e) {
+		if(e.keyCode == 39)
+		{
+			if(e.type == 'keydown')
+				go('forward')
+				
+			return e.preventDefault();
+		}
+			
+		if(e.keyCode == 37)
+		{
+			if(e.type == 'keydown')
+				go('backward')
+			return e.preventDefault();
+		}
+	}
+	
+	var caretSpan;
+	var e = document.getElementById('editor');
+	var fftimeout;
+	
+	var stopFastGo = function() {
+		clearTimeout(fftimeout)
+	}
+
+	var go = function(direction, fast)
+	{
+		var r, next, sel, pn, index, c, o, pos, childAtPos;
+		
+		if(caretSpan && caretSpan.parentNode)
+		{
+			index = utils.getChildPositionInParent(caretSpan);
+			
+			pn = caretSpan.parentNode;
+			pn.removeChild(caretSpan);
+			
+			for(i = 0; i < pn.childNodes.length; i++)
+				if(pn.childNodes[i].nodeType == 3 && !pn.childNodes[i].textContent.length)
+					pn.removeChild(pn.childNodes[i]);
+			
+			c = pn, o = index;
+
+			childAtPos = pn.childNodes[o];
+			if(childAtPos) // && !childAtPos.is)
+			{
+				c = childAtPos;
+				o = 0;
+			}
+		}
+
+		if(typeof direction == 'object')
+		{
+			pos = direction;
+			c = pos.container;
+			o = pos.offset;
+			
+			pos = forward(pos.container, pos.offset);
+			next = backward(pos.container, pos.offset);
+		}
+		else
+		{
+			if(!c)
+			{
+				r = utils.getSelectionRange();
+				
+				if(!r)
+					log('SELECTED RANGE IS OUTSIDE EDITOR');
+				
+				c = r.startContainer, o = r.startOffset;
+			}
+			
+			next = this[direction](c, o);
+		}
+
+		if(next)
+		{
+			setAt(next.container, next.offset);
+			log(utils.tagOutline(next.container).trim().substring(0,10), next.offset, next.caretRule ? next.caretRule : "NO RULE" );
+			document.getElementById('elclone').innerHTML = utils.recursiveOuterHTML(next.container);
+		}
+		else
+			log("NO RULE, default action")
+		
+		clearTimeout(fftimeout);
+		if(fast && (!next || utils.isDescendantOf(next.container, e)))
+			fftimeout = setTimeout(function() {
+				go(direction, fast) 
+			}, next && next.container.nodeType == 3 ? 5 : 500);	
+		
+		
+		
+		return next;
+	}
+	
+	var setAt = function(container, offset) {			
+		if(container.nodeType != 3)
+		{
+			container.parentNode.insertBefore(caretSpan = newCaretSpan(), container);
+			utils.setCaretAt(caretSpan.firstChild, 0);
+		}
+		else
+			utils.setCaretAt(container, offset);
+	}
+
+	function testRuleMatching() {
+		var e, n, match, title,
+			forwardMatches = [], 
+			backwardMatches = [], 
+			forwardNodes = [],
+			backwardNodes = [],
+			fn, bn, i, done, caretPos; //, m;
+		
+		log('TESTING Bidirectional rule matching');
+		
+		e = n = document.getElementById('editor');
+		m = n.firstChild;
+
+		// forward matching
+		while(m && m != e.nextSibling)
+		{
+			if(match = rulesets.stopPoints(n, m))
+				if(!rulesets.skipPoints(n, m))
+					forwardMatches.push({ left : n, right : m, info : match });
+			
+			forwardNodes.push(m);
+			m.match = match;
+				
+			m = nutils.nextNode(m);
+			
+			n = m.previousSibling || nutils.parentNode(m); //, log(m, n);
+		}
+		
+		// backward matching
+		m = nutils.prevNode(m);
+		n = n = m.previousSibling || nutils.parentNode(m); // Polymer.dom(n).firstChild || n.nextSibling;
+		while(!done)
+		{
+			if(match = rulesets.stopPoints(n, m))
+				if(!rulesets.skipPoints(n, m))
+					backwardMatches.push({ left : n, right : m, info : match });
+
+			if(n == e || !n)
+				done = true
+
+			m = nutils.prevNode(m);
+						
+			n = m.previousSibling || nutils.parentNode(m);
+		}
+		
+		// now test
+		
+		log(forwardMatches.length + ' forward matches.\n');
+		log(backwardMatches)
+		log(backwardMatches.length + ' backward matches.\n');
+		log('end of walk, comparing')
+		
+		i = 0;
+		done = false;
+		forwardMatches.reverse();
+		while(!done)
+		{
+			bn = backwardMatches.pop();
+			fn = forwardMatches.pop();
+			if(!(bn.left == fn.left && bn.right == fn.right && bn.info == fn.info))
+			{
+				console.error("Mismatch: ", i, fn, bn);
+				done = true;
+			}
+				
+			i++;
+			if(!backwardMatches.length)
+				done = true;
+
+			title = utils.tagOutline(fn.left).substring(0, 20) + " - " + fn.info + " - " + utils.tagOutline(fn.right).substring(0, 20);
+			nutils.parentNode(fn.right).insertBefore(newCaretSpan(fn.info, title), fn.right);
+		}
+
+		if(forwardMatches.length || backwardMatches.length)
+			log("FAILED");
+		else
+			log("PASSED");
+	}
+	function newCaretSpan(text, title) {
+		var caretPos = document.createElement('span');
+		caretPos.classList.add('caret');
+		caretPos.innerHTML = text || '';
+		caretPos.title = title || '';
+		caretPos.appendChild(document.createTextNode(''));
+		
+		return caretPos;
+	}
+
+  </script>
+  
+</html>

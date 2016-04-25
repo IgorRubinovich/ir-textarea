@@ -286,7 +286,7 @@ window.ir.textarea.utils = (function() {
 		var sel = window.getSelection(),
 			range = document.createRange();
 
-		console.log('setting caret at:', startTarget, startOffset);
+		// console.log('setting caret at:', startTarget, startOffset);
 			
 		if(!endTarget)
 		{

@@ -17,6 +17,117 @@
 <script>
 	(function() {
 		var utils = ir.textarea.utils;
+		
+		/*
+			caret rules node symbols [NODE]:
+				EDITOR - Editor
+				IS - Custom Element
+				CONT - Container - block level (non-inline, non-custom) element that can contain text
+				INLINE - Inline Elment
+				TRANS - Transitional element (such as UL,TR,TABLE)
+				BLOCK - Any block level non-custom element (CONT,INLINE,TRANS)
+				CONTED - Content editable
+				TEXT - Text node
+				P - Paragraph
+				PEMPTY - Empty paragraph
+				CARET - Caret
+				NCBLOCK - Non-container block (<BR>)
+								
+			relationship descriptors <REL>:
+				[NODE1]|[NODE2]  ordered siblings
+				[NODE1]||[NODE2] unordered siblings (<SYM1>|<SYM2> or <SYM2>|<SYM1>)
+				[NODE1]>[NODE2] immediate descendant e. g. ED>IS
+				[NODE1]>>[NODE2] NODE2 is descendant of NODE1
+		*/
+		
+		var CaretRulesets = function () {
+			var symbols = {
+				EDITOR : function(el) { return el == this.editor },
+				IS : function(el) { return el && el.is },
+				CONT : function(el) { return untils.canHaveChildren(el) },
+				INLINE : function(el) { return untils.isInlineElement(el) },
+				TRANS : function(el) { return el && ['UL', 'TR', 'TABLE'].indexOf(el.tagName) > -1 }, // add more
+				CONTED : function(el) { return el && el.hasAttribute('contenteditable') },
+				TEXT : function(el) { return el && el.nodeType == 3 },
+				P : function(el) { return utils.isParagraph(el) },
+				PEMPTY : function(el) { return utils.isEmptyParagraph(el) },
+				CARET : function(el) { return el && el.isCaret },
+				NCBLOCK : function(el) { return !utils.canHaveChildren(el) }
+			}
+			
+			var relationships = {
+				"|" : function(e1, e2) { return e1.nextSibling == e2 },
+				"||" : function(e1, e2) { return e1.nextSibling == e2 || e1.nextSibling == e1 },
+				">" : function(e1, e2) { return parentNode(e2) == e1 },
+				">>" : function(e1, e2) { return utils.isDescendantOf(e2,e1) }
+			}
+			
+			var caretRule = function(t1, op, t2) {
+				var t1, t2, op, f;
+
+				t1 = symbols[t1],
+				t2 = symbols[t2],
+				op = relationships[op];
+				
+				if(!t1) console.error(t1 + 'is an unknown symbol');
+				if(!t2) console.error(t2 + 'is an unknown symbol');
+				
+				f = function(e1, e2) {
+					if(t1(e1) && t2(e2))
+						return op(e1,e2)
+				}
+				
+				f.name = t1 + op + t2;
+				
+				return f;
+			}
+			
+			var parseRules = function(rules) {
+				var tokens = rules.split(/\s*\,\s*/), t, rules = [], r;
+				while(t = tokens.pop())
+				{
+					r = t.match(/(\w+)(>{1,2}|\|{1,2})(\w+)/);
+					rules.push(caretRule(r[1],r[2],r[3]));
+				}
+				
+				return rules;	
+			}
+
+			var anyMatcher = function(rules) {
+				var f;
+
+				function f(el1, el2) {
+					var i = -1, r;
+					while(++i < rules.length)
+					{
+						r = rules[i](el1, el2);
+						if(r)
+							return true;
+					}
+						
+					return false;
+				}
+				return f;
+			}
+			
+			var _caretRules = {
+				stopPoints : "EDITOR>IS,IS||P,IS>>CONTED,NCBLOCK||IS,IS||IS"
+			}
+				
+			var caretRules = {}, rulesetCheckers = {};
+			
+			Object.keys(_caretRules).forEach(function(r) {
+				caretRules[r] = parseRules(_caretRules[r]);
+			});
+			
+			Object.keys(caretRules).forEach(function(r) {
+				rulesetCheckers[r] = anyMatcher(caretRules[r]);
+			});	
+			
+			return rulesetCheckers;
+		}
+		
+		
 
 		Polymer({
 			is : "ir-textarea-range-marker",
@@ -83,7 +194,8 @@
 					}
 
 				this.originalInnerHTML = '';
-				
+			
+				this.rulesetCheckers = CaretRulesets();				
 			},
 			
 			observerConnect : function() {
@@ -95,7 +207,7 @@
 			},
 			
 			mutationHandler : function() {				
-				var c, m = this.$.marker;
+				var c, m = this.$.marker, lastInserted;
 				
 				if(!m.childNodes.length)
 					return;
@@ -107,7 +219,12 @@
 				this.observerDisconnect();				
 
 				while(m.childNodes.length)
-					parentNode.insertBefore(m.firstChild, this);
+					lastInserted = this.parentNode.insertBefore(m.firstChild, this);
+				
+				if(lastInserted && lastInserted.nodeType == 3)
+					this.setAt(lastInserted, lastInserted.textContent.length);
+
+				this.hide()
 				
 				this.observerConnect();
 
@@ -184,6 +301,8 @@
 				
 				this.updateFromCurrentRange();
 				this.adjust();
+				
+				this.rulesetCheckers.stopPoints(this.editor,this.editor.firstChild);
 			},
 
 			adjust : function() {			
@@ -230,13 +349,13 @@
 					c = ce.childNodes[ceo];
 
 					rc = this.realContainer;
-					if(rc == c && !rc.is && rc.firstChild && rc.firstChild.nodeType == 3) 
+					if(rc == c && !rc.is && rc.firstChild && rc.firstChild.nodeType == 3)
 						rc = c.firstChild
 					
 					if(	!c || 
 						c.is || 
 						(c.nodeType != 3 && !utils.canHaveChildren(c)) || // not container
-						(c.previousSibling && c.previousSibling.is && rc != c.firstChild) || 	  // after CE
+						(c.nodeType != 3 && c.previousSibling && c.previousSibling.is && rc != c.firstChild) || 	  // after CE
 						(c.nodeType == 3 && /^\s*$/.test(c.textContent))) // empty text node
 						this.show();
 				}
@@ -361,10 +480,9 @@
 					isWhitespace = /^\s*$/.test(c.textContent);
 					if(c.nodeType == 3)
 					{
-						//if(c.textContent && isWhitespace)
-						//	return recursive ? { container : c, offset : o } : this.nextPosition(c.parentNode, indexOf(c) + 1, true);
 						if(isWhitespace && fromNode && fromNode.is) //!c.textContent)
 							return fromNode ? { container : c, offset : o } : null;
+
 						// start/mid
 						if(o < c.textContent.length)
 							return fromNode ?  { container : c, offset : 0 } : null;
@@ -416,62 +534,84 @@
 					
 			},
 			previousPosition : function(container, offset, fromNode) {
-				var c = container, o = offset, ce, indexOf = utils.getChildPositionInParent, isWhitespace;
-				
+				var c = container, o = offset, ce, indexOf = utils.getChildPositionInParent, isWhitespace, tcea;
+
 				if(!c)
-					return null;
+					return;
+					
+				if(fromNode)
+				{
+					if(c.childNodes[o] == fromNode)
+						return this.nextPosition(c, o + 1, fromNode);
+
+					if(c != this.editor && fromNode && utils.isDescendantOf(fromNode, container))
+					{					
+						if(tcea = utils.getTopCustomElementAncestor(c, this.editor))
+							c = tcea;
+
+						return this.nextPosition(parentNode(c), indexOf(c), c);
+					}
+				}
+				
+				if(offset < 0)
+					return this.previousPosition(c.parentNode, indexOf(c));
 				
 				if(c.isCaret)
-					this.previousPosition(c.hostMarker.realContainer, c.hostMarker.realOffset, true);
+					this.previousPosition(c.hostMarker.parentNode, c.hostMarker.offset - 1, true);
 				
-				// marker at end of editor - no change
+				// marker at start of editor - no change
 				if(c == this.editor)
-					if(o >= this.editor.childNodes.length)
-						return { container : c, offset : o };
+					if(o <= 0)
+						return null;
 					else
-						return this.nextPosition(c.childNodes[o], 0, fromNode);
+						return this.previousPosition(c, o - 1, fromNode);
 				
 				
-				if(c.nodeType != 3 && o >= c.childNodes.length && utils.canHaveChildren(c))
-					return this.nextPosition(c.parentNode, indexOf(c) + 1, true);
+				//if(c.nodeType != 3 && o == 0 && utils.canHaveChildren(c))
+				if(o == 0)
+					return this.previousPosition(parentNode(c), indexOf(c) - 1, fromNode);
 				
 				// text node
 					// marker is in text node
 					isWhitespace = /^\s*$/.test(c.textContent);
 					if(c.nodeType == 3)
 					{
-						//if(c.textContent && isWhitespace)
-						//	return recursive ? { container : c, offset : o } : this.nextPosition(c.parentNode, indexOf(c) + 1, true);
 						if(isWhitespace && fromNode && fromNode.is) //!c.textContent)
-							return { container : c, offset : o };
-						// start/mid
-						if(o < c.textContent.length) 
-							return { container : c, offset : fromNode ? 0 : o + 1 }
+							return fromNode ? { container : c, offset : c.textContent.length } : null;
+
+						// end/mid
+						if(o >= 0)
+							return fromNode ?  { container : c, offset : c.textContent.length } : null;
 						// end
 						else
-							return this.nextPosition(c.parentNode, indexOf(c) + 1, c);
+							return this.previousPosition(parentNode(c), indexOf(c) - 1, c);
 					}
 
 					// marker is at (not in) text node
-					if(fromNode && !fromNode.is && !c.is && c.childNodes && c.childNodes[o] && c.childNodes[o].nodeType == 3)
-						return { container : c.childNodes[o], offset : 0 }
+					if((!fromNode || !fromNode.is) && !c.is && c.childNodes && c.childNodes[o] && c.childNodes[o].nodeType == 3)
+					{
+						if(!c.childNodes[o].textContent.length)
+							return this.nextPosition(c, o+1, c);
+						else
+							return { container : c.childNodes[o], offset : 0 }
+					}
 
 				// element
 					// custom
 					if(c.is)
 						if(fromNode)
-							return { container : c.parentNode, offset : indexOf(c) }
+							return { container : parentNode(c), offset : indexOf(c) }
 						else
 						// has editable light dom children
 						if(ce = Polymer.dom(c).querySelector('[contenteditable]'))
-							return this.nextPosition(ce, 0, true);
+							return this.nextPosition(ce, 0, fromNode);
 						// doesn't have any
 						else
-							return this.nextPosition(c.parentNode, indexOf(c) + 1, c)
+							return this.nextPosition(parentNode(c), indexOf(c) + 1, c)
 
 							
-					if(fromNode && fromNode.is)
-						return { container : c, offset : o };
+					if(fromNode && fromNode.is && c != this.editor)
+						return { container : parentNode(c), offset : indexOf(c) };
 					
 					// container
 					if(c.firstChild)
@@ -480,19 +620,20 @@
 					if(fromNode && utils.canHaveChildren(c))
 						return { container : c, offset : 0 }
 					else
-						return this.nextPosition(c.parentNode, indexOf(c) + 1, c);
+						return this.nextPosition(parentNode(c), indexOf(c) + 1, c);
 						
 					// non-container
 					if(fromNode)
-						return { container : c.parentNode, offset : indexOf(c) }
+						return { container : parentNode(c), offset : indexOf(c) }
 					else
-						return this.nextPosition(c.parentNode, indexOf(c) + 1, c);
+						return this.nextPosition(parentNode(c), indexOf(c) + 1, c);
 					
 			},
 			pullRange : function() {
 				var r = utils.getSelectionRange() || {}, tn;
 				
-				if(!this.$.marker.firstChild)
+				tn = this.$.marker.firstChild;
+				if(!tn)
 				{
 					tn = this.$.marker.appendChild(document.createTextNode(''));
 					tn.isCaret = true;
@@ -515,7 +656,13 @@
 				if(!r)
 					return;
 				
-				this.setAt(r[this.bindToRange + "Container"], r[this.bindToRange + "Offset"]);
+				c = r[this.bindToRange + "Container"];
+				o = r[this.bindToRange + "Offset"];
+				
+				if(this.realContainer && (c == this.realContainer && o == this.realOffset))
+					return
+				
+				this.setAt(c, r);
 			},
 
 			setAt : function(container, offset, setRange) {
