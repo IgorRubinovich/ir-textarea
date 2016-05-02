@@ -5,26 +5,21 @@
 			<tr>
 				<td></td>
 				<td>tagOutline</td>
+				<td>container</td>
 				<td>offset</td>
-				<td>real offset</td>
-				<td>container element offset</td>
 				<td>visible</td>
 			</tr>
 			<tr>
 				<td>Start</td>
 				<td>{{ startTagOutline }}</td>
+				<td>{{ startContainer }}</td>
 				<td>{{ startOffset }}</td>
-				<td>{{ startRealOffset }}</td>
-				<td>{{ startContainerElementOffset }}</td>
-				<td>{{ startIsVisible }}</td>
 			</tr>
 			<tr>
 				<td>End</td>
 				<td>{{ endTagOutline }}</td>
+				<td>{{ endContainer }}</td>
 				<td>{{ endOffset }}</td>
-				<td>{{ endRealOffset }}</td>
-				<td>{{ endContainerElementOffset }}</td>
-				<td>{{ endIsVisible }}</td>
 				</tr>
 		</table>
 
@@ -34,8 +29,6 @@
 			tag-outline="{{ startTagOutline }}" 
 			container="{{ startContainer }}" 
 			offset="{{ startOffset }}"
-			real-offset="{{ startRealOffset }}"
-			container-element-offset="{{ startContainerElementOffset }}"
 			visible="{{ startIsVisible }}"
 		>
 		</ir-textarea-range>
@@ -45,8 +38,6 @@
 			tag-outline="{{ endTagOutline }}" 
 			container="{{ endContainer }}" 
 			offset="{{ endOffset }}"
-			real-offset="{{ endRealOffset }}"
-			container-element-offset="{{ endContainerElementOffset }}"
 			visible="{{ endIsVisible }}"
 		>
 		</ir-textarea-range>
@@ -72,7 +63,8 @@
 				this.$.start.editor = this.editor;
 				this.$.end.editor = this.editor;
 				
-				this.bindHandlers('mousedown,mouseup,keydown,keyup,keypress', this.inputHandler, this.editor);
+				//this.bindHandlers('mousedown,mouseup,keydown,keyup,keypress', this.inputHandler, this.editor);
+				this.bindHandlers('keydown,keyup', this.inputHandler, this.editor);
 			},
 			setStartAt : function(c, o) {
 				this.$.start.setAt(c, o);
@@ -120,12 +112,14 @@
 					}*/
 			},
 			
+			
+			
 			inputHandler : function(ev) {
 				var keyCode = ev.which;
 				//if(ev.type == 'keydown' && [33,34,35,36,37,38,39,40].indexOf(keyCode) == -1)
 				//	return
 				
-				if([8,46,35,36,37,39].indexOf(keyCode) > -1) // backspace/del/end/start/left/right
+				/*if([8,46,35,36,37,39].indexOf(keyCode) > -1) // backspace/del/end/start/left/right
 				{
 					if(ev.type == 'keyup')
 						ev.preventDefault();
@@ -133,9 +127,20 @@
 					if(ev.type == 'keydown')
 						this.$.start.pushRange(ev);
 						// this.$.end.pushRange(ev);
-				}
+				}*/
+				//if(this.shiftKey != ev.shiftKey)
+				//	this.switchMarker(ev.shiftKey);
 
-				this.update();
+				//this.update();
+			},
+			
+			switchMarker : function(shiftKey) {
+				this.shiftKey = shiftKey;
+				this.activeMarker = !shiftKey ? "start" : "end";
+				this.inactiveMarker = shiftKey ? "start" : "end";
+				
+				//this.$[this.activeMarker].startListening();
+				//this.$[this.inactiveMarker].stopListening();
 			},
 			
 			// bind all `eventTypes` to all given `handlers` on `target`

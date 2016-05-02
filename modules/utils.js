@@ -6,8 +6,13 @@ if(!window.ir.textarea) window.ir.textarea = {};
 window.ir.textarea.utils = (function() {
 	var utils = {};
 	
-	utils.DELIMITER = '\u00a0';
+	var INLINE_ELEMENTS = {};
 	
+	"font,b,big,i,small,tt,abbr,acronym,cite,code,dfn,em,kbd,strong,samp,time,var,a,bdo,br,img,map,object,q,script,span,sub,sup".split(/,/)
+		.forEach(function(tag) { INLINE_ELEMENTS[tag.toUpperCase()] = true });
+		
+	var TRANSITIONAL_ELEMENTS = ['UL', 'TABLE', 'TBODY', 'TH', 'TR'];
+		
 	utils.recursiveInnerHTML = function(el, skipNodes) {
 		skipNodes = skipNodes || [];
 
@@ -18,8 +23,6 @@ window.ir.textarea.utils = (function() {
 			return "";
 
 		return Array.prototype.map.call((el.is ? Polymer.dom(el) : el).childNodes, function(node) {
-				if(node.isDelimiter)
-					return "";
 				if(skipNodes && skipNodes.indexOf(node) > -1)
 					return "";
 
@@ -105,9 +108,6 @@ window.ir.textarea.utils = (function() {
 
 	utils.recursiveOuterHTML = function(node, skipNodes){
 		var outerHTML, innerHTML, childNodes, res;
-
-		if(node.isDelimiter && node.nodeType == 3)
-			return node.textContent.replace(/\s/g, '');
 
 		if(skipNodes && skipNodes.indexOf(node) > -1)
 			return "";
@@ -284,16 +284,35 @@ window.ir.textarea.utils = (function() {
 
 	utils.setCaretAt = function(startTarget, startOffset, endTarget, endOffset) {
 		var sel = window.getSelection(),
-			range = document.createRange();
+			range = document.createRange()
+			currentrange = utils.getSelectionRange();
 
-		// console.log('setting caret at:', startTarget, startOffset);
-			
+		//console.log('setting caret at:', startTarget, startOffset, endTarget, endOffset);
+		try {
+			throw new Error('')
+		}
+		catch(e)
+		{
+			console.log(e.stack)
+		}
+		
 		if(!endTarget)
 		{
 			endTarget = startTarget;
 			endOffset = startOffset;
 		}
 
+		if(
+			(currentrange.startContainer == range.startContainer && 
+			currentrange.startOffset == range.startOffset) && 
+			( currentRange.collapsed || (
+				currentrange.endContainer == range.endContainer && 
+				currentrange.endOffet == range.endOffet
+				)
+			)
+		)
+			return
+		
 		range.setStart(startTarget, startOffset);
 		range.setEnd(endTarget, endOffset);
 
@@ -309,7 +328,7 @@ window.ir.textarea.utils = (function() {
 		return range;
 	};
 
-	utils.nextNode = function(node, excludeChildren) {
+	/*utils.nextNode = function(node, excludeChildren) {
 		if(node.is)
 			node = Polymer.dom(node);
 
@@ -324,14 +343,130 @@ window.ir.textarea.utils = (function() {
 			}
 			return Polymer.dom(node).nextSibling;
 		}
+	}*/
+
+	utils.nextNode = function(node, top) {
+		if(!node)
+			return;
+		
+		if(node.is)
+			node = Polymer.dom(node);
+
+		if(Polymer.dom(node).childNodes && Polymer.dom(node).childNodes.length)
+			return Polymer.dom(node).firstChild;
+
+		while (node && node != top && !Polymer.dom(node).nextSibling) // !Polymer.dom(node).nextSibling) {
+			node = Polymer.dom(node).parentNode;
+
+		if (!node)
+			return null;
+		
+		return node.nextSibling;
 	}
 
-	utils.prevNode = function (node) {
-		var ni;
-		if(node.previousSibling)
-			return node.previousSibling;
+	utils.prevNode = function(node, top, opts) {
+		var pn;
+
+		if(!opts) opts = {};
+
+		if(!Polymer.dom(node).previousSibling)
+		{
+			pn = Polymer.dom(node).parentNode;
+			if(!opts.skipAncestors)
+				return pn;
+			else
+			{
+				while(pn && pn != top && !Polymer.dom(pn).previousSibling)
+					pn = Polymer.dom(pn).parentNode;
+
+				if(!pn || pn == top)
+					return pn;
+
+				pn = pn.previousSibling;
+			}
+		}
+		else
+			pn = node.previousSibling
+
+		if(pn.nodeType == 3)
+			return pn;
+
+		while(Polymer.dom(pn).lastChild && (!opts.atomicCustomElements || !pn.is))
+			pn = Polymer.dom(pn).lastChild;
+
+		return pn;
+	}
+	
+	utils.parentNode = function(node, top) {
+		if(Polymer.dom(node).parentNode != node.parentNode && !utils.isInLightDom(node, top))
+			return Polymer.dom(node).parentNode;
 		else
 			return node.parentNode;
+	}
+
+	// similar to strcmp, compares two nodes in terms of document flow order
+	// <0	n1 is before n2 in flow
+	// 0	n1 == n2
+	// >0	n1 is after n2 in flow
+	utils.nodecmp = function(n1, n2) {
+		var t = n1, painted = [], res, i, cn, pn;
+		
+		if(n1 == n2)
+			return 0;
+
+		// paint up from n1
+		while(t && !res)
+		{
+			pn = utils.parentNode(t);
+			
+			if(t.nextSibling == n2 || pn == n2)
+				res = -1;
+
+			t.__painted__ = true;
+
+			painted.push(t);
+
+			t = pn;
+		}
+		
+		// look for painted node from n2 up
+		if(!res) {
+			t = n2;
+			while(t && !res && (pn = utils.parentNode(t)) && !pn.__painted__)
+				t = pn;
+
+			if(t == n1)
+				res = -1;
+			else
+			{
+				cn = (t.is ? Polymer.dom(t).childNodes : t.childNodes);
+				for(i = 0; !res && i < cn.length; i++)
+					if(cn[i].__painted__)
+						res = -1;
+					else
+					if(cn[i] == n2)
+						res = 1;
+			}
+		}
+		
+		
+		// clean up the paint
+		while(painted.length)
+			painted.pop().__painted__ = null;
+
+		return res;
+	}
+
+	// similar to strcmp, compares two caret positions in terms of document flow order
+	// n1 and n2 are range-like objects with .container and .offset properties
+	// <0	n1 is before n2 in flow
+	// 0	n1 == n2
+	// >0	n1 is after n2 in flow
+	utils.caretposcmp = function(n1, n2) {
+		if(n1.container == n2.container)
+			return n1.offset - n2.offset
+
+		return utils.nodecmp(n1.container, n2.container)
 	}
 
 	utils.prevNodeDeep = function(node, top, opts) {
@@ -532,15 +667,15 @@ window.ir.textarea.utils = (function() {
 	// modified code by Tim Down http://stackoverflow.com/questions/6846230/coordinates-of-selected-text-in-browser-page
 	// returns {x : x, y : y} of the current coordinates
 	utils.getSelectionCoords = (function () {
-		span = document.createElement("span");
-		span.appendChild( document.createTextNode("\u200b") );
-		span.classList.add('__moignore'); // to be ignored by mutation observer
+		var spareSpan = document.createElement("span");
+		spareSpan.appendChild( document.createTextNode("\u200b") );
+		spareSpan.classList.add('__moignore'); // to be ignored by mutation observer
 
 		return function _getSelectionCoords(win)
 		{
 			win = win || window;
 			var doc = win.document, offsetParent, oldVal;
-			var sel = doc.selection, range, rects, rect, delimiters = [];
+			var sel = doc.selection, range, rects, rect;
 			var x = 0, y = 0, spanParent, sid, eid;
 			if (sel) {
 				if (sel.type != "Control") {
@@ -550,9 +685,10 @@ window.ir.textarea.utils = (function() {
 					y = range.boundingTop;
 				}
 			} else if (win.getSelection) {
-				sel = win.getSelection();
-				if (sel.rangeCount) {
-					range = sel.getRangeAt(0).cloneRange();
+				//sel = win.getSelection();
+				range = utils.getSelectionRange();
+				if (range) {
+					//range = sel.getRangeAt(0).cloneRange();
 					/*if (range.getClientRects) {
 						range.collapse(true);
 						rects = range.getClientRects();
@@ -565,19 +701,20 @@ window.ir.textarea.utils = (function() {
 							y = rect.top;
 						}
 					}*/
+					if(range.startContainer.nodeType == 1)
+						span = range.startContainer;
+					else
+					if(range.startContainer.nodeType == 3 && range.startOffset == 0)
+						span = range.startContainer.parentNode;
+					else
+						span = spareSpan;
+
 					// Fall back to inserting a temporary element
 					if (x == 0 && y == 0) {
-						//var span = doc.createElement("span");
 						if (span.getClientRects) {
-							//var spanParent = span.parentNode;
+							if(!span)
+								range.insertNode(span = spareSpan);
 
-							sid = range.startContainer.isDelimiter;
-							eid = range.endContainer.isDelimiter;
-
-							range.insertNode(span);
-							//rect = span.getClientRects()[0];
-							//x = rect.left;
-							//y = rect.top;
 							y = span.offsetTop;
 							x = span.offsetLeft;
 
@@ -588,15 +725,14 @@ window.ir.textarea.utils = (function() {
 								x += offsetParent.offsetLeft
 							}
 
-							(spanParent = span.parentNode).removeChild(span);
+							if(spareSpan.parentNode)
+							{
+								(spanParent = spareSpan.parentNode).removeChild(spareSpan);
+								// Glue any broken text nodes back together
+								spanParent.normalize();
+								spanParent.noChange = true;
+							}
 
-							// Glue any broken text nodes back together
-							spanParent.normalize();
-
-							range.startContainer.isDelimiter = sid;
-							range.endContainer.isDelimiter = eid;
-							
-							spanParent.noChange = true;
 						}
 					}
 				}
@@ -630,7 +766,7 @@ window.ir.textarea.utils = (function() {
 
 		return false
 	}
-
+	
 	utils.visitNodes = function(root, visitor, opts, meta) {
 		var n = root;
 
@@ -651,6 +787,21 @@ window.ir.textarea.utils = (function() {
 			utils.visitNodes(el, visitor, opts, meta)
 			meta.numericPath.pop(i);
 		});
+	}
+	
+	
+	
+	// prepare editor area replacing double spaces with ` &nbsp;`-s
+	utils.prepareWhitespace	= function(e)
+	{
+		utils.visitNodes(e, function(n) {
+			if(n.nodeType == 3 && utils.isInLightDom(n, e) && !utils.isTransitionalElement(utils.parentNode(n)))
+				n.textContent = n.textContent.replace(/\s/, " ").replace(/[\s\n\t]{2}/gm, " \xa0").replace(/^\s/, "\xa0").replace(/\s$/, "\xa0");
+		});
+	}
+
+	utils.isTransitionalElement = function(el) {
+		return el && el.tagName && TRANSITIONAL_ELEMENTS.indexOf(el.tagName) > -1
 	}
 
 	utils.isSpecialElement = function(el) {
@@ -697,22 +848,10 @@ window.ir.textarea.utils = (function() {
 	},
 
 	utils.mergeNodes = function (left, right, setCaretAtMergePoint) {
-		var caretPos, ret, delimiters = 0, t;
+		var caretPos, ret, t;
 
 		ret = caretPos = utils.getLastCaretPosition(left);
 
-		if(left.isDelimiter && !/\S/.test(left.textContent))
-		{
-			left.textContent = utils.DELIMITER;
-			delimiters++
-		}
-		else
-		if(!left.isDelimiter && right.isDelimiter && !/\S/.test(right.textContent))
-		{
-			right.textContent = utils.DELIMITER;
-			delimiters++;
-		}
-		
 		if(left.nodeType == 1) // left <-- right
 		{
 
@@ -767,16 +906,11 @@ window.ir.textarea.utils = (function() {
 		}
 
 		if(setCaretAtMergePoint)
-			utils.setCaretAt(caretPos.container, caretPos.offset - delimiters);
+			utils.setCaretAt(caretPos.container, caretPos.offset);
 		
 		return ret;
-	}
-	
-	var INLINE_ELEMENTS = {};
-	
-	"font,b,big,i,small,tt,abbr,acronym,cite,code,dfn,em,kbd,strong,samp,time,var,a,bdo,br,img,map,object,q,script,span,sub,sup".split(/,/)
-		.forEach(function(tag) { INLINE_ELEMENTS[tag.toUpperCase()] = true });
-
+	}	
+		
 	utils.isInlineElement = function(el) {
 		return el && el.tagName && INLINE_ELEMENTS[el.tagName];
 	}

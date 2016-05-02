@@ -4,7 +4,7 @@
 		A small domain language for simple description of complex relationships
 		between DOM nodes. 
 	
-		Born out of suffering of caret/range navigation issues in contenteditable.
+		Born out of suffering of caret/range navigation complexity in contenteditable.
 	
 	2.	Expressions
 	
@@ -16,7 +16,7 @@
 		2.2 ruleset expressions:
 			a ruleset is a sequence of rules in a comma separated list, i.e.:
 	
-			RULESET := ([SYM11]<REL>[SYM12], [SYM21]<REL>[SYM22], ...)
+			RULESET := ([SYM11]<REL1>[SYM12],[SYM21]<REL2>[SYM22],...)
 	
 		2.3 node symbols [SYM]:
 			*	 	- Anything including falsy values
@@ -32,9 +32,9 @@
 			P 		- Paragraph
 			PEMPTY 	- Empty paragraph
 			CARET 	- Caret
-			NCBLOCK - Non-container block (<BR>)
+			NCBLOCK - Non-container block (e. g. <BR>)
 			
-			Prospective:
+			Prospective (not implemented but could make sense for other uses):
 			$DIV, $.BLUECLASS $#ELID, to autogenerate symbols as they occur
 			
 		2.4 relationship descriptors <REL>:
@@ -50,13 +50,13 @@
 			
 			or even things that might look bizare at the first sight:
 			
-			!P!||!TEXT - which means not paragraph and not text which are not siblings
+			!P!||!TEXT - which means not paragraph and not text which are not siblings. again, seems useless in contenteditable context, but who knows.
 
 	3.	Defining and running rulesets
 
 		3.1 
 		
-			Call ir.textarea.CaretRulesets(rulesDef, editor) with ruleset object of the form:
+			Call ir.textarea.CaretRulesets(rulesDef, editor) with rulesDef object of the form:
 		
 				rulesDef = {
 					ruleset1 : RULESET1,
@@ -72,7 +72,7 @@
 			to run a ruleset on two nodes, like so:
 			
 				// define
-				rules = ir.textarea.CaretRulesets(rulesDef, )
+				rules = ir.textarea.CaretRulesets(rulesDef, docment.getElementById('#editor'))
 				
 				// use
 				rules.ruleset1(node1, node2)
@@ -91,16 +91,8 @@
 
 
 (function() {
-	var utils = ir.textarea.utils, nutils = {};	
+	var utils = ir.textarea.utils;
 
-	nutils.parentNode = function(node) {
-			if(Polymer.dom(node).parentNode != node.parentNode && !utils.isInLightDom(node, top))
-				return Polymer.dom(node).parentNode;
-			else
-				return node.parentNode;
-		}
-
-	
 	var CaretRulesets = 
 	ir.textarea.CaretRulesets = 
 	
@@ -189,7 +181,7 @@
 		
 		// >| is agnostic to the given left
 		if(this.opname == '>|')
-			e1 = nutils.parentNode(e2);
+			e1 = utils.parentNode(e2, this.editor);
 		
 		//console.log(info,negleft,_t1,negright,_t2,negres,op)
 		l = this.symleft(e1);
@@ -228,14 +220,14 @@
 		CONT : 		function(el) { return utils.canHaveChildren(el) },
 		INLINECONT: function(el) { return el && utils.isInlineElement(el) && utils.canHaveChildren(el) && !utils.isParagraph(el) },
 
-		TRANS : 	function(el) { return el && el.tagName && ['UL', 'TABLE', 'TBODY', 'TH', 'TR'].indexOf(el.tagName) > -1 }, // add more
+		TRANS : 	function(el) { return utils.isTransitionalElement(el) }, // add more
 		CONTED : 	function(el) { // also matches text node immediately under contenteditable
 			var ce;
 			if(!el)
 				return;
 			if(el.nodeType == 3)
 				 el = el.parentNode;
-			if(el.getAttribute) 
+			if(el && el.getAttribute) 
 				ce = el.getAttribute('contenteditable');
 			return ce && ce != 'false' 
 		},
@@ -251,8 +243,8 @@
 	CaretRule.prototype.Relationships = {
 		"|" : 	function(e1, e2) { return e1.nextSibling == e2 },
 		"||" : 	function(e1, e2) { return (e1 && e1.nextSibling == e2) || (e2 && e2.nextSibling == e1) },
-		">" : 	function(e1, e2) { return e1 == nutils.parentNode(e2) },
-		">|" : 	function(e1, e2) { return nutils.parentNode(e2) == e1 },
+		">" : 	function(e1, e2) { return e1 == utils.parentNode(e2) },
+		">|" : 	function(e1, e2) { return utils.parentNode(e2, this.editor) == e1 },
 		">>" : 	function(e1, e2, rule)  { 
 											var t = e2, lr, done;
 											
@@ -262,7 +254,7 @@
 											if(e2 == this.editor)
 												return;
 											
-											while((t = nutils.parentNode(t)) && !done)
+											while((t = utils.parentNode(t, this.editor)) && !done)
 											{
 												lr = rule.symleft(t);
 												if(rule.negleft && !lr)

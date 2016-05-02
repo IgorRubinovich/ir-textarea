@@ -10,8 +10,9 @@
 		editorMutationHandler = window.ir.textarea.editorMutationHandler,
 		CustomUndoEngine = window.ir.textarea.CustomUndoEngine,
 		deletes = window.ir.textarea.deletes;
-		
+
 	console.log('ir-textarea');
+
 	Polymer({
 		is : 'ir-textarea-delimiter'
 		
@@ -142,8 +143,8 @@
 
 			this.connectEditorObserver();
 			
-			this.$.editor.innerHTML = this.getCleanValue().replace(/\t+/g, '');
-			this.$.editor.normalize();
+			//this.$.editor.innerHTML = this.getCleanValue().replace(/\t+/g, '');
+			utils.prepareWhitespace(this.$.editor);
 			this._initialValue = this.getCleanValue();
 			
 			this.set('value', this._initialValue); // tab custom element anyone?
@@ -403,8 +404,8 @@
 		  this.__actionData.type = type;
 
 		  setTimeout(function() {
-			if(this.__actionData.deleteTarget)
-				utils.setCaretAt.call(this.$.range, this.__actionData.deleteTarget, 0);
+			//if(this.__actionData.deleteTarget)
+			//	utils.setCaretAt.call(this.$.range, this.__actionData.deleteTarget, 0);
 		  }.bind(this), 50);
 
 		  this.customUndo.pushUndo(false, false);
@@ -605,10 +606,10 @@
 			.on('resizemove', resizeHandler)
 			.on('resizeend', resizeEndHandler);
 
-			if(target.nextSibling)
+			/*if(target.nextSibling)
 				utils.setCaretAt(target.nextSibling, 0);
 			else
-				utils.setCaretAt(target, 0);
+				utils.setCaretAt(target, 0);*/
 
 			interact('#resizeHandler').on('down', function (event) {
 				var interaction = event.interaction,

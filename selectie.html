@@ -1,0 +1,58 @@
+<html>
+
+<body>
+
+
+<p>Magna pariatur eu culpa elit, beef id sunt duis pancetta. Excepteur tempor jerky beef ribs, pork rump filet mignon culpa consequat shank boudin ex voluptate turducken. Cow qui ground round enim non. Consectetur corned beef consequat biltong exercitation proident. In pork chop andouille filet mignon sint ribeye, short ribs beef ribs enim. Laborum do leberkas, id hamburger in ball tip incididunt.</p>
+
+<p>Dolor fatback andouille tongue pastrami. Dolor sunt veniam sirloin, speck bresaola velit jerky ham rump ut biltong meatball consequat. Pork belly exercitation ham hock shankle adipisicing shank, cow fatback brisket quis nostrud. Labore commodo veniam culpa, tongue sausage eu tail capicola magna swine. Beef ribs salami quis in ad kielbasa, in shank tenderloin officia adipisicing pancetta sunt.</p>
+
+<p>Magna deserunt beef short ribs, tail sed shoulder laborum commodo chuck. Deserunt in cillum qui corned beef. Labore cow nisi, leberkas jerky eu commodo fatback beef shankle. Deserunt ea fugiat ribeye, fatback strip steak turkey flank.</p>
+
+<p>Ex incididunt speck, do swine elit aliquip laborum ham sed. Hamburger jowl est corned beef. Pariatur commodo ut voluptate, short loin brisket ground round ea laborum t-bone duis fugiat nulla irure. Nisi ex frankfurter excepteur pariatur short ribs sint, anim nulla swine. Jowl nostrud officia rump ball tip. Nostrud meatball capicola fatback qui, sint in duis minim.</p>
+
+<p>Adipisicing ribeye fugiat, brisket cillum deserunt shank speck velit pork loin. Reprehenderit ex laborum spare ribs pork belly, short ribs frankfurter anim enim speck adipisicing rump incididunt. Ullamco ham hock shoulder ball tip irure. Drumstick ut brisket dolore, hamburger swine esse pig fatback eiusmod beef. Shoulder venison dolore turducken.</p>
+
+
+
+<script>
+function createSelectionFromPoint(startX, startY, endX, endY) {
+    var doc = document;
+    var start, end, range = null;
+    if (typeof doc.caretPositionFromPoint != "undefined") {
+        start = doc.caretPositionFromPoint(startX, startY);
+        end = doc.caretPositionFromPoint(endX, endY);
+        range = doc.createRange();
+        range.setStart(start.offsetNode, start.offset);
+        range.setEnd(end.offsetNode, end.offset);
+    } else if (typeof doc.caretRangeFromPoint != "undefined") {
+        start = doc.caretRangeFromPoint(startX, startY);
+        end = doc.caretRangeFromPoint(endX, endY);
+        range = doc.createRange();
+        range.setStart(start.startContainer, start.startOffset);
+        range.setEnd(end.startContainer, end.startOffset);
+    }
+    if (range !== null && typeof window.getSelection != "undefined") {
+        var sel = window.getSelection();
+        sel.removeAllRanges();
+        sel.addRange(range);
+    } else if (typeof doc.body.createTextRange != "undefined") {
+    		console.log('here')
+        range = doc.body.createTextRange();
+        range.moveToPoint(startX, startY);
+        var endRange = range.duplicate();
+        endRange.moveToPoint(endX, endY);
+        range.setEndPoint("EndToEnd", endRange);
+        range.select();
+    }
+}
+
+createSelectionFromPoint(100, 50, 300, 200);
+</script>
+
+
+
+</body>
+
+
+</html>

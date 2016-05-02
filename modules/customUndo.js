@@ -107,7 +107,7 @@ window.ir.textarea.CustomUndoEngine = (function() {
 	}
 	
 	RangeMemo.prototype.clone = function(rangeMemo) {
-		var c = new RangeMemo();
+		var c = new RangeMemo(this.root);
 		c.root = this.root;
 		c.startPos = this.startPos;
 		c.endPos = this.endPos;

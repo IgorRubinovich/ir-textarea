@@ -22,6 +22,40 @@
 			is : "ir-textarea-range-marker",
 			properties : {
 				// tag outline of realContainer
+				tagOutline : {
+					type : String,
+					notify : true
+				},
+				// actual container
+				container : {
+					type : Object,
+					notify : true
+				},				
+				// actual offset
+				offset : {
+					type : Number,
+					notify : true
+				},
+				// real range's container on side identified by bindToRange
+				realContainer : {
+					type : Object,
+					notify : true
+				},
+				// real range's offset on side identified by bindToRange
+				realOffset : {
+					type : Number,
+					notify : true
+				},
+				// real range's container element on side identified by bindToRange
+				containerElement : {
+					type : Object,
+					notify : true
+				},
+				// real range's offset in container element on side identified by bindToRange
+				containerElementOffset : {
+					type : Number,
+					notify : true
+				},
 				editor : {
 					type : Object,
 					notify : true,
@@ -35,25 +69,11 @@
 					type : Boolean,
 					notify : true
 				},
-				offset : {
-					type : Number,
-					notify : true
-				},
-				container : {
-					type : Object,
-					notify : true
-				},
-				tagOutline : {
-					type : String,
-					notify : true
-				}
 			},
 			
 			ready : function() {
 				this.isCaret = this.$.marker.isCaret = true;
 				this.hostMarker = this.$.marker.hostMarker = this;
-	
-				this.isListening = true;
 
 				this.mo = new MutationObserver(this.mutationHandler.bind(this)),
 				this.moconfig = {
@@ -67,14 +87,12 @@
 				if(this.bindToRange == 'end')
 					this.$.marker.style.background = 'lightgreen';
 
-				this._activeHandlers = {};
-					
 				this.originalInnerHTML = '';			
 			},
 			
 			editorChanged : function(n, o) {
 				var caretNavOpts = { 
-										log : false, 
+										log : true, 
 										caretSpan : this,
 										caretSpanShow : this.show.bind(this),
 										caretSpanHide : this.hide.bind(this)
@@ -83,19 +101,17 @@
 				this.caretNavigator = new ir.textarea.CaretNavigator(this.editor, caretNavOpts)
 				
 				if(o)
-					Object.keys(this._activeHandlers)
-						.forEach(function(k) {
-							this.editor.removeEventListener(k, this._activeHandlers[k])
-						});
+				{
+					o.removeEventListener('keydown', this._activeKeyHandler)
+					o.removeEventListener('mousedown', this._activeMouseHandler)
+				}
 				
-				this.editor.addEventListener('keydown', this._activeHandlers.keydown = this.keyDownHandler.bind(this));
-				this.editor.addEventListener('keyup', this._activeHandlers.keyup = this.keyUpHandler.bind(this));
-				this.editor.addEventListener('mousedown', this._activeHandlers.mousedown = this.mouseHandler.bind(this));
-				this.editor.addEventListener('mouseup', this._activeHandlers.mouseup = this.mouseHandler.bind(this));
-				//this.editor.addEventListener('mouseup', this._activeHandlers.mouseup = this.update.bind(this));
+				this.editor.addEventListener('keydown', this._activeKeyHandler = this.keyHandler.bind(this));
+				this.editor.addEventListener('mousedown', this._activeMouseHandler = this.mouseHandler.bind(this));
 			},
 			
 			observerConnect : function() {
+				return;
 				if(this.containerElement)
 					this.mo.observe(this.containerElement, this.moconfig);
 			},
@@ -128,13 +144,10 @@
 
 				this.update();
 			},
+			
+			show : function(container, offset) {
+				var r = utils.getSelectionRange(), c, o;
 
-			show : function(container, offset, rangeSide) {
-				var r = utils.getSelectionRange(), c, o, skipShowAndPull;
-
-				if(/start|end/.test(rangeSide) && rangeSide != this.bindToRange)
-					return;
-				
 				if(!container && !r)
 					return;
 					
@@ -147,7 +160,7 @@
 				{
 					c = container
 					o = offset;
-					this.setAt(container, offset);
+					//this.setAt(container, offset);
 				}
 				else
 				{
@@ -166,17 +179,12 @@
 						c = c.childNodes[o]
 						o = 0;
 					}
-					skipShowAndPull = c.previousSibling && c.previousSibling.isCaret;
-					if(!skipShowAndPull)
-						c.parentNode.insertBefore(this, c);
+					c.parentNode.insertBefore(this, c);
 				}
 
-				if(!skipShowAndPull)
-					this.pullRange();
-				
-				this.updateFromCurrentRange();
+				this.pullRange();
 			},
-
+			
 			hide : function() {
 				var pn;
 				
@@ -185,7 +193,7 @@
 				if(!this.parentNode)
 					return;
 
-				if(this.realContainer == this.editor && this.realOffset < this.editor.childNodes.length)
+				if(this != this.parentNode.lastChild && this.realContainer.nodeType != 3)
 				{
 					console.log('subtracting this.realOffset for ', this.realOffset, this.crealContainer);
 					this.realOffset--;
@@ -212,14 +220,14 @@
 			},
 			
 			mouseHandler : function (ev) {
-				var c, o, cp, updateWhich, r;
+				var c, o, cp;
 				
-				//if(!this.isListening)
-				//	return;
+				if(!this.isListening)
+					return;
 
-				//if(ev.target.nodeType == 3)
-				//	return;
-					
+				if(ev.target.nodeType == 3)
+					return;
+
 				cp = utils.caretPositionFromPoint(ev.clientX, ev.clientY);
 
 				o = cp.offset;
@@ -234,76 +242,17 @@
 					o = 0;
 				}
 				
-				if(ev.type == "mousedown" && !ev.shiftKey)
-				{
-					r = utils.getSelectionRange();
-
-					if(this.bindToRange == 'start')
-						this.caretNavigator.go({ container : c, offset : o}, "both");
-					else
-					{
-						utils.setCaretAt(r.startContainer, r.startOffset);
-						this.updateFromCurrentRange();
-					}
-				}
-				else
-				{
-					var r = utils.getSelectionRange() || {};
-					
-					this.updateFromCurrentRange();
-					
-					if(!r.collapsed)
-						this.caretNavigator.go({ container : this.container, offset : this.offset }, this.bindToRange);
-				};
-					// this.updateFromCurrentRange()
-				//console.table([{ ev : ev.type, rangeSide : this.bindToRange, container : c, offset : o, 
-				console.log();
-
-				return;
-				if(ev.type == "mousedown")
-					this.caretNavigator.go({ container : c, offset : o}, this.bindToRange);
-				else
-				if(ev.type == "mouseup")
-				{
-					
-					updateWhich = utils.caretposcmp({ container : this.container, offset : this.offset }, { container : c, offset : o });
-					if(updateWhich < 0 && this.bindToRange == 'start')
-						this.caretNavigator.go({ container : c, offset : o }, this.bindToRange);
-					else
-					if(updateWhich > 0 && this.bindToRange == 'end')
-						this.caretNavigator.go({ container : c, offset : o }, this.bindToRange);
-				}
+				this.caretNavigator.go({ container : c, offset : o});
 
 				this.preventNextDefault = true;
 				
 				this.update();
 			},
 			
-			keyUpHandler : function (e) {
-				if([16,17].indexOf(keyCode) > -1 && this.isVisible) // shift, ctrl, alt
-					return e.preventDefault();
-			
-				this.update();
-			},
-			
-			keyDownHandler : function (e) {
-				var dir, r = utils.getSelectionRange(), keyCode = e.keyCode;
+			keyHandler : function (e) {
+				var dir;
 				
-				if([16,17].indexOf(keyCode) > -1 && (this.bindToRange == 'start' || !this.parentNode)) // shift, ctrl, alt
-					return e.preventDefault();
 				
-				if(e.shiftKey)
-				{
-					if(r.collapsed)
-						if([36,37,33,38].indexOf(keyCode) > -1) // home, left, pgUp, up
-							this.isListening = this.bindToRange == 'start';
-						else
-						if([35,34,39,40].indexOf(keyCode) > -1) // end, right, pgDn, down
-							this.isListening = this.bindToRange == 'end';
-					else
-						this.isListening = this.bindToRange == 'end';					
-				}
-					
 				if(!this.isListening)
 					return this.update();
 
@@ -315,27 +264,34 @@
 					
 				if(dir)
 				{
-					this.caretNavigator.go(dir, e.shiftKey ? this.bindToRange : "both")
+					this.caretNavigator.go(dir)
 					e.preventDefault();
 				}
-
+				
 				this.update();
 			},
 			
 			update : function() {
+				return;
+				
 				var tn, pos;
 				
 				this.updateFromCurrentRange();
 				
-				//if(this.isListening)
-				this.adjust();
+				if(this.isListening)
+					this.adjust();
 			},
 
 			adjust : function() {
 				var pos;
-				
+
 				if(this.container)
-					this.caretNavigator.go({container : this.container, offset : this.offset}, this.bindToRange);
+					this.caretNavigator.setAt(this.container, this.offset);
+					
+				/*{
+					pos = this.caretNavigator.setAt(this.container, this.offset);
+					this.setAt(pos.container, pos.offset);
+				}*/
 			},
 
 			pushRange : function(ev) {
@@ -383,10 +339,15 @@
 				else
 				if(ev.keyCode == 39) // right
 				{
+					// this.hide();
+
 					nn = this.nextPosition(this.realContainer, this.realOffset);
+					//console.log(`right: ${this.bindToRange} ${ev.type} from ${this.realContainer.textContent}, ${this.realOffset} to ${nn.container.textContent}, ${nn.offset}`);
 					
 					if(nn)
 						pd = this.setAt(nn.container, nn.offset, true);
+					
+					//this.update();						
 				}
 				else
 				if(ev.keyCode == 36) // home
@@ -461,28 +422,17 @@
 				if(chm && chm != this)
 					fields.split(",").forEach(function(f) { this.set(f, chm[f]); }.bind(this))
 				else
-				if(chm)
-					return
-				else
 				if(!chm)
 				{
-					containerElement = !container || container == this.editor ? container : container.parentNode;
-					containerOffset = !container || container == this.editor ? offset : utils.getChildPositionInParent(container, true);
-					
-					if(containerElement)
-						containerElement.normalize();
-					
 					this.set('container', container);
 					this.set('offset', offset);
 					this.set('realContainer', container);
 					this.set('realOffset', offset);
-					this.set('containerElement', containerElement);
-					this.set('containerElementOffset', containerOffset);
+					this.set('containerElement', !container || container == this.editor ? container : container.parentNode);
+					this.set('containerElementOffset', !container || container == this.editor ? offset : utils.getChildPositionInParent(container, true));
 				}
 
-				
-				if(this.container)
-					this.set('tagOutline', utils.tagOutline(this.container.nodeType == 3 ? this.container.parentNode : this.container));
+				this.set('tagOutline', utils.tagOutline(this.containerElement));
 
 				if(setRange)
 				{

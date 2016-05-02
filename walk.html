@@ -11,6 +11,9 @@ This code may only be used under the MIT license found at http://opensource.org/
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
   <script src="../bower_components/webcomponentsjs/webcomponents-lite.js"></script>
+
+  <link rel="import" href="../bower_components/polymer/polymer.html">
+
   <link rel="import" href="../bower_components/ir-gallery/ir-gallery.html">
 
   <script src="bower_components/ir-textarea/modules/utils.js"></script>
@@ -179,13 +182,14 @@ This code may only be used under the MIT license found at http://opensource.org/
 
 	// prepare whitespace
 	
-	setTimeout(function() {
+	window.addEventListener('WebComponentsReady', function(e) 
+	{
 		var e = document.querySelector('#editor');
 		utils.visitNodes(e, function(n) { 
 			if(n.nodeType == 3 && utils.isInLightDom(n, e) && !Symbols.TRANS(nutils.parentNode(n)))
 				n.textContent = n.textContent.replace(/\s/g, '\xa0'); 
 		});
-	}, 100);
+	}, 1000);
 	
 	function updateRules() {
 		rulesetsDef.defaultBehaviorPoints = document.querySelector("#defaultBehaviorPoints").value;
@@ -375,7 +379,7 @@ This code may only be used under the MIT license found at http://opensource.org/
 
 	
 	document.getElementById('editor').addEventListener('mousedown', mouseHandler, true)
-	document.getElementById('editor').addEventListener('mouseup', function(ev) {
+	/*document.getElementById('editor').addEventListener('mouseup', function(ev) {
 		if(!this.preventNextDefault)
 			return
 		
@@ -383,14 +387,12 @@ This code may only be used under the MIT license found at http://opensource.org/
 		ev.stopImmediatePropagation();
 		
 		this.preventNextDefault = false
-	}, true);
+	}, true);*/
 
 	
 	function mouseHandler(ev) {
 		var c, o, cp;
 
-		
-		
 		if(ev.target.nodeType == 3)
 			return;
 
@@ -413,9 +415,9 @@ This code may only be used under the MIT license found at http://opensource.org/
 		
 		go({ container : c, offset : o});
 		
-		ev.preventDefault();
+		/*ev.preventDefault();
 		ev.stopPropagation();
-		ev.stopImmediatePropagation();
+		ev.stopImmediatePropagation();*/
 		
 		this.preventNextDefault = true;
 	}
@@ -477,7 +479,8 @@ This code may only be used under the MIT license found at http://opensource.org/
 			o = pos.offset;
 			
 			pos = forward(pos.container, pos.offset);
-			next = backward(pos.container, pos.offset);
+			if(pos)
+				next = backward(pos.container, pos.offset);
 		}
 		else
 		{
@@ -509,7 +512,7 @@ This code may only be used under the MIT license found at http://opensource.org/
 				go(direction, fast) 
 			}, next && next.container.nodeType == 3 ? 5 : 500);	
 		
-		
+		e.focus();
 		
 		return next;
 	}
