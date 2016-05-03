@@ -122,7 +122,10 @@
 					this.justUpdated = true;
 				}
 				else
+				{
 					this.update();
+					this.lastClickPos = null;
+				}
 			},
 			
 			mouseDownHandler : function(e) {
@@ -242,8 +245,6 @@
 					activeRangeSide = this.lastActive || 'start';
 					
 				passiveRangeSide = activeRangeSide == "start" ? "end" : "start";
-				
-				console.log(activeRangeSide, dir)
 				
 				if(dir && ([37,39].indexOf(keyCode) > -1))
 				{

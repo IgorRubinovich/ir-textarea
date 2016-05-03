@@ -149,13 +149,19 @@
 				this.observerDisconnect();				
 
 				while(m.childNodes.length)
+				{				
 					lastInserted = this.parentNode.insertBefore(m.firstChild, this);
+					if(lastInserted.nodeType == 3)
+						lastInserted.textContent = lastInserted.textContent.replace(/\u200B/g, '')
 				
+					lastInserted.isCaret = null;
+					lastInserted.hostMarker = null;
+				}
 				if(lastInserted && lastInserted.nodeType == 3)
+				{
 					this.setAt(lastInserted, lastInserted.textContent.length);
-
-				this.hide()
-				
+					this.hide()
+				}
 				this.observerConnect();
 
 				this.update();
