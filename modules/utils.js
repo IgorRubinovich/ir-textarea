@@ -278,6 +278,8 @@ window.ir.textarea.utils = (function() {
 				res.offset = res.range.startOffset;
 			}
 		}
+		
+		res.container = res.node; // .node is deprecated
 
 		return res.range ? res : null;
 	}
@@ -398,7 +400,10 @@ window.ir.textarea.utils = (function() {
 	}
 	
 	utils.parentNode = function(node, top) {
-		if(Polymer.dom(node).parentNode != node.parentNode && !utils.isInLightDom(node, top))
+		if(node.parentNode == top)
+			return top;
+
+		if(Polymer.dom(node).parentNode != node.parentNode && utils.isInLightDom(node, top)) // && !utils.isInLightDom(node.parentNode, top))
 			return Polymer.dom(node).parentNode;
 		else
 			return node.parentNode;
@@ -408,21 +413,21 @@ window.ir.textarea.utils = (function() {
 	// <0	n1 is before n2 in flow
 	// 0	n1 == n2
 	// >0	n1 is after n2 in flow
-	utils.nodecmp = function(n1, n2) {
+	utils.nodecmp = function(n1, n2, top) {
 		var t = n1, painted = [], res, i, cn, pn;
 		
 		if(n1 == n2)
 			return 0;
 
 		// paint up from n1
-		while(t && !res)
+		while(t && !res && t != top)
 		{
-			pn = utils.parentNode(t);
+			pn = utils.parentNode(t, top);
 			
 			if(t.nextSibling == n2 || pn == n2)
 				res = -1;
 
-			t.__painted__ = true;
+			t.__painted__ = "n1";
 
 			painted.push(t);
 
@@ -432,9 +437,16 @@ window.ir.textarea.utils = (function() {
 		// look for painted node from n2 up
 		if(!res) {
 			t = n2;
-			while(t && !res && (pn = utils.parentNode(t)) && !pn.__painted__)
+			while(t && t != top && !res && (pn = utils.parentNode(t, top)) && !pn.__painted__)
+			{
+				painted.push(t);
+				t.__painted__ = "n2";
 				t = pn;
-
+			}
+			
+			if(pn)
+				t = pn;
+			
 			if(t == n1)
 				res = -1;
 			else
@@ -442,14 +454,10 @@ window.ir.textarea.utils = (function() {
 				cn = (t.is ? Polymer.dom(t).childNodes : t.childNodes);
 				for(i = 0; !res && i < cn.length; i++)
 					if(cn[i].__painted__)
-						res = -1;
-					else
-					if(cn[i] == n2)
-						res = 1;
+						res = cn[i].__painted__ == 'n1' ? -1 : 1;
 			}
 		}
-		
-		
+
 		// clean up the paint
 		while(painted.length)
 			painted.pop().__painted__ = null;
@@ -462,11 +470,11 @@ window.ir.textarea.utils = (function() {
 	// <0	n1 is before n2 in flow
 	// 0	n1 == n2
 	// >0	n1 is after n2 in flow
-	utils.caretposcmp = function(n1, n2) {
+	utils.caretposcmp = function(n1, n2, top) {
 		if(n1.container == n2.container)
 			return n1.offset - n2.offset
 
-		return utils.nodecmp(n1.container, n2.container)
+		return utils.nodecmp(n1.container, n2.container, top)
 	}
 
 	utils.prevNodeDeep = function(node, top, opts) {

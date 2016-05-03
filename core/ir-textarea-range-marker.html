@@ -81,6 +81,9 @@
 			},
 			
 			editorChanged : function(n, o) {
+				if(!this.editor || !this.editor.ownerDocument)
+					return;
+
 				var caretNavOpts = { 
 										log : false, 
 										caretSpan : this,
@@ -100,8 +103,8 @@
 				
 				//is.editor.addEventListener('keydown', this._activeHandlers.keydown = this.keyDownHandler.bind(this));
 				//this.editor.addEventListener('keyup', this._activeHandlers.keyup = this.keyUpHandler.bind(this));
-				this.editor.addEventListener('mousedown', this._activeHandlers.mousedown = this.mouseHandler.bind(this));
-				this.editor.addEventListener('mouseup', this._activeHandlers.mouseup = this.mouseHandler.bind(this));
+				//this.editor.addEventListener('mousedown', this._activeHandlers.mousedown = this.mouseHandler.bind(this));
+				//this.editor.addEventListener('mouseup', this._activeHandlers.mouseup = this.mouseHandler.bind(this));
 				//this.editor.addEventListener('mouseup', this._activeHandlers.mouseup = this.update.bind(this));
 			},
 			
@@ -168,7 +171,7 @@
 				if(!container && !r)
 					return;
 					
-				if(this.bindToRange != 'start' && r && r.collapsed)
+				if(this.isAtOrAfterMarker({container : container, offset : offset }))
 					return this.hide();
 
 				if(container)
@@ -327,7 +330,7 @@
 				var pos;
 				
 				if(this.container)
-					this.caretNavigator.go({container : this.container, offset : this.offset}, this.bindToRange);
+					this.goAt({container : this.realContainer, offset : this.realOffset}, this.bindToRange);
 			},
 
 			pushRange : function(ev) {
@@ -409,7 +412,7 @@
 			},
 
 			pullRange : function() {
-				var r = utils.getSelectionRange() || {}, tn;
+				var r = utils.getSelectionRange(), tn;
 
 				tn = this.$.marker.firstChild;
 				if(!tn)
@@ -422,7 +425,7 @@
 				this.container = tn;
 				this.offset = 0;
 				
-				if(r.collapsed)
+				if(!r || r.collapsed)
 					return utils.setCaretAt(tn, 0);
 
 				if(this.bindToRange == 'start')
@@ -449,27 +452,44 @@
 				
 				this.setAt(c, o);
 			},
+			
+			isAtOrAfterMarker : function(pos) {
+				// marker lands on another marker
+				var chm;
+
+				if(!pos.container)
+					return;
+					
+				chm = pos.container && pos.container.hostMarker;
+				
+				// end marker lands on realContainer of start marker
+				if(!chm && pos.container.nodeType != 3 && this.bindToRange == 'end')
+				{
+					if(pos.container == this.editor && pos.offset < this.editor.childNodes.length)
+						pos.container = this.editor.childNodes[pos.offset];
+					
+					chm = pos.container.hostMarker
+					if(!chm)
+						chm = pos.container.previousSibling && (pos.container.previousSibling != this) && pos.container.previousSibling.hostMarker;
+				}
+				
+				
+				
+				return chm;
+			},
 
 			setAt : function(container, offset, setRange) {
 				var chm, r, realOffset, oc, oo, 
 					fields = "container,offset,realContainer,realOffset,containerElement,containerElementOffset";
-
-				// marker lands on another marker
-				chm	= container && container.hostMarker;
-				// end marker lands on realContainer of start marker
-				if(!chm && container.nodeType != 3 && this.bindToRange == 'end')
-				{
-					if(container == this.editor && offset < this.editor.childNodes.length)
-						container = this.editor.childNodes[offset];
-					
-					chm = container.hostMarker
-					if(!chm)
-						chm = container.previousSibling && (container.previousSibling != this) && container.previousSibling.hostMarker;
-				}
 				
+				chm = this.isAtOrAfterMarker({ container : container, offset : offset });
+
+				if(chm == this)
+					return
 				// in both above cases just make markers identical
-				if(chm && chm != this)
-				{					fields.split(",").forEach(function(f) { this.set(f, chm[f]); }.bind(this))
+				if(chm)
+				{					
+					fields.split(",").forEach(function(f) { this.set(f, chm[f]); }.bind(this))
 					fields.split(",").forEach(function(f) { this.set(f, chm[f]); }.bind(this))
 					if(this.bindToRange == 'start')
 					{
@@ -477,9 +497,6 @@
 						this.offset = 0;
 					}
 				}
-				else
-				if(chm)
-					return
 				else
 				if(!chm)
 				{
@@ -499,11 +516,11 @@
 				}
 
 				
-				if(this.container && this.container == this.editor)
+				if(this.container && (this.container == this.editor || (this.container.nodeType == 3 && this.container.parentNode == this.editor)))
 					this.set('tagOutline', 'editor')
 				else
 				if(this.container)
-					this.set('tagOutline', utils.tagOutline(this.container.nodeType == 3 ? this.container.parentNode : this.container));
+					this.set('tagOutline', utils.tagOutline(this.container.nodeType == 3 ? this.container.parentNode : this.realContainer));
 
 				if(setRange)
 				{

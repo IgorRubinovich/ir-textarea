@@ -39,7 +39,7 @@
 		// a bunch of rules that define where the caret should stop - see caretRules.js for details
 		rulesetsDef = {
 			stopPoints : "EDITOR>IS,*>EMPTYTEXT,IS||!TEXT,EMPTYTEXT||NCBLOCK,P>IS,CONTED>TEXT,NCBLOCK||NCBLOCK",
-			skipPoints : "TEXT|TRANS,IS>>!CONTED,*>>EDITOR,*||SHADOW,P||TEXT,INLINECONT||TEXT,INLINECONT>INLINECONT,TRANS>|*"
+			skipPoints : "*+SHADOW,TEXT|TRANS,IS>>!CONTED,*>>EDITOR,*||SHADOW,P||TEXT,INLINECONT||TEXT,INLINECONT>INLINECONT,TRANS>|*"
 		};
 	
 	ir.textarea.CaretNavigator = 	
@@ -347,6 +347,9 @@
 			o = offset;
 		}
 		
+		if(!r)
+			utils.setCaretAt(c, o);
+		else
 		if(rangeSide == 'start')
 			utils.setCaretAt(c, o, r.endContainer, r.endOffset);
 		else

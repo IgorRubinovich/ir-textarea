@@ -38,10 +38,12 @@
 			$DIV, $.BLUECLASS $#ELID, to autogenerate symbols as they occur
 			
 		2.4 relationship descriptors <REL>:
-			[NODE1]|[NODE2] 	- ordered siblings
-			[NODE1]|||[NODE2] 	- unordered siblings (effectively (<SYM1>|<SYM2> or <SYM2>|<SYM1>))
-			[NODE1]>[NODE2] 	- immediate descendant e. g. ED>IS
-			[NODE1]>>[NODE2] 	- NODE2 is descendant of NODE1
+			*+[SYM1]			- node is 
+			*-=[SYM1]			- node is not
+			[SYM1]|[SYM2] 		- ordered siblings
+			[SYM1]|||[SYM2] 	- unordered siblings (effectively (<SYM1>|<SYM2> or <SYM2>|<SYM1>))
+			[SYM1]>[SYM2] 		- immediate descendant e. g. ED>IS
+			[SYM1]>>[SYM2] 		- NODE2 is descendant of NODE1
 			
 		2.5 negation
 			both symbols and relationships may be negated by prefixing with `!`, such as:
@@ -121,7 +123,7 @@
 		var tokens = rulesText.split(/\s*\,\s*/), t, rules = [], r;
 		while(t = tokens.pop())
 		{
-			r = t.match(/(\!?[\w\*]+)(\!?[\>\|]{1,2})(\!?[\w\*]+)/);
+			r = t.match(/(\!?[\w\*]+)(\!?[\+\-\>\|]{1,2})(\!?[\w\*]+)/);
 			rules.push(new CaretRule(r[1],r[2],r[3], this.editor));
 		}
 		
@@ -178,6 +180,10 @@
 	
 	CaretRule.prototype.run = function(e1, e2, recursive) {
 		var l, r, res;
+		
+		
+		if(/[+-]/.test(this.opname))
+			return this.op(e1, e2, this)
 		
 		// >| is agnostic to the given left
 		if(this.opname == '>|')
@@ -241,6 +247,8 @@
 	}
 		
 	CaretRule.prototype.Relationships = {
+		"+" : 	function(e1, e2, rule) { return rule.symright(e2) },
+		"-" : 	function(e1, e2, rule) { return !rule.symright(e2) },
 		"|" : 	function(e1, e2) { return e1.nextSibling == e2 },
 		"||" : 	function(e1, e2) { return (e1 && e1.nextSibling == e2) || (e2 && e2.nextSibling == e1) },
 		">" : 	function(e1, e2) { return e1 == utils.parentNode(e2) },

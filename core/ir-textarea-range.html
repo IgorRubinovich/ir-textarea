@@ -88,34 +88,92 @@
 				from = this.$[from];
 				to = this.$[to];
 				
-				to.setAt(from.container, from.offset);
+				to.goAt({ container : from.realContainer, offset : from.realOffset });
+				if(from == this.$.end)
+					this.$.end.goAt({ container : from.realContainer, offset : from.realOffset });
 				
 				this.updateNativeRange();
-				this.update();
 			},
 			
 			editorChanged : function() {
 				this.$.start.editor = this.editor;
 				this.$.end.editor = this.editor;
 
-				this.editor.addEventListener('keydown', this.keyDownHandler.bind(this))
-				this.editor.addEventListener('keyup', this.keyUpHandler.bind(this))
+				this.editor.addEventListener('keydown', this.keyDownHandler.bind(this));
+				this.editor.addEventListener('keyup', this.keyUpHandler.bind(this));
 				
-				//this.bindHandlers('mousedown,mouseup,keydown,keyup,keypress', this.inputHandler, this.editor);
-				//this.bindHandlers('keydown,keyup', this.inputHandler, this.editor);
+				this.editor.addEventListener('mousedown', this.mouseDownHandler.bind(this));
+				this.editor.addEventListener('mouseup', this.mouseUpHandler.bind(this));
 			},
+			
+			mouseUpHandler : function(e) {
+				var cp = utils.caretPositionFromPoint(e.clientX, e.clientY), startPos, endPos, reverseFlow;
+				if(e.shiftKey && this.lastClickPos)
+				{
+					startPos = { container : this.lastClickPos.container, offset : this.lastClickPos.offset };
+					endPos = { container : cp.container, offset : cp.offset };
+					
+					reverseFlow = utils.caretposcmp(startPos, endPos, this.editor) > 0;
+					
+					this.lastActive = reverseFlow ? 'end' : 'start'; 
+					
+					this.setAt(startPos, endPos);
+					
+					this.justUpdated = true;
+				}
+				else
+					this.update();
+			},
+			
+			mouseDownHandler : function(e) {
+				cp = utils.caretPositionFromPoint(e.clientX, e.clientY);
+				if(!e.shiftKey)
+				{
+					this.lastClickPos = { container : cp.container, offset : cp.offset }
+					this.setAt(cp.container, cp.offset);
+				}
+			},
+			
+			setAt : function(startContainer, startOffset, endContainer, endOffset) {
+				//if(startContaienr == endContainer && startOffset == endOffset)
+				var startPos, endPos, t;
+				
+				if(startContainer.container)
+				{
+					startPos = startContainer;
+					endPos = startOffset;
+				}
+				else
+				{
+					startPos = { container : startContainer, offset : startOffset };
+					endPos = { container : endContainer, offset : endOffset };
+				}
+					
+				if(!endPos || !endPos.container)
+					endPos = startPos;
+					
+				// swap if reverse flow order
+				if(utils.caretposcmp(startPos, endPos, this.editor) > 0)
+				{
+					t = startPos;
+					startPos = endPos;
+					endPos = t;
+				}
+				
+				this.$.start.hide();
+				
+				this.$.end.goAt(endPos);
+				this.$.start.goAt(startPos);				
+				
+				if(this.collapsed)
+					this.$.end.hide();
+			},
+			
 			setStartAt : function(c, o) {
-				this.$.start.setAt(c, o);
+				this.$.start.goAt(c, o);
 			},
 			setEndAt : function(c, o) {
-				//this.$.end.setAt(c, o);
-			},
-			setAt : function(sc, so, ec, eo) {
-				//this.collapsed = !(ec && (ec != sc || so != eo));
-				
-				this.setStartAt(sc, so);				
-				if(!this.collapsed)
-					this.setEndAt(sc, so);
+				this.$.end.goAt(c, o);
 			},
 			update : function() {
 				this.$.start.update();
@@ -140,29 +198,29 @@
 				this._host = this;
 				
 				this.listeners = {};
-				
+
 				this.originalInnerHTML = '';
 			},
 			
 			keyUpHandler : function (e) {
 				var keyCode = e.keyCode || e.which;
-				//if([16,17].indexOf(keyCode) > -1 && this.isVisible) // shift, ctrl, alt
 
 				if(!this.justUpdated)
-					this.updateFromCurrentRange();
+					this.update();
 				
 				this.justUpdated = false;
 				
-				return e.preventDefault();
-			
-				//this.update();
+				return e.preventDefault();			
 			},
 			
 			keyDownHandler : function (e) {
-				var dir, keyCode = e.keyCode, activeRangeSide, passiveRangeSide, ars;
+				var dir, keyCode = e.keyCode, activeRangeSide, passiveRangeSide, ars, dir;
 				
 				if([16,17].indexOf(keyCode) > -1) // shift, ctrl, (alt)
 					return e.preventDefault();
+				
+				dir = [36,37,33,38].indexOf(keyCode) > -1 && "backward"; 		 // home, left, pgUp, up
+				dir = dir || [35,39,34,40].indexOf(keyCode) > -1 && "forward";  // end, right, pgDn, down
 				
 				if(this.collapsed)
 					this.lastActive = null;
@@ -172,31 +230,22 @@
 				else
 				if(!e.shiftKey || (e.shiftKey && !this.lastActive))
 				{
-					if([36,37,33,38].indexOf(keyCode) > -1) // home, left, pgUp, up
+					if(dir == "backward") 
 						activeRangeSide = 'start';
 					else
-					if([35,34,39,40].indexOf(keyCode) > -1) // end, right, pgDn, down
+					if(dir == "forward")
 						activeRangeSide = 'end';
 						
 					this.lastActive = activeRangeSide;
 				}
 				else
-				//if(!e.shiftKey)
 					activeRangeSide = this.lastActive || 'start';
-				//else
-				//	activeRangeSide = this.lastActive;
 					
 				passiveRangeSide = activeRangeSide == "start" ? "end" : "start";
 				
-				if(e.keyCode == 39)
-					dir = 'forward';
-				else
-				if(e.keyCode == 37)
-					dir = 'backward';
-
 				console.log(activeRangeSide, dir)
 				
-				if(dir)
+				if(dir && ([37,39].indexOf(keyCode) > -1))
 				{
 					ars = this.$[activeRangeSide];
 					prs = this.$[passiveRangeSide];
@@ -223,56 +272,10 @@
 				}
 			},
 			
-			inputHandler : function(ev) {
-				var keyCode = ev.which;
-				//if(ev.type == 'keydown' && [33,34,35,36,37,38,39,40].indexOf(keyCode) == -1)
-				//	return
-				
-				/*if([8,46,35,36,37,39].indexOf(keyCode) > -1) // backspace/del/end/start/left/right
-				{
-					if(ev.type == 'keyup')
-						ev.preventDefault();
-						
-					if(ev.type == 'keydown')
-						this.$.start.pushRange(ev);
-						// this.$.end.pushRange(ev);
-				}*/
-				//if(this.shiftKey != ev.shiftKey)
-				//	this.switchMarker(ev.shiftKey);
-
-				//this.update();
-			},
-			
 			switchMarker : function(shiftKey) {
 				this.shiftKey = shiftKey;
 				this.activeMarker = !shiftKey ? "start" : "end";
 				this.inactiveMarker = shiftKey ? "start" : "end";
-				
-				//this.$[this.activeMarker].startListening();
-				//this.$[this.inactiveMarker].stopListening();
-			},
-			
-			// bind all `eventTypes` to all given `handlers` on `target`
-			bindHandlers : function(eventTypes, handlers, target, capturingPhase)
-			{
-				if(typeof eventTypes == 'string') eventTypes = eventTypes.split(',');
-				if(!(handlers instanceof Array)) handlers = [handlers];
-				var wrappedHandlers = handlers.map(function(h) {
-					return function(ev) {
-						if(this.disabled)
-							return;
-						
-						return h.call(this, ev);
-					}.bind(this);
-				}.bind(this));
-				
-				if(!target) target = this;
-				
-				eventTypes.forEach(function(et) { 
-					wrappedHandlers.forEach(function(h) {
-						target.addEventListener(et, h, capturingPhase);
-					}.bind(this))
-				}.bind(this));
 			}
 		});
 	})();
