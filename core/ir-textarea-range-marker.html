@@ -35,12 +35,20 @@
 					type : Boolean,
 					notify : true
 				},
+				container : {
+					type : Object,
+					notify : true
+				},
 				offset : {
 					type : Number,
 					notify : true
 				},
-				container : {
+				realContainer : {
 					type : Object,
+					notify : true
+				},
+				realOffset : {
+					type : Number,
 					notify : true
 				},
 				tagOutline : {
@@ -88,8 +96,10 @@
 							this.editor.removeEventListener(k, this._activeHandlers[k])
 						});
 				
-				this.editor.addEventListener('keydown', this._activeHandlers.keydown = this.keyDownHandler.bind(this));
-				this.editor.addEventListener('keyup', this._activeHandlers.keyup = this.keyUpHandler.bind(this));
+				this.setAt(this.editor, 0);
+				
+				//is.editor.addEventListener('keydown', this._activeHandlers.keydown = this.keyDownHandler.bind(this));
+				//this.editor.addEventListener('keyup', this._activeHandlers.keyup = this.keyUpHandler.bind(this));
 				this.editor.addEventListener('mousedown', this._activeHandlers.mousedown = this.mouseHandler.bind(this));
 				this.editor.addEventListener('mouseup', this._activeHandlers.mouseup = this.mouseHandler.bind(this));
 				//this.editor.addEventListener('mouseup', this._activeHandlers.mouseup = this.update.bind(this));
@@ -104,10 +114,29 @@
 				this.mo.disconnect();
 			},
 			
+			go : function(dir, crossingPoint) {
+				var pos;
+				
+				this.hide();
+				pos = this.caretNavigator.goFrom({ container : this.realContainer, offset : this.realOffset}, dir, this.bindToRange);
+		
+				this.setAt(pos.container, pos.offset);
+			},
+			
+			goAt : function(pos, bindToRange) {
+				this.hide();
+				pos = this.caretNavigator.goAt({ container : pos.container, offset : pos.offset}, this.bindToRange);
+				this.setAt(pos.container, pos.offset);
+			},
+			
+			hasContent : function() {
+				return !(this.firstChild.textContent == '\u200B' && this.childNodes.length == 1);
+			},
+			
 			mutationHandler : function() {				
 				var c, m = this.$.marker, lastInserted;
 				
-				if(!m.childNodes.length)
+				if(!this.hasContent())
 					return;
 
 				if(c = utils.singleChildNode(m))
@@ -130,7 +159,8 @@
 			},
 
 			show : function(container, offset, rangeSide) {
-				var r = utils.getSelectionRange(), c, o, skipShowAndPull;
+				var r = utils.getSelectionRange(), c, o, doPull, skipShowAndPull, 
+					isEnd = this.bindToRange == 'end', isAfterCaret;
 
 				if(/start|end/.test(rangeSide) && rangeSide != this.bindToRange)
 					return;
@@ -138,16 +168,13 @@
 				if(!container && !r)
 					return;
 					
-				if(this.bindToRange != 'start' && r.collapsed)
+				if(this.bindToRange != 'start' && r && r.collapsed)
 					return this.hide();
-
-				this.visible = true;
 
 				if(container)
 				{
 					c = container
 					o = offset;
-					this.setAt(container, offset);
 				}
 				else
 				{
@@ -155,9 +182,13 @@
 					o = this.offset;
 				}
 				
+				//if(isAfterCaret && end)
+				
 				if(c == this.editor && o == c.childNodes.length)
 				{
-					c.parentNode.appendChild(this);
+					isAfterCaret = o > 0 && c.childNodes[o-1] && c.childNodes[o-1].isCaret;
+					if(!(isEnd && isAfterCaret))
+						doPull = c.parentNode.appendChild(this);
 				}
 				else
 				{
@@ -166,13 +197,17 @@
 						c = c.childNodes[o]
 						o = 0;
 					}
-					skipShowAndPull = c.previousSibling && c.previousSibling.isCaret;
-					if(!skipShowAndPull)
-						c.parentNode.insertBefore(this, c);
+					isAfterCaret = c.previousSibling && c.previousSibling.isCaret;
+					
+					if(!(isEnd && isAfterCaret))
+						doPull = c.parentNode.insertBefore(this, c);
 				}
 
-				if(!skipShowAndPull)
+				if(doPull)
+				{
 					this.pullRange();
+					this.visible = true;
+				}
 				
 				this.updateFromCurrentRange();
 			},
@@ -253,7 +288,7 @@
 					this.updateFromCurrentRange();
 					
 					if(!r.collapsed)
-						this.caretNavigator.go({ container : this.container, offset : this.offset }, this.bindToRange);
+						this.caretNavigator.goAt({ container : this.container, offset : this.offset }, this.bindToRange);
 				};
 					// this.updateFromCurrentRange()
 				//console.table([{ ev : ev.type, rangeSide : this.bindToRange, container : c, offset : o, 
@@ -268,57 +303,14 @@
 					
 					updateWhich = utils.caretposcmp({ container : this.container, offset : this.offset }, { container : c, offset : o });
 					if(updateWhich < 0 && this.bindToRange == 'start')
-						this.caretNavigator.go({ container : c, offset : o }, this.bindToRange);
+						this.caretNavigator.goAt({ container : c, offset : o }, this.bindToRange);
 					else
 					if(updateWhich > 0 && this.bindToRange == 'end')
-						this.caretNavigator.go({ container : c, offset : o }, this.bindToRange);
+						this.caretNavigator.goAt({ container : c, offset : o }, this.bindToRange);
 				}
 
 				this.preventNextDefault = true;
 				
-				this.update();
-			},
-			
-			keyUpHandler : function (e) {
-				if([16,17].indexOf(keyCode) > -1 && this.isVisible) // shift, ctrl, alt
-					return e.preventDefault();
-			
-				this.update();
-			},
-			
-			keyDownHandler : function (e) {
-				var dir, r = utils.getSelectionRange(), keyCode = e.keyCode;
-				
-				if([16,17].indexOf(keyCode) > -1 && (this.bindToRange == 'start' || !this.parentNode)) // shift, ctrl, alt
-					return e.preventDefault();
-				
-				if(e.shiftKey)
-				{
-					if(r.collapsed)
-						if([36,37,33,38].indexOf(keyCode) > -1) // home, left, pgUp, up
-							this.isListening = this.bindToRange == 'start';
-						else
-						if([35,34,39,40].indexOf(keyCode) > -1) // end, right, pgDn, down
-							this.isListening = this.bindToRange == 'end';
-					else
-						this.isListening = this.bindToRange == 'end';					
-				}
-					
-				if(!this.isListening)
-					return this.update();
-
-				if(e.keyCode == 39)
-					dir = 'forward';
-				else
-				if(e.keyCode == 37)
-					dir = 'backward';
-					
-				if(dir)
-				{
-					this.caretNavigator.go(dir, e.shiftKey ? this.bindToRange : "both")
-					e.preventDefault();
-				}
-
 				this.update();
 			},
 			
@@ -422,11 +414,14 @@
 				tn = this.$.marker.firstChild;
 				if(!tn)
 				{
-					tn = this.$.marker.appendChild(document.createTextNode(''));
+					tn = this.$.marker.appendChild(document.createTextNode('\u200B'));
 					tn.isCaret = true;
 					tn.hostMarker = this.hostMarker;
 				}
 
+				this.container = tn;
+				this.offset = 0;
+				
 				if(r.collapsed)
 					return utils.setCaretAt(tn, 0);
 
@@ -446,6 +441,9 @@
 				c = r[this.bindToRange + "Container"];
 				o = r[this.bindToRange + "Offset"];
 				
+				if(c.isCaret && c.hostMarker == this)
+					return;
+
 				if(this.realContainer && (c == this.realContainer && o == this.realOffset))
 					return
 				
@@ -456,10 +454,29 @@
 				var chm, r, realOffset, oc, oo, 
 					fields = "container,offset,realContainer,realOffset,containerElement,containerElementOffset";
 
+				// marker lands on another marker
 				chm	= container && container.hostMarker;
+				// end marker lands on realContainer of start marker
+				if(!chm && container.nodeType != 3 && this.bindToRange == 'end')
+				{
+					if(container == this.editor && offset < this.editor.childNodes.length)
+						container = this.editor.childNodes[offset];
+					
+					chm = container.hostMarker
+					if(!chm)
+						chm = container.previousSibling && (container.previousSibling != this) && container.previousSibling.hostMarker;
+				}
 				
+				// in both above cases just make markers identical
 				if(chm && chm != this)
+				{					fields.split(",").forEach(function(f) { this.set(f, chm[f]); }.bind(this))
 					fields.split(",").forEach(function(f) { this.set(f, chm[f]); }.bind(this))
+					if(this.bindToRange == 'start')
+					{
+						this.container = this.$.marker.firstChild;
+						this.offset = 0;
+					}
+				}
 				else
 				if(chm)
 					return
@@ -472,8 +489,9 @@
 					if(containerElement)
 						containerElement.normalize();
 					
-					this.set('container', container);
-					this.set('offset', offset);
+					this.set('container', this.visible ?  this.$.marker.firstChild : container);
+					this.set('offset', this.visible ? 0 : offset);
+
 					this.set('realContainer', container);
 					this.set('realOffset', offset);
 					this.set('containerElement', containerElement);
@@ -481,6 +499,9 @@
 				}
 
 				
+				if(this.container && this.container == this.editor)
+					this.set('tagOutline', 'editor')
+				else
 				if(this.container)
 					this.set('tagOutline', utils.tagOutline(this.container.nodeType == 3 ? this.container.parentNode : this.container));
 

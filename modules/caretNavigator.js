@@ -181,10 +181,32 @@
 		clearTimeout(this.fftimeout)
 	}
 	
-	// three signatures:
+	CaretNavigator.prototype.goAt = function(pos, rangeSide)
+	{
+		// flap and wibble to find the right spot
+		var pos = this.forward(pos.container, pos.offset);
+		if(pos)
+			pos = this.backward(pos.container, pos.offset);
+
+		this.setAt(pos, rangeSide);
+		
+		return pos;
+	}
+	
+	CaretNavigator.prototype.goFrom = function(pos, direction, rangeSide)
+	{
+		var pos = this[direction](pos.container, pos.offset);
+		
+		this.setAt(pos, rangeSide);
+		
+		return pos;
+	}
+	
+	// four signatures:
 	// go(direction, fast): direction is "forward" or "backward"
 	// go(direction, rangeSide): rangeSide is "start" or "end", default is "start"
 	// go(pos): where pos = {container : `dom node`, offset : o : `offset` }.
+	// go(pos, direction): where pos = {container : `dom node`, offset : o : `offset` }.
 	// return value: next pos: { container : `dom node`, offset : `offset` }
 	CaretNavigator.prototype.go = function(direction, fastOrRangeSide)
 	{
@@ -247,7 +269,20 @@
 				if(!r)
 					this.log('SELECTED RANGE IS OUTSIDE EDITOR');
 				
-				c = r.startContainer, o = r.startOffset;
+				if(rangeSide != 'end')
+				{
+					c = r.startContainer, o = r.startOffset;
+				}
+				else
+				{
+					c = r.endContainer, o = r.endOffset;
+				}
+			}
+						
+			if(c == this.editor && o < this.editor.childNodes.length)
+			{
+				c = this.editor.childNodes[o]
+				o = 0;
 			}
 			
 			if(!utils.isInLightDom(c, this.editor))
@@ -279,10 +314,19 @@
 		
 		return next;
 	}
-	
-	CaretNavigator.prototype.setAt = function(container, offset, rangeSide) {
+
+	// set range or its one side at container, offset
+	// setAt(container, offset, rangeSide) or
+	// setAt(pos, rangeSide) where pos.container and pos.offset are same as in the first signature
+ 	CaretNavigator.prototype.setAt = function(container, offset, rangeSide) {
 		var r = utils.getSelectionRange(), c, o;
 		
+		if(typeof offset != 'number')
+		{
+			rangeSide = offset;
+			offset = container.offset;
+			container = container.container;
+		}
 		// console.log("setAt: ", container, offset, rangeSide)
 		
 		if(container.nodeType != 3)

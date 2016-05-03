@@ -284,17 +284,17 @@ window.ir.textarea.utils = (function() {
 
 	utils.setCaretAt = function(startTarget, startOffset, endTarget, endOffset) {
 		var sel = window.getSelection(),
-			range = document.createRange()
+			range = document.createRange(),
 			currentrange = utils.getSelectionRange();
 
 		//console.log('setting caret at:', startTarget, startOffset, endTarget, endOffset);
-		try {
+		/*try {
 			throw new Error('')
 		}
 		catch(e)
 		{
 			console.log(e.stack)
-		}
+		}*/
 		
 		if(!endTarget)
 		{
@@ -302,7 +302,7 @@ window.ir.textarea.utils = (function() {
 			endOffset = startOffset;
 		}
 
-		if(
+		if(currentrange &&
 			(currentrange.startContainer == range.startContainer && 
 			currentrange.startOffset == range.startOffset) && 
 			( currentRange.collapsed || (

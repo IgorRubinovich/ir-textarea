@@ -1,7 +1,8 @@
 <dom-module id="ir-textarea-range">
 	<template>
 		<h1>caret debug</h1>
-		<table border=1 width="100%">
+		collapsed: {{ collapsed }}
+		<table on-click="log" style="marin-top : -400px" border=1 width="100%">
 			<tr>
 				<td></td>
 				<td>tagOutline</td>
@@ -14,21 +15,23 @@
 				<td>{{ startTagOutline }}</td>
 				<td>{{ startContainer }}</td>
 				<td>{{ startOffset }}</td>
+				<td>{{ startIsVisible }}</td>
 			</tr>
 			<tr>
 				<td>End</td>
 				<td>{{ endTagOutline }}</td>
 				<td>{{ endContainer }}</td>
 				<td>{{ endOffset }}</td>
-				</tr>
+				<td>{{ endIsVisible }}</td>
+			</tr>
 		</table>
 
 		<ir-textarea-range-marker 
 			id="start" 
 			bind-to-range="start" 
 			tag-outline="{{ startTagOutline }}" 
-			container="{{ startContainer }}" 
-			offset="{{ startOffset }}"
+			real-container="{{ startContainer }}" 
+			real-offset="{{ startOffset }}"
 			visible="{{ startIsVisible }}"
 		>
 		</ir-textarea-range>
@@ -36,8 +39,8 @@
 			id="end" 
 			bind-to-range="end" 
 			tag-outline="{{ endTagOutline }}" 
-			container="{{ endContainer }}" 
-			offset="{{ endOffset }}"
+			real-container="{{ endContainer }}" 
+			real-offset="{{ endOffset }}"
 			visible="{{ endIsVisible }}"
 		>
 		</ir-textarea-range>
@@ -56,15 +59,50 @@
 					observer : "editorChanged"
 				},
 				collapsed : {
-					type : Boolean
-				}
+					type : String,
+					notify : true,
+					computed : "_collapsed(startContainer,startOffset,endContainer,endOffset)" 
+				},
+				startContainer : { type : Object, notify : true },
+				startOffset : { type : Number, notify : true },
+				endContainer : { type : Object, notify : true },
+				endOffet : { type : Number, notify : true }
 			},
+			
+			log : function(e) {
+				console.log(this.startContainer, this.endContainer)
+			},
+			
+			_collapsed : function(startContainer,startoffset,endContainer,endOffset)
+			{
+				//this.set("collapsed", );
+				//console.log(this.startContainer == this.endContainer && this.startOffset == this.endOffset)
+				return this.startContainer == this.endContainer && this.startOffset == this.endOffset
+			},
+			
+			collapse : function(toEnd) {
+				var from, to;
+				from = toEnd ? 'end' : 'start';
+				to = toEnd ? 'start' : 'end';
+
+				from = this.$[from];
+				to = this.$[to];
+				
+				to.setAt(from.container, from.offset);
+				
+				this.updateNativeRange();
+				this.update();
+			},
+			
 			editorChanged : function() {
 				this.$.start.editor = this.editor;
 				this.$.end.editor = this.editor;
+
+				this.editor.addEventListener('keydown', this.keyDownHandler.bind(this))
+				this.editor.addEventListener('keyup', this.keyUpHandler.bind(this))
 				
 				//this.bindHandlers('mousedown,mouseup,keydown,keyup,keypress', this.inputHandler, this.editor);
-				this.bindHandlers('keydown,keyup', this.inputHandler, this.editor);
+				//this.bindHandlers('keydown,keyup', this.inputHandler, this.editor);
 			},
 			setStartAt : function(c, o) {
 				this.$.start.setAt(c, o);
@@ -73,7 +111,7 @@
 				//this.$.end.setAt(c, o);
 			},
 			setAt : function(sc, so, ec, eo) {
-				this.collapsed = !(ec && (ec != sc || so != eo));
+				//this.collapsed = !(ec && (ec != sc || so != eo));
 				
 				this.setStartAt(sc, so);				
 				if(!this.collapsed)
@@ -82,12 +120,17 @@
 			update : function() {
 				this.$.start.update();
 				this.$.end.update();
-				this.set('collapsed', this.$.start.container == this.$.end.container && this.$.start.offset && this.$.end.container);
+				//this.set('collapsed', this.$.start.container == this.$.end.container && this.$.start.offset && this.$.end.container);
 			},
 			updateFromCurrentRange : function() {
 				this.$.start.updateFromCurrentRange();
 				this.$.end.updateFromCurrentRange();				
 			},
+			
+			updateNativeRange : function() {
+				utils.setCaretAt(this.$.start.container, this.$.start.offset, this.$.end.container, this.$.end.offset);
+			},
+			
 			adjust : function() {
 				this.$.start.adjust();
 				this.$.end.adjust();
@@ -95,24 +138,90 @@
 			ready : function() {
 				this.isCaret = true;
 				this._host = this;
-				//this.$.start._host = this;
-				//this.$.end.isCaret = true;
 				
 				this.listeners = {};
 				
 				this.originalInnerHTML = '';
-				
-				/*this.mo = new MutationObserver(this.mutationHandler.bind(this)),
-				this.moconfig = {
-						childList : true,
-						subtree : true,
-						characterData : true,
-						characterDataOldValue : true,
-						attributes : true
-					}*/
 			},
 			
+			keyUpHandler : function (e) {
+				var keyCode = e.keyCode || e.which;
+				//if([16,17].indexOf(keyCode) > -1 && this.isVisible) // shift, ctrl, alt
+
+				if(!this.justUpdated)
+					this.updateFromCurrentRange();
+				
+				this.justUpdated = false;
+				
+				return e.preventDefault();
 			
+				//this.update();
+			},
+			
+			keyDownHandler : function (e) {
+				var dir, keyCode = e.keyCode, activeRangeSide, passiveRangeSide, ars;
+				
+				if([16,17].indexOf(keyCode) > -1) // shift, ctrl, (alt)
+					return e.preventDefault();
+				
+				if(this.collapsed)
+					this.lastActive = null;
+
+				if(this.collapsed && !e.shiftKey)
+					activeRangeSide = 'start';
+				else
+				if(!e.shiftKey || (e.shiftKey && !this.lastActive))
+				{
+					if([36,37,33,38].indexOf(keyCode) > -1) // home, left, pgUp, up
+						activeRangeSide = 'start';
+					else
+					if([35,34,39,40].indexOf(keyCode) > -1) // end, right, pgDn, down
+						activeRangeSide = 'end';
+						
+					this.lastActive = activeRangeSide;
+				}
+				else
+				//if(!e.shiftKey)
+					activeRangeSide = this.lastActive || 'start';
+				//else
+				//	activeRangeSide = this.lastActive;
+					
+				passiveRangeSide = activeRangeSide == "start" ? "end" : "start";
+				
+				if(e.keyCode == 39)
+					dir = 'forward';
+				else
+				if(e.keyCode == 37)
+					dir = 'backward';
+
+				console.log(activeRangeSide, dir)
+				
+				if(dir)
+				{
+					ars = this.$[activeRangeSide];
+					prs = this.$[passiveRangeSide];
+					if(this.collapsed || e.shiftKey)
+					{ // e.shiftKey ? activeRangeSide : "both", 
+						ars.go(dir, { container : prs.realContainer, offset : prs.realOffset })
+						if(!e.shiftKey)
+							prs.setAt(ars.container, ars.offset);
+						else
+						if(!this.collapsed && prs == this.$.end && !prs.visible)
+							prs.goAt({ container : prs.realContainer, offset : prs.realOffset})
+						else
+						if(this.collapsed && this.$.end.visible)
+							this.$.end.goAt({container : ars.realContainer, offset : ars.realOffset});
+					}
+					else
+						this.collapse(activeRangeSide == "end")
+					
+					this.updateNativeRange();
+					
+					this.justUpdated = true;
+					
+					e.preventDefault();
+				}
+			},
 			
 			inputHandler : function(ev) {
 				var keyCode = ev.which;
