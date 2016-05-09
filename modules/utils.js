@@ -188,12 +188,6 @@ window.ir.textarea.utils = (function() {
 		if(!child || child == document.body)
 			return null;
 
-		if(child.isCaret)
-		{
-			p = child.hostMarker.parentNode;
-			cn = p.childNodes;
-		}
-		else
 		if(Polymer.dom(child).getOwnerRoot() == Polymer.dom(child.parentNode).getOwnerRoot())
 		{
 			p = child.parentNode;
@@ -210,7 +204,7 @@ window.ir.textarea.utils = (function() {
 		
 		i = -1;
 		while(cn[++i] != child)
-			if(cn[i].isCaret)
+			if(cn[i] && cn[i].isCaret)
 				caret = 1;
 
 		return i - (withoutCaret ? caret : 0);
@@ -348,6 +342,8 @@ window.ir.textarea.utils = (function() {
 	}*/
 
 	utils.nextNode = function(node, top) {
+		var next, done;
+		
 		if(!node)
 			return;
 		
@@ -357,13 +353,25 @@ window.ir.textarea.utils = (function() {
 		if(Polymer.dom(node).childNodes && Polymer.dom(node).childNodes.length)
 			return Polymer.dom(node).firstChild;
 
-		while (node && node != top && !Polymer.dom(node).nextSibling) // !Polymer.dom(node).nextSibling) {
-			node = Polymer.dom(node).parentNode;
-
-		if (!node)
+		while(node && node != top && !done) // !Polymer.dom(node).nextSibling) {
+		{
+			next = node.nextSibling;
+			if(!next || !utils.isInLightDom(next, top))
+				next = Polymer.dom(node).nextSibling;
+			
+			next = utils.isInLightDom(next, top) && next;
+			
+			if(next)
+				done = true;
+			
+			//node = Polymer.dom(node).parentNode;
+			node = utils.parentNode(node, top);
+		}
+		
+		if (!next)
 			return null;
 		
-		return node.nextSibling;
+		return next;
 	}
 
 	utils.prevNode = function(node, top, opts) {
@@ -474,9 +482,21 @@ window.ir.textarea.utils = (function() {
 		if(n1.container == n2.container)
 			return n1.offset - n2.offset
 
+		if(utils.isContainer(n1.container))
+		{
+			n1.container = n1.container.childNodes[n1.offset];
+			n1.offset = 0;
+		}
+
+		if(utils.isContainer(n2.container))
+		{
+			n2.container = n2.container.childNodes[n2.offset];
+			n2.offset = 0;
+		}
+		
 		return utils.nodecmp(n1.container, n2.container, top)
 	}
-
+	
 	utils.prevNodeDeep = function(node, top, opts) {
 		var pn;
 
@@ -840,7 +860,7 @@ window.ir.textarea.utils = (function() {
 	}
 
 	utils.isEmptyParagraph = function(el) {
-		return el && el.matchesSelector && el.matchesSelector('span.paragraph') && el.firstChild && el.firstChild.tagName == 'BR';
+		return el && el.matches && el.matches('span.paragraph') && (!el.firstChild || (el.firstChild && el.firstChild.tagName == 'BR'));
 	}
 
 	utils.newEmptyParagraph = function (nobr) { 
@@ -938,29 +958,37 @@ window.ir.textarea.utils = (function() {
 	};
 	
 	utils.swapScripts =function(d) {
-			var clone, attrs, pn;
-			
-			var s = Polymer.dom(d).querySelectorAll('script'), i;
-			
-			for(i = 0; i < s.length; i++)
-			{
-				clone = document.createElement('script');
-				clone.appendChild(document.createTextNode(s[i].textContent));
-				attrs = Array.prototype.slice.call(s[i].attributes);
-				attrs.forEach(function(a) { clone.setAttribute(a.name, a.value); });
+		var clone, attrs, pn;
+		
+		var s = Polymer.dom(d).querySelectorAll('script'), i;
+		
+		for(i = 0; i < s.length; i++)
+		{
+			clone = document.createElement('script');
+			clone.appendChild(document.createTextNode(s[i].textContent));
+			attrs = Array.prototype.slice.call(s[i].attributes);
+			attrs.forEach(function(a) { clone.setAttribute(a.name, a.value); });
 
-				pn = Polymer.dom(s[i]).parentNode; //Polymer.dom(s[i]).parentNode;
+			pn = Polymer.dom(s[i]).parentNode; //Polymer.dom(s[i]).parentNode;
 
-				if(!pn)
-					return;
+			if(!pn)
+				return;
 
-				Polymer.dom(pn).insertBefore(clone, s[i]);
-				Polymer.dom(pn).removeChild(s[i]);
-			}
-			
-			return s.length;
+			Polymer.dom(pn).insertBefore(clone, s[i]);
+			Polymer.dom(pn).removeChild(s[i]);
 		}
 		
+		return s.length;
+	}
+
+	utils.childNodes = function(p) {
+		if(p.is)
+			return Polymer.dom(p).childNodes;
+		
+		else 
+			return p.childNodes;
+	}
+	
 	var debounceCache = {};
 	utils.debounce = function(f, ms, prevTimeout) {
 		var save, t, refName = prevTimeout;

@@ -320,28 +320,6 @@ window.ir.textarea.paste = (function() {
 			}
 		},
 
-		pasteHtmlAtPos : function(html, pos) {
-			var c = pos.container, 
-				o = pos.offset, 
-				p = c.parentNode,
-				d = document.createElement('div');
-			
-			d.innerHTML = html;
-			
-			// if text node split it first
-			if(c.nodeType == 3 && o < c.textContent.length)
-			{
-				p.insertBefore(document.createTextNode(c.textContent.slice(0, o)), c);
-				c.textContent = c.textContent.slice(o, c.textContent.length)
-			}
-			
-			while(d.firstChild)
-				p.insertBefore(last = d.firstChild, c);
-
-			return last;
-		},
-		
-		
 		pasteHtmlAtCaret : function(html, removeFormat, keepLastBr) {
 			var sel, range, endNode, newRange, node, lastNode, preLastNode, el, frag, pos, isLastInEditor, target, pos, offset, sc, so, ec, eo, r, is;
 
@@ -355,6 +333,23 @@ window.ir.textarea.paste = (function() {
 					so = r.startOffset;
 					ec = r.startContainer;
 					eo = r.startOffset;
+
+
+					if(r.startContainer.isDelimiter)
+					{
+						sc.textContent = "";
+						sc.isDelimiter = false;
+						so = 0;
+						if(sc == ec)
+							eo = 0;
+					}
+					if(r.endContainer.isDelimiter)
+					{
+						ec.textContent = "";
+						ec.isDelimiter = false;
+						eo = 0;
+					}
+					r = utils.setCaretAt(sc, so, ec, eo);
 
 					r.deleteContents();
 
@@ -382,18 +377,37 @@ window.ir.textarea.paste = (function() {
 
 					r.insertNode(frag);
 
-					sc.parentNode.normalize();
-					
 					// Preserve the selection
 					if (lastNode) {
+						if(lastNode.nextSibling && lastNode.nextSibling.textContent == '' && !keepLastBr)
+							lastNode.parentNode.removeChild(lastNode.nextSibling);
 						if(lastNode.nextSibling && lastNode.nextSibling.tagName == 'BR' && !keepLastBr)
 							lastNode.parentNode.removeChild(lastNode.nextSibling);
 
-						offset = 0;
+						if(lastNode.is && !lastNode.nextSibling)
+							lastNode.parentNode.appendChild(document.createTextNode(utils.DELIMITER))
+						
+						t = lastNode;
+						while(t.parentNode && t.parentNode != editor)
+						{
+							is = t.is
+							t = t.parentNode;
+						}
 
+						offset = 0;
+						//if(!is && t.parentNode == editor && !t.nextSibling)
+						//	t.parentNode.appendChild(target = newEmptyParagraph());
+						//else
+						//{
 						pos = utils.getLastCaretPosition(lastNode);
-						target = pos ? pos.container : lastNode;
-						offset = pos ? pos.offset : 0;
+						if(!pos)
+							target = utils.nextNode(lastNode, true);
+						else
+						{
+							target = pos.container;
+							offset = pos.offset;
+						}
+						//}
 
 						return utils.setCaretAt(target, offset);
 					}
@@ -412,6 +426,8 @@ window.ir.textarea.paste = (function() {
 				}
 				*/
 			}
+
+			this._updateValue();
 
 			return range;
 		}

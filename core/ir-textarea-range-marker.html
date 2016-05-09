@@ -16,7 +16,8 @@
 </dom-module>
 <script>
 	(function() {
-		var utils = ir.textarea.utils;	
+		var utils = ir.textarea.utils,
+			SYMBOLS = ir.textarea.CaretRulesets.Symbols;
 
 		Polymer({
 			is : "ir-textarea-range-marker",
@@ -49,6 +50,10 @@
 				},
 				realOffset : {
 					type : Number,
+					notify : true
+				},				
+				caretSpace : {
+					type : Object,
 					notify : true
 				},
 				tagOutline : {
@@ -117,27 +122,75 @@
 				this.mo.disconnect();
 			},
 			
-			go : function(dir, crossingPoint) {
+			go : function(dir) {
 				var pos;
 				
 				this.hide();
 				pos = this.caretNavigator.goFrom({ container : this.realContainer, offset : this.realOffset}, dir, this.bindToRange);
 		
 				this.setAt(pos.container, pos.offset);
+				
+				return this;
 			},
 			
 			goAt : function(pos, bindToRange) {
+				var p, h;
+				
+				if(pos.container == this.parentNode)
+				{
+					if(this.containerElementOffset < pos.offset)
+						pos.offset--;
+				}
+				
 				this.hide();
-				pos = this.caretNavigator.goAt({ container : pos.container, offset : pos.offset}, this.bindToRange);
+				
+				p = pos;
+				
+				if((h = p.container.hostMarker) || (p.container.nodeType == 1 && (h = p.container.childNodes[p.offset]) && (h = h.hostMarker)))
+					p = h;
+				
+				if(h && this != h && h.bindToRange == 'end')
+				{
+					h.hide();
+					pos = this.caretNavigator.goAt({ container : h.realContainer, offset : h.realOffset });
+				}
+				else
+				if(h)
+				{
+					pos = p.container.hostMarker;
+				}
+				else
+					pos = this.caretNavigator.goAt(p, this.bindToRange);
+				
 				this.setAt(pos.container, pos.offset);
+				
+				return this;
+			},
+			
+			isAt : function(pos)
+			{
+				var hm = pos.container.hostMarker, tc;
+				if(hm == this)
+					return this;
+					
+				if(hm && (hm.realContainer == this.realContainer && hm.realOffset == this.realOffset))
+					return true;
+
+				return this.realContainer == pos.container && this.realOffset == pos.offset;
 			},
 			
 			hasContent : function() {
-				return !(this.firstChild.textContent == '\u200B' && this.childNodes.length == 1);
+				var m = this.$.marker, c = m.firstChild;
+				return !(
+							c && 
+							c.nodeType == 3 && 
+							c.textContent == '\u200B' 
+							&& m.childNodes.length == 1
+						);
 			},
 			
 			mutationHandler : function() {				
-				var c, m = this.$.marker, lastInserted;
+				var c, m = this.$.marker, lastInserted, fc, done;
 				
 				if(!this.hasContent())
 					return;
@@ -148,14 +201,28 @@
 
 				this.observerDisconnect();				
 
-				while(m.childNodes.length)
-				{				
-					lastInserted = this.parentNode.insertBefore(m.firstChild, this);
-					if(lastInserted.nodeType == 3)
-						lastInserted.textContent = lastInserted.textContent.replace(/\u200B/g, '')
-				
-					lastInserted.isCaret = null;
-					lastInserted.hostMarker = null;
+				while(fc = m.firstChild)
+				{
+					while((fc && fc.nodeType == 3) && !done)
+					{
+						fc.textContent = fc.textContent.replace(/\u200B/g, '');
+						if(!fc.textContent.length)
+						{
+							m.removeChild(fc);
+							fc = m.firstchild;
+						}
+						else
+							done = true
+					}
+					
+					if(fc)
+					{
+						lastInserted = this.parentNode.insertBefore(fc, this);
+						
+						if(lastInserted.nodeType == 3)
+						lastInserted.isCaret = null;
+						lastInserted.hostMarker = null;
+					}
 				}
 				if(lastInserted && lastInserted.nodeType == 3)
 				{
@@ -203,7 +270,7 @@
 				{
 					if(c == this.editor)
 					{
-						c = c.childNodes[o]
+						c = c.childNodes[o];
 						o = 0;
 					}
 					isAfterCaret = c.previousSibling && c.previousSibling.isCaret;
@@ -219,6 +286,8 @@
 				}
 				
 				this.updateFromCurrentRange();
+				
+				return
 			},
 
 			hide : function() {
@@ -335,8 +404,22 @@
 			adjust : function() {
 				var pos;
 				
-				if(this.container)
-					this.goAt({container : this.realContainer, offset : this.realOffset}, this.bindToRange);
+				if(!this.container)
+					return;
+
+				if(this.bindToRange == 'end' && this.isAtOrAfterMarker(this))
+					return this.hide();
+				
+				//if(SYMBOLS.NCCONT(this.container))
+				//	this.go('forward');
+
+				this.hide();
+
+				this.goAt({container : this.realContainer, offset : this.realOffset}, this.bindToRange);
+			},
+			
+			pasteHTML : function(html) {
+				this.$.marker.innerHTML = html;
 			},
 
 			pushRange : function(ev) {
@@ -426,6 +509,8 @@
 					tn = this.$.marker.appendChild(document.createTextNode('\u200B'));
 					tn.isCaret = true;
 					tn.hostMarker = this.hostMarker;
+					
+					this.caretSpace = tn;
 				}
 
 				this.container = tn;
@@ -463,11 +548,17 @@
 				// marker lands on another marker
 				var chm;
 
+				
 				if(!pos.container)
 					return;
 					
 				chm = pos.container && pos.container.hostMarker;
 				
+				if(chm && !chm.parentNode)
+				{
+					pos = { container : chm.realContainer, offset : chm.realOffset }
+					chm = null;
+				}
 				// end marker lands on realContainer of start marker
 				if(!chm && pos.container.nodeType != 3 && this.bindToRange == 'end')
 				{
@@ -494,7 +585,7 @@
 					return
 				// in both above cases just make markers identical
 				if(chm)
-				{					
+				{
 					fields.split(",").forEach(function(f) { this.set(f, chm[f]); }.bind(this))
 					fields.split(",").forEach(function(f) { this.set(f, chm[f]); }.bind(this))
 					if(this.bindToRange == 'start')
@@ -522,12 +613,17 @@
 				}
 
 				
-				if(this.container && (this.container == this.editor || (this.container.nodeType == 3 && this.container.parentNode == this.editor)))
-					this.set('tagOutline', 'editor')
-				else
 				if(this.container)
-					this.set('tagOutline', utils.tagOutline(this.container.nodeType == 3 ? this.container.parentNode : this.realContainer));
-
+				{
+					if((this.container == this.editor || (this.container.nodeType == 3 && this.container.parentNode == this.editor)))
+						this.set('tagOutline', 'editor')
+					else
+					if(this.container.isCaret)
+						this.set('tagOutline', utils.tagOutline(this.realContainer))
+					else
+						this.set('tagOutline', utils.tagOutline(this.container.nodeType == 3 ? this.container.parentNode : this.realContainer));
+				}
+				
 				if(setRange)
 				{
 					r = utils.getSelectionRange() || {};

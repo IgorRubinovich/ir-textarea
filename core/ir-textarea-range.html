@@ -49,8 +49,10 @@
 
 <script>
 	(function() {
-		var utils = ir.textarea.utils;
-
+		var utils = ir.textarea.utils,
+			SYMBOLS = ir.textarea.CaretRulesets.Symbols,
+			paste = ir.textarea.paste;
+		
 		Polymer({
 			is : "ir-textarea-range",
 			properties : {
@@ -63,6 +65,16 @@
 					notify : true,
 					computed : "_collapsed(startContainer,startOffset,endContainer,endOffset)" 
 				},
+				startPosition : {
+					type : Object,
+					notify : true,
+					computed : "_startPosition(startContainer,startOffset)" 
+				},
+				endPosition : {
+					type : Object,
+					notify : true,
+					computed : "_endPosition(endContainer,endOffset)" 
+				},
 				startContainer : { type : Object, notify : true },
 				startOffset : { type : Number, notify : true },
 				endContainer : { type : Object, notify : true },
@@ -71,6 +83,13 @@
 			
 			log : function(e) {
 				console.log(this.startContainer, this.endContainer)
+			},
+			
+			_startPosition : function(startContainer, startOffset) {
+				return { container : startContainer, offset : startOffset }
+			},
+			_endPosition : function(endContainer, endOffset) {
+				return { container : endContainer, offset : endOffset }
 			},
 			
 			_collapsed : function(startContainer,startoffset,endContainer,endOffset)
@@ -107,11 +126,37 @@
 			},
 			
 			mouseUpHandler : function(e) {
-				var cp = utils.caretPositionFromPoint(e.clientX, e.clientY), startPos, endPos, reverseFlow;
-				if(e.shiftKey && this.lastClickPos)
+				var hm, cp = utils.caretPositionFromPoint(e.clientX, e.clientY), startPos, endPos, reverseFlow, 
+					lcpos = this.lastClickPos;
+
+				this.lastClickPos = null;
+					
+				//if(!(this.justUpdated || lcpos))
+				//{
+				//	this.hide();
+				//	this.update();				
+				//}
+				//else
+				if(hm = cp.container.hostMarker || (utils.isContainer(cp.container) && (hm = cp.container.childNodes[cp.offset].hostMarker))) 
+				{						
+					cp.container = hm;
+					cp.offset = 0;
+					
+					this.setAt(cp);
+				}
+				else
+				if(e.shiftKey || lcpos)
 				{
-					startPos = { container : this.lastClickPos.container, offset : this.lastClickPos.offset };
-					endPos = { container : cp.container, offset : cp.offset };
+					if(lcpos)
+					{
+						startPos = this.$.start;
+						endPos = cp;
+					}
+					else
+					{
+						startPos = { container : this.startContainer, offset : this.startOffset };
+						endPos = cp;
+					}
 					
 					reverseFlow = utils.caretposcmp(startPos, endPos, this.editor) > 0;
 					
@@ -121,25 +166,24 @@
 					
 					this.justUpdated = true;
 				}
-				else
-				{
-					this.update();
-					this.lastClickPos = null;
-				}
+				
+				e.preventDefault();
 			},
 			
 			mouseDownHandler : function(e) {
-				cp = utils.caretPositionFromPoint(e.clientX, e.clientY);
-				if(!e.shiftKey)
-				{
+				var cp = utils.caretPositionFromPoint(e.clientX, e.clientY);
+				//if(!e.shiftKey)
+				
+				if(!this.lastClickPos)
 					this.lastClickPos = { container : cp.container, offset : cp.offset }
-					this.setAt(cp.container, cp.offset);
-				}
+				
+				if(!e.shiftKey)
+					this.setAt(cp);
 			},
 			
 			setAt : function(startContainer, startOffset, endContainer, endOffset) {
 				//if(startContaienr == endContainer && startOffset == endOffset)
-				var startPos, endPos, t;
+				var startPos, endPos, t, reverseFlow;
 				
 				if(startContainer.container)
 				{
@@ -154,22 +198,30 @@
 					
 				if(!endPos || !endPos.container)
 					endPos = startPos;
-					
+				else
 				// swap if reverse flow order
 				if(utils.caretposcmp(startPos, endPos, this.editor) > 0)
 				{
 					t = startPos;
+					if(t.hostMarker)
+						t = { container : t.hostMarker.realContainer, offset : t.hostMarker.realOffset };
+
 					startPos = endPos;
 					endPos = t;
 				}
+								
+				if(!this.$.start.isAt(startPos))
+					this.$.start.goAt(startPos);
 				
-				this.$.start.hide();
-				
-				this.$.end.goAt(endPos);
-				this.$.start.goAt(startPos);				
-				
-				if(this.collapsed)
-					this.$.end.hide();
+				//if(!this.$.end.isAt(endPos))
+				if(startPos == endPos)
+					this.$.end.goAt(startPos);
+				else
+					this.$.end.goAt(endPos)
+
+				this.updateNativeRange()
+				//if(this.collapsed)
+				//	this.$.end.hide();
 			},
 			
 			setStartAt : function(c, o) {
@@ -189,7 +241,19 @@
 			},
 			
 			updateNativeRange : function() {
-				utils.setCaretAt(this.$.start.container, this.$.start.offset, this.$.end.container, this.$.end.offset);
+				var sc = this.$.start.container, so = this.$.start.offset, ec = this.$.end.container, eo = this.$.end.offset;
+				
+				if(sc.hostMarker)
+				{
+					sc = sc.hostMarker.caretSpace;
+					so = 0;
+				}
+				if(ec.hostMarker)
+				{
+					ec = ec.hostMarker.caretSpace;
+					eo = 0;
+				}
+				utils.setCaretAt(sc, so, ec, eo);
 			},
 			
 			adjust : function() {
@@ -205,25 +269,224 @@
 				this.originalInnerHTML = '';
 			},
 			
+			hide : function () {
+				this.$.start.hide();
+				this.$.end.hide();
+			},
+			
 			keyUpHandler : function (e) {
 				var keyCode = e.keyCode || e.which;
 
 				if(!this.justUpdated)
+				{
+					this.hide();
 					this.update();
-				
-				this.justUpdated = false;
-				
-				return e.preventDefault();			
+				}
+				if(this.preventNextDefault)
+					e.preventDefault();
+
+				this.preventNextDefault = this.justUpdated = false;
 			},
 			
 			keyDownHandler : function (e) {
-				var dir, keyCode = e.keyCode, activeRangeSide, passiveRangeSide, ars, dir;
+				var keyCode = e.keyCode, handled;
 				
 				if([16,17].indexOf(keyCode) > -1) // shift, ctrl, (alt)
 					return e.preventDefault();
+
+				"direction,enter,delete".split(',').forEach(function(handler) {
+					if(!handled)
+						handled = this[handler + "KeyHandler"].call(this, e);
+				}.bind(this));
+			},
+			
+			enterKeyHandler : function(e) {
+				var last;
+				
+				if(e.keyCode != 13)
+					return;
+
+				//this.hide();
+
+				if(e.shiftKey)
+				{
+					if(SYMBOLS.NCCONT(this.startContainer))
+					{
+						paste.pasteHtmlAtPos("<br>", { container : this.$.start, offset : 0 });
+						//this.go('forward');
+					}
+
+					paste.pasteHtmlAtPos("<br>", { container : this.$.start, offset : 0 });
+					
+					/*if(this.$.start.visible)
+						paste.pasteHtmlAtPos("<br>", { container : this.$.start, offset : 0 });
+					else
+					{
+						last = paste.pasteHtmlAtPos("<br>", this.startPosition);
+						this.setAt(last, 0);
+						this.go('forward')
+					}*/
+					//this.hide();/*
+					/*if((this.startContainer.nodeType == 3 && this.startOffset == this.startContainer.textContent.length)) // || (this.startContainer == utils.parentNode(this.startContainer).lastChild))
+					{
+						last = paste.pasteHtmlAtPos("<br>", this.startPosition);
+						this.go('forward')
+						//this.setAt({ container : this.startContainer.parentNode, offset : utils.getChildPositionInParent(this.startContainer) + 1 });
+					}
+					else
+					{
+						paste.pasteHtmlAtPos("<br>", this.startPosition);
+					}*/
+				}
+				else
+					paste.pasteHtmlWithParagraphs(utils.newEmptyParagraph(), { editor : this.editor });
+				
+				e.preventDefault();
+				
+				this.preventNextDefault = true;
+				this.justUpdated = true;
+				
+				this.update();
+								
+				return true;
+			},
+			
+			deleteKeyHandler : function(e) {
+				var keyCode = e.keyCode, dir, sm, tcea, pos, thiscont, othercont, t, jumpBack, force, deleted;
+				
+				dir = keyCode == 8 && "backward"; // backspace
+				dir = dir || (keyCode == 46) && "forward"; // del
+				if(!dir)
+					return false;
+				
+				if(this.collapsed && this.startContainer.nodeType == 3)
+				{
+					// del
+					if(dir == 'forward' && this.startOffset < this.startContainer.length)
+						return true; // default action
+
+					// backspace
+					if(dir == 'backward' && this.startOffset > 0)
+						return true; // default action
+				
+				}
+
+				// on edge of contenteditable inside a custom element
+				tcea = utils.getTopCustomElementAncestor(this.startContainer, this.editor);
+				if(tcea && tcea != this.startContainer)
+				{	
+					this.go(dir);
+					return e.preventDefault();
+				}
+
+				pos = this.startPosition;
+				
+				if(dir == 'forward')
+				{
+					delCandidate = this.$.start.realContainer;
+					if(delCandidate.nodeType == 3 && this.$.start.realOffset == delCandidate.textContent.length)
+					{
+						delCandidate = null
+						force = true;
+					}
+					//if(delCandidate && delCandidate.tagName == 'BR')
+					//{	
+					//	delCandidate = null;
+					//	force = true
+					//}
+					else
+					//if(!delCandidate)
+						this.go(dir);
+				}
+				else
+				{
+					delCandidate = this.$.start.previousSibling;
+					if(!delCandidate)
+						this.go(dir);
+				}
+				
+				// merge: we are deleting between two container blocks
+				if(!delCandidate && (force || (SYMBOLS.TEXT(pos.container) || SYMBOLS.CONT(pos.container.parentNode))))
+				{
+					thiscont = utils.parentNode(pos.container, this.editor);
+					if(thiscont == this.editor)
+						thiscont = pos.container;
+
+					this.hide();
+					
+					othercont = dir == "forward" ? thiscont.nextSibling : thiscont.previousSibling;
+					
+					if(!thiscont.is && !othercont.is)
+					{
+						if(dir == "backward") // swap
+						{
+							t = thiscont;
+							thiscont = othercont;
+							othercont = t;						
+						}
+						
+						// special case - two empty containers 
+						bothempty = SYMBOLS.NCCONTEMPTY(thiscont) && SYMBOLS.NCCONTEMPTY(othercont);
+						
+						// clear left
+						if(dir == "backward" && SYMBOLS.NCBLOCK(thiscont))
+							thiscont.parentNode.removeChild(deleted = thiscont)
+						else
+						if(thiscont.lastChild && thiscont.lastChild.tagName == 'BR')
+							thiscont.removeChild(deleted = thiscont.lastChild)
+						else
+						if(thiscont.nodeType == 3)
+							thiscont.textContent = thiscont.textContent.replace(/\n/, '').replace(/\s$/, '\u00A0');
+						
+						// clear right
+						if(dir == "forward" && SYMBOLS.NCBLOCK(othercont))
+						{
+							//if(othercont.previousSibling && othercont.previousSibling.nodeType == 3)
+							//	jumpBack = true;
+							othercont.parentNode.removeChild(deleted = othercont)
+						}
+						else
+						if(!bothempty && othercont.tagName == 'BR')
+							othercont.parentNode.removeChild(deleted = othercont)
+						else
+						if(othercont.nodeType == 3)
+							othercont.textContent = othercont.textContent.replace(/\n/, '').replace(/^\s/, '\u00A0');
+						
+						if(!deleted)
+							utils.mergeNodes(thiscont, othercont, true);
+						
+						this.$.start.update();
+						
+						if(dir == "forward" && jumpBack)
+							this.go("backward");
+						
+						this.justUpdated = this.preventNextDefault = true;
+						e.preventDefault();
+						
+						return
+					}	
+				}
+				
+				// delCandidate is a custom element or non-container block
+				if(delCandidate && (SYMBOLS.IS(delCandidate) || SYMBOLS.NCBLOCK(delCandidate)))
+				{	
+					delCandidate.parentNode.removeChild(delCandidate);
+					this.preventNextDefault = true;
+				}
+				
+				e.preventDefault();
+					
+				return true;
+			},
+			
+			directionKeyHandler : function(e) {
+				var dir, keyCode = e.keyCode, activeRangeSide, passiveRangeSide, ars, prs;
 				
 				dir = [36,37,33,38].indexOf(keyCode) > -1 && "backward"; 		 // home, left, pgUp, up
 				dir = dir || [35,39,34,40].indexOf(keyCode) > -1 && "forward";  // end, right, pgDn, down
+				
+				if(!dir)
+					return false;
 				
 				if(this.collapsed)
 					this.lastActive = null;
@@ -271,13 +534,17 @@
 					
 					e.preventDefault();
 				}
+				
+				return true;
 			},
 			
-			switchMarker : function(shiftKey) {
-				this.shiftKey = shiftKey;
-				this.activeMarker = !shiftKey ? "start" : "end";
-				this.inactiveMarker = shiftKey ? "start" : "end";
+			go : function(dir) {
+				this.$.end.hide();
+				this.$.start.go(dir);
+				this.$.end.goAt(this.$.start);
+				this.updateNativeRange();
 			}
+			
 		});
 	})();
 </script>

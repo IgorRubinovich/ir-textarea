@@ -23,7 +23,8 @@
 			NODE	- Any node
 			EDITOR 	- Editor
 			IS 		- Custom Element
-			CONT 	- Container - block level (non-inline, non-custom) element that can contain text
+			CONT 	- Container - block level (non-inline) element that can contain text
+			NCCONT 	- Container - block level (non-inline, non-custom) element that can contain text
 			INLINE 	- Inline Elment
 			TRANS 	- Transitional element (such as UL,TR,TABLE)
 			BLOCK 	- Any block level non-custom element (CONT,INLINE,TRANS)
@@ -223,7 +224,14 @@
 			return el && !utils.isInLightDom(el, this.editor); 
 		},
 		IS : 		function(el) { return el && el.is },
+		NULL : 		function(el) { return !el },
 		CONT : 		function(el) { return utils.canHaveChildren(el) },
+		
+		// non-custom container
+		NCCONT :	function(el) { return !el.is && utils.canHaveChildren(el) },
+		
+		// empty non-custom container
+		NCCONTEMPTY : function(el) { return !el.is && utils.canHaveChildren(el) && (!el.firstChild || el.firstChild.tagName == 'BR')},
 		INLINECONT: function(el) { return el && utils.isInlineElement(el) && utils.canHaveChildren(el) && !utils.isParagraph(el) },
 
 		TRANS : 	function(el) { return utils.isTransitionalElement(el) }, // add more

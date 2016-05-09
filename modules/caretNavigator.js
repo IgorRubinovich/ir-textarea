@@ -38,7 +38,7 @@
 
 		// a bunch of rules that define where the caret should stop - see caretRules.js for details
 		rulesetsDef = {
-			stopPoints : "EDITOR>IS,*>EMPTYTEXT,IS||!TEXT,EMPTYTEXT||NCBLOCK,P>IS,CONTED>TEXT,NCBLOCK||NCBLOCK",
+			stopPoints : "PEMPTY>*,EDITOR>IS,*>EMPTYTEXT,IS||!TEXT,EMPTYTEXT||NCBLOCK,P>IS,CONTED>TEXT,NCBLOCK||NCBLOCK,NCBLOCK||NULL",
 			skipPoints : "*+SHADOW,TEXT|TRANS,IS>>!CONTED,*>>EDITOR,*||SHADOW,P||TEXT,INLINECONT||TEXT,INLINECONT>INLINECONT,TRANS>|*"
 		};
 	
@@ -52,8 +52,8 @@
 			};
 		
 		this.caretSpan = opts.caretSpan;
-		this.caretSpanShow = opts.caretSpanShow;
-		this.caretSpanHide = opts.caretSpanHide;
+		this.caretSpanShow = opts.caretSpanShow || this.defaultCaretShow;
+		this.caretSpanHide = opts.caretSpanHide || this.defaultCaretHide;
 		
 		this.updateRules(rulesetsDef, editor);
 	}
@@ -67,6 +67,13 @@
 		var c = container, o = offset, m, n, match, skipMatch,
 			e = this.editor;
 
+		// this is required or we will always be looking from first child regardless of offset
+		if(c.nodeType == 1 && (cn = utils.childNodes(c))[o] && o > 0)
+		{
+			c = cn[o];
+			o = 0;
+		}
+		
 		if(c == e.lastChild && c.nodeType == 3 && o == c.textContent.length)
 			return { container : c, offset : c.textContent.length }
 			
@@ -84,7 +91,7 @@
 
 		if(c == e.nextSibling || (c == e && o == e.childNodes.length))
 			return { container : e, offset : e.childNodes.length };
-
+		
 		n = c;
 		
 		while(n && n != e.nextSibling) {
@@ -130,13 +137,22 @@
 	CaretNavigator.prototype.backward = function(container, offset)
 	{
 		var c = container, o = offset, m, n, match,
-			e = this.editor;
+			e = this.editor, cn;
 		
-		if(c == e && c.childNodes[o])
+		Polymer.dom(this.editor).querySelectorAll('br').forEach((x,i) => {x.i = i+1})
+		
+		// this is required or we will always be looking from first child regardless of offset		
+		if(c.nodeType == 1 && (cn = utils.childNodes(c))[o] && o > 0)
 		{
-			c = c.childNodes[o];
-			o = 0;
-		}	
+			c = cn[o];
+			o = c.nodeType == 3 ? c.textContent.length : 0;
+		}
+
+		//if(c == e && c.childNodes[o])
+		//{
+		//	c = c.childNodes[o];
+		//	o = 0;
+		//}	
 
 		if(c == e.firstChild && o == 0)
 			return { container : c, offset : o };		
@@ -155,8 +171,9 @@
 			
 			if(n.nodeType == 3 && !this.rulesets.skipPoints(null, n))
 				return { container : n, offset : n.textContent.length - (Symbols.INLINECONT(m) ? 1 : 0) };
-					
-			if(m && m.nodeType == 3 && m.textContent && utils.isInLightDom(m, this.editor) && !this.rulesets.skipPoints(null, m))
+
+			if(this.rulesets.stopPoints(null, m) && !this.rulesets.skipPoints(null, m))
+			//if(m && m.nodeType == 3 && m.textContent && utils.isInLightDom(m, this.editor) && !this.rulesets.skipPoints(null, m))
 				return { container : m, offset : m.textContent.length - (m && m.nextSibling == n && Symbols.INLINECONT(n) ? 1 : 0) };
 			
 			// a stop
@@ -183,6 +200,8 @@
 	
 	CaretNavigator.prototype.goAt = function(pos, rangeSide)
 	{
+		this.caretSpanHide();
+		
 		// flap and wibble to find the right spot
 		var pos = this.forward(pos.container, pos.offset);
 		if(pos)
@@ -195,11 +214,47 @@
 	
 	CaretNavigator.prototype.goFrom = function(pos, direction, rangeSide)
 	{
+		this.caretSpanHide();
+		
 		var pos = this[direction](pos.container, pos.offset);
 		
 		this.setAt(pos, rangeSide);
 		
 		return pos;
+	}
+	
+	CaretNavigator.prototype.defaultCaretShow = function(container, offset, rangeSide)
+	{
+		container.parentNode.insertBefore(this.caretSpan, container);
+		return { container : this.caretSpan.firstChild, offset : 0 }
+	}
+	
+	CaretNavigator.prototype.defaultCaretHide = function()
+	{
+		var caretSpan = this.caretSpan, index, pn;
+		
+		if(!caretSpan.parentNode)
+			return;
+
+		index = utils.getChildPositionInParent(caretSpan); // + (caretSpan == utils.parentNode(caretSpan, this.editor).lastChild ? 0 : 1);
+
+		pn = caretSpan.parentNode;
+		pn.removeChild(caretSpan);
+		
+		for(i = 0; i < pn.childNodes.length; i++)
+			if(pn.childNodes[i].nodeType == 3 && !pn.childNodes[i].textContent.length)
+				pn.removeChild(pn.childNodes[i]);
+		
+		c = pn, o = index;
+
+		childAtPos = pn.childNodes[o];
+		if(childAtPos) // && !childAtPos.is)
+		{
+			c = childAtPos;
+			o = 0;
+		}
+		
+		this.virtualCaret = false;
 	}
 	
 	// four signatures:
@@ -211,37 +266,11 @@
 	CaretNavigator.prototype.go = function(direction, fastOrRangeSide)
 	{
 		var r, next, sel, pn, index, c, o, pos, childAtPos, 
-		caretSpan = this.caretSpan,
+		
 		fast = typeof fastOrRangeSide == 'boolean' && fastOrRangeSide,
 		rangeSide = typeof fastOrRangeSide == 'string' && fastOrRangeSide;
 		
-		if(caretSpan && caretSpan.parentNode)
-		{
-			this.virtualCaret = false;
-
-			if(this.caretSpanHide)
-				this.caretSpanHide();
-			else
-			{
-				index = utils.getChildPositionInParent(caretSpan);
-				
-				pn = caretSpan.parentNode;
-				pn.removeChild(caretSpan);
-				
-				for(i = 0; i < pn.childNodes.length; i++)
-					if(pn.childNodes[i].nodeType == 3 && !pn.childNodes[i].textContent.length)
-						pn.removeChild(pn.childNodes[i]);
-				
-				c = pn, o = index;
-
-				childAtPos = pn.childNodes[o];
-				if(childAtPos) // && !childAtPos.is)
-				{
-					c = childAtPos;
-					o = 0;
-				}
-			}
-		}
+		this.caretSpanHide();
 
 		if(typeof direction == 'object')
 		{
@@ -319,7 +348,7 @@
 	// setAt(container, offset, rangeSide) or
 	// setAt(pos, rangeSide) where pos.container and pos.offset are same as in the first signature
  	CaretNavigator.prototype.setAt = function(container, offset, rangeSide) {
-		var r = utils.getSelectionRange(), c, o;
+		var r = utils.getSelectionRange(), c, o, pos;
 		
 		if(typeof offset != 'number')
 		{
@@ -332,14 +361,13 @@
 		if(container.nodeType != 3)
 		{			
 			this.virtualCaret = true;
-		
-			if(this.caretSpanShow)
-				return this.caretSpanShow(container, offset, rangeSide)
-
-			container.parentNode.insertBefore(this.caretSpan, container);
-
-			c = this.caretSpan.firstChild;
-			o = 0;
+			pos = this.caretSpanShow(container, offset, rangeSide);
+			
+			if(!pos)
+				return;
+			
+			c = pos.container;
+			o = pos.offset;
 		}
 		else
 		{
