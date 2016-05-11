@@ -51,6 +51,7 @@
 	(function() {
 		var utils = ir.textarea.utils,
 			SYMBOLS = ir.textarea.CaretRulesets.Symbols,
+			Rulesets = ir.textarea.CaretRulesets,
 			paste = ir.textarea.paste;
 		
 		Polymer({
@@ -131,15 +132,9 @@
 
 				this.lastClickPos = null;
 					
-				//if(!(this.justUpdated || lcpos))
-				//{
-				//	this.hide();
-				//	this.update();				
-				//}
-				//else
 				if(hm = cp.container.hostMarker || (utils.isContainer(cp.container) && (hm = cp.container.childNodes[cp.offset].hostMarker))) 
 				{						
-					cp.container = hm;
+					cp.container = hm.caretSpace;
 					cp.offset = 0;
 					
 					this.setAt(cp);
@@ -210,13 +205,10 @@
 					endPos = t;
 				}
 								
-				if(!this.$.start.isAt(startPos))
+				if(!(this.$.start.visible && this.$.start.isAt(startPos)))
 					this.$.start.goAt(startPos);
 				
-				//if(!this.$.end.isAt(endPos))
-				if(startPos == endPos)
-					this.$.end.goAt(startPos);
-				else
+				if(!(this.$.end.visible && this.$.end.isAt(endPos)))
 					this.$.end.goAt(endPos)
 
 				this.updateNativeRange()
@@ -306,37 +298,17 @@
 				if(e.keyCode != 13)
 					return;
 
-				//this.hide();
-
-				if(e.shiftKey)
+				if(true || e.shiftKey)
 				{
-					if(SYMBOLS.NCCONT(this.startContainer))
-					{
-						paste.pasteHtmlAtPos("<br>", { container : this.$.start, offset : 0 });
-						//this.go('forward');
-					}
-
-					paste.pasteHtmlAtPos("<br>", { container : this.$.start, offset : 0 });
-					
-					/*if(this.$.start.visible)
+					if(SYMBOLS.NCCONT(this.startContainer) || (this.startContainer.nodeType == 3 && this.startOffset == this.startContainer.textContent.length))
+						paste.pasteHtmlAtPos("<br>", { container : this.startContainer, offset : this.startOffset });
+					else
+					if(this.$.start.visible)
 						paste.pasteHtmlAtPos("<br>", { container : this.$.start, offset : 0 });
 					else
-					{
-						last = paste.pasteHtmlAtPos("<br>", this.startPosition);
-						this.setAt(last, 0);
-						this.go('forward')
-					}*/
-					//this.hide();/*
-					/*if((this.startContainer.nodeType == 3 && this.startOffset == this.startContainer.textContent.length)) // || (this.startContainer == utils.parentNode(this.startContainer).lastChild))
-					{
-						last = paste.pasteHtmlAtPos("<br>", this.startPosition);
-						this.go('forward')
-						//this.setAt({ container : this.startContainer.parentNode, offset : utils.getChildPositionInParent(this.startContainer) + 1 });
-					}
-					else
-					{
-						paste.pasteHtmlAtPos("<br>", this.startPosition);
-					}*/
+						paste.pasteHtmlAtPos("<br>", { container : this.startContainer, offset : this.startOffset });
+				
+					this.go('forward');
 				}
 				else
 					paste.pasteHtmlWithParagraphs(utils.newEmptyParagraph(), { editor : this.editor });
@@ -351,132 +323,124 @@
 				return true;
 			},
 			
-			deleteKeyHandler : function(e) {
-				var keyCode = e.keyCode, dir, sm, tcea, pos, thiscont, othercont, t, jumpBack, force, deleted;
+			deleteKeyHandler : function(e)
+			{
+				var pn, dir, 
+					keyCode = e.keyCode || e.which, isTn, deleteCandidate, mergeCandidate,
+					pos = this.startPosition, initialpos = pos, otherpos,
+					poscont, otherposcont, targetPos, i, l;
 				
 				dir = keyCode == 8 && "backward"; // backspace
 				dir = dir || (keyCode == 46) && "forward"; // del
 				if(!dir)
 					return false;
+
+				// four outcomes:
+				// 1a. default action - non-end of text in direction dir
+				if(!this.$.start.visible && !utils.atText(pos, dir == "forward" ? "end" : "start"))
+					return true;
 				
-				if(this.collapsed && this.startContainer.nodeType == 3)
+				this.hide();
+
+				if(dir == "forward")
 				{
-					// del
-					if(dir == 'forward' && this.startOffset < this.startContainer.length)
-						return true; // default action
-
-					// backspace
-					if(dir == 'backward' && this.startOffset > 0)
-						return true; // default action
-				
+					pn = pos.container;
+					if(pn.nodeType == 3)
+						pn = pn.nextSibling;
 				}
-
-				// on edge of contenteditable inside a custom element
-				tcea = utils.getTopCustomElementAncestor(this.startContainer, this.editor);
-				if(tcea && tcea != this.startContainer)
-				{	
-					this.go(dir);
-					return e.preventDefault();
-				}
-
-				pos = this.startPosition;
+				else
+					pn = pos.container.previousSibling;
 				
-				if(dir == 'forward')
+				// 1b. default action - we are before an inline container
+				if(SYMBOLS.INLINECONT(pn))
+					return true;
+
+				// 2. default action - caret before non-container block or custom element				
+				if(utils.isInLightDom(pn, this.editor) && (SYMBOLS.NCBLOCK(pn) || SYMBOLS.IS(pn)))
 				{
-					delCandidate = this.$.start.realContainer;
-					if(delCandidate.nodeType == 3 && this.$.start.realOffset == delCandidate.textContent.length)
+					if(dir == "forward")
 					{
-						delCandidate = null
-						force = true;
+						poscont = pos.container;
+						otherposcont = pn.nextSibling;
 					}
-					//if(delCandidate && delCandidate.tagName == 'BR')
-					//{	
-					//	delCandidate = null;
-					//	force = true
-					//}
 					else
-					//if(!delCandidate)
-						this.go(dir);
+					{
+						otherposcont = pos.container;
+						poscont = pn.previousSibling;
+					}
+						
+					utils.parentNode(pn).removeChild(pn);				
+					
+					// both remaining ends are text (think ---text---<br>---text---)
+					if(SYMBOLS.TEXT(poscont) && SYMBOLS.TEXT(otherposcont) && poscont.nextSibling == otherposcont)
+					{
+						l = poscont.textContent.length;
+						poscont.parentNode.normalize();
+						pos = { container : poscont, offset : l };
+					}
+					else
+					{
+						pos = { container : otherposcont, offset : 0 };
+					}
 				}
 				else
 				{
-					delCandidate = this.$.start.previousSibling;
-					if(!delCandidate)
-						this.go(dir);
-				}
-				
-				// merge: we are deleting between two container blocks
-				if(!delCandidate && (force || (SYMBOLS.TEXT(pos.container) || SYMBOLS.CONT(pos.container.parentNode))))
-				{
-					thiscont = utils.parentNode(pos.container, this.editor);
-					if(thiscont == this.editor)
-						thiscont = pos.container;
-
+					// 3. jump in dir and check against the other position
+					this.go(dir);
 					this.hide();
 					
-					othercont = dir == "forward" ? thiscont.nextSibling : thiscont.previousSibling;
+					otherpos = this.startContainer;
 					
-					if(!thiscont.is && !othercont.is)
+					// get closest non-custom container blocks for both positions
+					poscont = pos.container;
+					while(poscont != this.editor && !SYMBOLS.NCCONT(poscont) && poscont.parentNode != top)
+						poscont = utils.parentNode(poscont);
+					
+					otherposcont = otherpos.container;
+					while(otherposcont && poscont != this.editor && !SYMBOLS.NCCONT(otherposcont) && otherposcont.parentNode != top)
+						otherposcont = utils.parentNode(otherposcont);
+
+					// 3a. we are in the same container block - but actually this shouldn't be happening
+					if(poscont == otherposcont)
 					{
-						if(dir == "backward") // swap
+						// landed in an inline container - default action
+						if(SYMBOLS.INLINECONT(otherposcont))
+							return true;
+					}
+					else
+					// 3b we are in different neighbouring container blocks
+					if(otherposcont && poscont[dir == "forward" ? "nextSibling" : "previousSibling"] == otherposcont)
+					{
+						// swap if needed
+						if(dir == 'backward')
 						{
-							t = thiscont;
-							thiscont = othercont;
-							othercont = t;						
+							t = poscont;
+							poscont = otherposcont;
+							otherposcont = t;
 						}
 						
-						// special case - two empty containers 
-						bothempty = SYMBOLS.NCCONTEMPTY(thiscont) && SYMBOLS.NCCONTEMPTY(othercont);
-						
-						// clear left
-						if(dir == "backward" && SYMBOLS.NCBLOCK(thiscont))
-							thiscont.parentNode.removeChild(deleted = thiscont)
-						else
-						if(thiscont.lastChild && thiscont.lastChild.tagName == 'BR')
-							thiscont.removeChild(deleted = thiscont.lastChild)
-						else
-						if(thiscont.nodeType == 3)
-							thiscont.textContent = thiscont.textContent.replace(/\n/, '').replace(/\s$/, '\u00A0');
-						
-						// clear right
-						if(dir == "forward" && SYMBOLS.NCBLOCK(othercont))
-						{
-							//if(othercont.previousSibling && othercont.previousSibling.nodeType == 3)
-							//	jumpBack = true;
-							othercont.parentNode.removeChild(deleted = othercont)
-						}
-						else
-						if(!bothempty && othercont.tagName == 'BR')
-							othercont.parentNode.removeChild(deleted = othercont)
-						else
-						if(othercont.nodeType == 3)
-							othercont.textContent = othercont.textContent.replace(/\n/, '').replace(/^\s/, '\u00A0');
-						
-						if(!deleted)
-							utils.mergeNodes(thiscont, othercont, true);
-						
-						this.$.start.update();
-						
-						if(dir == "forward" && jumpBack)
-							this.go("backward");
-						
-						this.justUpdated = this.preventNextDefault = true;
-						e.preventDefault();
-						
-						return
-					}	
-				}
-				
-				// delCandidate is a custom element or non-container block
-				if(delCandidate && (SYMBOLS.IS(delCandidate) || SYMBOLS.NCBLOCK(delCandidate)))
-				{	
-					delCandidate.parentNode.removeChild(delCandidate);
-					this.preventNextDefault = true;
-				}
-				
-				e.preventDefault();
+						// and merge
+						utils.mergeNodes(poscont, poscont);
 					
-				return true;
+					}
+					// else pull the sibling element unless it's a container
+					else
+					{
+						pos = this.startPosition;
+						otherposcont = poscont.previousSibling;
+						if(otherposcont && !SYMBOLS.NCCONT(otherposcont))
+						{
+							pos.container.parentNode.insertBefore(otherposcont, pos.container);
+							if(otherposcont.nodeType == 3 && pos.container.nodeType == 3)
+								pos = { container : otherposcont.parentNode, offset : otherposcont.textContent.length };
+						}
+					}
+				}
+				
+				this.setAt(pos);
+				this.justUpdated = true;
+				this.preventNextDefault = true;
+				e.preventDefault();
 			},
 			
 			directionKeyHandler : function(e) {

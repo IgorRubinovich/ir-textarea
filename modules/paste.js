@@ -329,15 +329,25 @@ window.ir.textarea.paste = (function() {
 			d.innerHTML = html;
 			
 			// if text node split it first
-			if(c.nodeType == 3 && o < c.textContent.length)
+			if(c.nodeType == 3)
 			{
-				p.insertBefore(document.createTextNode(c.textContent.slice(0, o)), c);
-				c.textContent = c.textContent.slice(o, c.textContent.length)
+				if(o > 0 && o < c.textContent.length)
+				{
+					p.insertBefore(document.createTextNode(c.textContent.slice(0, o)), c);
+					c.textContent = c.textContent.slice(o, c.textContent.length)
+				}
+				else
+				if(o != 0)
+					c = c.nextSibling
 			}
 			
-			while(d.firstChild)
-				p.insertBefore(last = d.firstChild, c);
-
+			if(c)
+				while(d.firstChild)
+					p.insertBefore(last = d.firstChild, c);
+			else
+				while(d.firstChild)
+					p.appendChild(last = d.firstChild);
+				
 			return last;
 		},
 		

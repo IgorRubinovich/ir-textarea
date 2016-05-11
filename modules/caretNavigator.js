@@ -65,7 +65,7 @@
 	CaretNavigator.prototype.forward = function(container, offset)
 	{
 		var c = container, o = offset, m, n, match, skipMatch,
-			e = this.editor;
+			e = this.editor, cn;
 
 		// this is required or we will always be looking from first child regardless of offset
 		if(c.nodeType == 1 && (cn = utils.childNodes(c))[o] && o > 0)
@@ -148,11 +148,11 @@
 			o = c.nodeType == 3 ? c.textContent.length : 0;
 		}
 
-		//if(c == e && c.childNodes[o])
-		//{
-		//	c = c.childNodes[o];
-		//	o = 0;
-		//}	
+		if(c == e && c.childNodes[o])
+		{
+			c = c.childNodes[o];
+			o = 0;
+		}	
 
 		if(c == e.firstChild && o == 0)
 			return { container : c, offset : o };		
@@ -166,7 +166,7 @@
 			
 		n = c;
 		while(n && n != e) {
-			n = utils.prevNode(n);
+			n = utils.prevNode(n, this.editor);
 			m = n.previousSibling || utils.parentNode(n);
 			
 			if(n.nodeType == 3 && !this.rulesets.skipPoints(null, n))

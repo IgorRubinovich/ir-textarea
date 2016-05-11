@@ -593,6 +593,12 @@
 						this.container = this.$.marker.firstChild;
 						this.offset = 0;
 					}
+					
+					if(chm && this.bindToRange == 'end' && this.visible)
+					{
+						this.hide();
+						setRange = true;
+					}
 				}
 				else
 				if(!chm)

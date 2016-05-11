@@ -228,7 +228,7 @@
 		CONT : 		function(el) { return utils.canHaveChildren(el) },
 		
 		// non-custom container
-		NCCONT :	function(el) { return !el.is && utils.canHaveChildren(el) },
+		NCCONT :	function(el) { return el && !el.is && utils.canHaveChildren(el) },
 		
 		// empty non-custom container
 		NCCONTEMPTY : function(el) { return !el.is && utils.canHaveChildren(el) && (!el.firstChild || el.firstChild.tagName == 'BR')},

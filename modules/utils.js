@@ -158,8 +158,8 @@ window.ir.textarea.utils = (function() {
 		if(node.parentNode == top || (includeTop && node == top))
 			return true;
 
-		if(node != top && node != document.body)
-			return utils.isInLightDom(Polymer.dom(node).parentNode, top);
+		if(node && node != top)
+			return utils.isInLightDom(node.parentNode, top);
 
 		return false;
 	}
@@ -375,13 +375,84 @@ window.ir.textarea.utils = (function() {
 	}
 
 	utils.prevNode = function(node, top, opts) {
+		var pn, done, ild;
+		
+		if(node == top)
+			return top;
+
+		if(!node.previousSibling && node.parentNode == top)
+			return top;
+		
+		pn = node;
+		while(!done)
+		{
+			if(pn.previousSibling && (ild = utils.isInLightDom(pn.previousSibling, top)))
+				done = pn;
+			//else
+			//if(!ild && pn = Polymer.dom(pn).parentNode && )
+			//	done = ;
+			else
+				done = pn = utils.parentNode(pn);
+				
+			if(pn == top)
+				return pn;			
+		}
+
+		if(pn == node)
+		{
+			pn = pn.previousSibling;
+			while(Polymer.dom(pn).lastChild)
+				pn = Polymer.dom(pn).lastChild
+		}
+		return pn;
+	}
+	
+	// where: start, end, middle. note that sometimes start == end
+	utils.atText = function(pos, where){
+		if(!pos.container)
+			return false;
+		
+		if(pos.container.nodeType != 3)
+			return false;
+		
+		l = pos.container.textContent.length;
+		
+		if(pos.offset == 0 && where == 'start')
+			return true;
+		
+		if(pos.offset > 0 && pos.offset < l && where == 'middle')
+			return true;
+
+		if(pos.offset == l && where == 'end')
+			return true;
+		
+		return false;		
+	}
+	
+	
+	/*
+	utils.xprevNode = function(node, top, opts) {
 		var pn;
 
 		if(!opts) opts = {};
 
+		if(node == top)
+			return node;
+		
+		//if //node.parentNode == top && node.nodeType == 1 && 
+		if((node.parentNode == top && node.nodeType == 1 && node.previousSibling && !node.previousSibling.is && !utils.canHaveChildren(node.previousSibling)) || 
+			
+			
+			node.parentNode == 3 && node.)
+			return node.previousSibling || node.parentNode;
+	
 		if(!Polymer.dom(node).previousSibling)
 		{
 			pn = Polymer.dom(node).parentNode;
+			
+			if(pn == top)
+				return pn;
+			
 			if(!opts.skipAncestors)
 				return pn;
 			else
@@ -405,16 +476,21 @@ window.ir.textarea.utils = (function() {
 			pn = Polymer.dom(pn).lastChild;
 
 		return pn;
-	}
+	} */
 	
 	utils.parentNode = function(node, top) {
 		if(node.parentNode == top)
 			return top;
 
-		if(Polymer.dom(node).parentNode != node.parentNode && utils.isInLightDom(node, top)) // && !utils.isInLightDom(node.parentNode, top))
+		if(utils.isInLightDom(node.parentNode, top))
+			return node.parentNode;
+
+		return Polymer.dom(node).parentNode;
+		
+		/*if(Polymer.dom(node).parentNode != node.parentNode && utils.isInLightDom(node, top)) // && !utils.isInLightDom(node.parentNode, top))
 			return Polymer.dom(node).parentNode;
 		else
-			return node.parentNode;
+			return node.parentNode;*/
 	}
 
 	// similar to strcmp, compares two nodes in terms of document flow order
