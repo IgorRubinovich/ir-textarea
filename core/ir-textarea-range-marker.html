@@ -128,7 +128,8 @@
 				this.hide();
 				pos = this.caretNavigator.goFrom({ container : this.realContainer, offset : this.realOffset}, dir, this.bindToRange);
 		
-				this.setAt(pos.container, pos.offset);
+				if(pos)
+					this.setAt(pos.container, pos.offset);
 				
 				return this;
 			},
@@ -146,7 +147,7 @@
 				
 				p = pos;
 				
-				if((h = p.container.hostMarker) || (p.container.nodeType == 1 && (h = p.container.childNodes[p.offset]) && (h = h.hostMarker)))
+				if(h = this.isAtOrAfterMarker(pos))
 					p = h;
 				
 				if(h && this != h && h.bindToRange == 'end')
@@ -264,7 +265,7 @@
 				{
 					isAfterCaret = o > 0 && c.childNodes[o-1] && c.childNodes[o-1].isCaret;
 					if(!(isEnd && isAfterCaret))
-						doPull = c.parentNode.appendChild(this);
+						doPull = c.appendChild(this);
 				}
 				else
 				{
@@ -298,7 +299,7 @@
 				if(!this.parentNode)
 					return;
 
-				if(this.realContainer == this.editor && this.realOffset < this.editor.childNodes.length)
+				if(this.realContainer == this.editor && this.realOffset < this.editor.childNodes.length && !(this == this.editor.lastChild))
 				{
 					console.log('subtracting this.realOffset for ', this.realOffset, this.crealContainer);
 					this.realOffset--;

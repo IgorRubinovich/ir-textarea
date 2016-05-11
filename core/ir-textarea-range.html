@@ -293,6 +293,10 @@
 			},
 			
 			enterKeyHandler : function(e) {
+				
+			},
+			
+			xenterKeyHandler : function(e) {
 				var last;
 				
 				if(e.keyCode != 13)
@@ -369,7 +373,7 @@
 						poscont = pn.previousSibling;
 					}
 						
-					utils.parentNode(pn).removeChild(pn);				
+					utils.parentNode(pn, this.editor).removeChild(pn);
 					
 					// both remaining ends are text (think ---text---<br>---text---)
 					if(SYMBOLS.TEXT(poscont) && SYMBOLS.TEXT(otherposcont) && poscont.nextSibling == otherposcont)
@@ -426,9 +430,10 @@
 					// else pull the sibling element unless it's a container
 					else
 					{
-						pos = this.startPosition;
+						pos = this.startPosition; 							// pos is where we pull
 						otherposcont = poscont.previousSibling;
-						if(otherposcont && !SYMBOLS.NCCONT(otherposcont))
+						if(otherposcont && !SYMBOLS.NCCONT(otherposcont) && 
+							utils.getTopCustomElementAncestor(pos.container, this.editor) == utils.getTopCustomElementAncestor(otherposcont, this.editor))
 						{
 							pos.container.parentNode.insertBefore(otherposcont, pos.container);
 							if(otherposcont.nodeType == 3 && pos.container.nodeType == 3)

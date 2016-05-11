@@ -152,62 +152,50 @@ window.ir.textarea.utils = (function() {
 	}
 
 	utils.isInLightDom = function(node, top, includeTop) { // is in light dom relative to top, i.e. top is considered the light dom root like a scoped document.body
+		var p = node;
+
 		if(!node)
 			return false;
-
-		if(node.parentNode == top || (includeTop && node == top))
-			return true;
-
-		if(node && node != top)
-			return utils.isInLightDom(node.parentNode, top);
+		
+		while(p = Polymer.dom(p).parentNode)
+			if(p == document.body || p == top)
+				return true;
 
 		return false;
 	}
 
 	// returns topmost custom element or null below or equal to `top`
 	utils.getTopCustomElementAncestor = function(node, top) {
-		var res = null;
+		var res, n = node;
+		
 		if(!top) top = document.body;
 
-		while(node && node != top)
+		while(n && n != top)
 		{
-			if(node.is)
+			if(n.is && n != node)
 				res = node;
 
-			if(Polymer.dom(node).parentNode != node.parentNode && !utils.isInLightDom(node, top))
-				node = Polymer.dom(node).getOwnerRoot().host;
-			else
-				node = node.parentNode;
+			n = utils.parentNode(n, top);
 		}
 
-		return (node == top) ? res : null;
+		return (n == top) ? res : null;
 	}
 
-	utils.getChildPositionInParent = function(child, withDelimiters, withoutCaret) {
-		var i, cn, p, pos = 0, caret = 0;
+	utils.getChildPositionInParent = function(child) {
+		var i, cn, p, l, caret = 0;
 		if(!child || child == document.body)
 			return null;
 
-		if(Polymer.dom(child).getOwnerRoot() == Polymer.dom(child.parentNode).getOwnerRoot())
-		{
-			p = child.parentNode;
-			cn = p.childNodes;
-		}
-		else
-		{
-			p = Polymer.dom(child).parentNode;
-			cn = Polymer.dom(p).childNodes
-		}
+		p = utils.parentNode(child)
 		
-		if(!p)
-			return null;
-		
+		cn = p.is ? Polymer.dom(p).childNodes : p.childNodes;
 		i = -1;
-		while(cn[++i] != child)
-			if(cn[i] && cn[i].isCaret)
-				caret = 1;
+		l = cn.length;
+		while(i < l)
+			if(cn[++i] == child)
+				return i;
 
-		return i - (withoutCaret ? caret : 0);
+		throw new Error("couldn't find " + child + " in " + utils.parentNode(child));
 	}
 
 	utils.getChildPathFromTop = function(child, top, withDelimiters) {
@@ -388,13 +376,10 @@ window.ir.textarea.utils = (function() {
 		{
 			if(pn.previousSibling && (ild = utils.isInLightDom(pn.previousSibling, top)))
 				done = pn;
-			//else
-			//if(!ild && pn = Polymer.dom(pn).parentNode && )
-			//	done = ;
 			else
-				done = pn = utils.parentNode(pn);
+				done = pn = utils.parentNode(pn, top);
 				
-			if(pn == top)
+			if(!pn || pn == top)
 				return pn;			
 		}
 
@@ -429,64 +414,15 @@ window.ir.textarea.utils = (function() {
 		return false;		
 	}
 	
-	
-	/*
-	utils.xprevNode = function(node, top, opts) {
-		var pn;
-
-		if(!opts) opts = {};
-
-		if(node == top)
-			return node;
-		
-		//if //node.parentNode == top && node.nodeType == 1 && 
-		if((node.parentNode == top && node.nodeType == 1 && node.previousSibling && !node.previousSibling.is && !utils.canHaveChildren(node.previousSibling)) || 
-			
-			
-			node.parentNode == 3 && node.)
-			return node.previousSibling || node.parentNode;
-	
-		if(!Polymer.dom(node).previousSibling)
-		{
-			pn = Polymer.dom(node).parentNode;
-			
-			if(pn == top)
-				return pn;
-			
-			if(!opts.skipAncestors)
-				return pn;
-			else
-			{
-				while(pn && pn != top && !Polymer.dom(pn).previousSibling)
-					pn = Polymer.dom(pn).parentNode;
-
-				if(!pn || pn == top)
-					return pn;
-
-				pn = pn.previousSibling;
-			}
-		}
-		else
-			pn = node.previousSibling
-
-		if(pn.nodeType == 3)
-			return pn;
-
-		while(Polymer.dom(pn).lastChild && (!opts.atomicCustomElements || !pn.is))
-			pn = Polymer.dom(pn).lastChild;
-
-		return pn;
-	} */
-	
 	utils.parentNode = function(node, top) {
-		if(node.parentNode == top)
+		if(node == top || node.parentNode == top)
 			return top;
 
-		if(utils.isInLightDom(node.parentNode, top))
+		if(!utils.getTopCustomElementAncestor(node.parentNode, top))
 			return node.parentNode;
-
-		return Polymer.dom(node).parentNode;
 		
+		return Polymer.dom(node).parentNode;
+
 		/*if(Polymer.dom(node).parentNode != node.parentNode && utils.isInLightDom(node, top)) // && !utils.isInLightDom(node.parentNode, top))
 			return Polymer.dom(node).parentNode;
 		else

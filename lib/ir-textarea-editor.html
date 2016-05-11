@@ -1,0 +1,26 @@
+<dom-module id="ir-textarea-editor">
+	<style>
+	</style>
+	<template><content></content></template>	
+</dom-module> 
+
+<script>
+	(function() {
+		Polymer({
+			is : "ir-textarea-editor",
+			properties : {
+				editor : {
+					type : Object
+				},
+				dom : {
+					type : Object
+				}
+			},
+			ready : function() {
+				console.log('hello editor')
+				this.editor = this;
+				dom = Polymer.dom(this);
+			}
+		})
+	})();
+</script>

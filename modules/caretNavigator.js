@@ -98,9 +98,9 @@
 			n = utils.nextNode(n, this.editor);
 			
 			if(!n)
-				return null;
+				return { container : this.editor, offset : this.editor.childNodes.length };;
 				
-			m = n.previousSibling || utils.parentNode(n);
+			m = n.previousSibling || utils.parentNode(n, this.editor);
 
 			if(m == editor || (n == e && o == e.childNodes.length))
 				return { container : c, offset : o };
@@ -137,7 +137,7 @@
 	CaretNavigator.prototype.backward = function(container, offset)
 	{
 		var c = container, o = offset, m, n, match,
-			e = this.editor, cn;
+			e = this.editor, cn, temp, res;
 		
 		Polymer.dom(this.editor).querySelectorAll('br').forEach((x,i) => {x.i = i+1})
 		
@@ -163,50 +163,58 @@
 
 		if(c == e && o == 0)
 			return { container : c, offset : 0 };
-			
-		n = c;
-		while(n && n != e) {
-			n = utils.prevNode(n, this.editor);
-			m = n.previousSibling || utils.parentNode(n);
-			
-			if(n.nodeType == 3 && !this.rulesets.skipPoints(null, n))
-				return { container : n, offset : n.textContent.length - (Symbols.INLINECONT(m) ? 1 : 0) };
+		
+		if(c == e && o == e.childNodes.length)
+			c = temp = e.appendChild(document.createElement('span'));
 
-			if(this.rulesets.stopPoints(null, m) && !this.rulesets.skipPoints(null, m))
+		n = c;
+		while(!res && n && n != e) {
+			n = utils.prevNode(n, this.editor);
+			m = n.previousSibling || utils.parentNode(n, this.editor);
+			
+			if(!res && n.nodeType == 3 && !this.rulesets.skipPoints(null, n))
+				res = { container : n, offset : n.textContent.length - (Symbols.INLINECONT(m) ? 1 : 0) };
+
+			if(!res && this.rulesets.stopPoints(null, m) && !this.rulesets.skipPoints(null, m))
 			//if(m && m.nodeType == 3 && m.textContent && utils.isInLightDom(m, this.editor) && !this.rulesets.skipPoints(null, m))
-				return { container : m, offset : m.textContent.length - (m && m.nextSibling == n && Symbols.INLINECONT(n) ? 1 : 0) };
+				res = { container : m, offset : m.textContent.length - (m && m.nextSibling == n && Symbols.INLINECONT(n) ? 1 : 0) };
 			
 			// a stop
-			if(match = this.rulesets.stopPoints(m, n))
+			if(!res && (match = this.rulesets.stopPoints(m, n)))
 			{
 				if(!this.rulesets.skipPoints(m, n))
 				{
 					if(n.nodeType == 3)
-						return { container : n, offset : n.textContent.length }
+						res = { container : n, offset : n.textContent.length }
 
-					return { container : n, offset : 0, caretRule : match }
+					res = { container : n, offset : 0, caretRule : match }
 				}
 			}		
 			// n = utils.prevNode(n);
 		}
 
-		// end
-		return { container : e, offset : e.childNodes.length };
+		if(temp)
+			temp.parentNode.removeChild(temp);
+		
+		// return result or editor end
+		return res || { container : e, offset : e.childNodes.length };
 	}
 	
 	CaretNavigator.prototype.stopFastGo = function() {
 		clearTimeout(this.fftimeout)
 	}
 	
-	CaretNavigator.prototype.goAt = function(pos, rangeSide)
+	CaretNavigator.prototype.goAt = function(atpos, rangeSide)
 	{
 		this.caretSpanHide();
 		
 		// flap and wibble to find the right spot
-		var pos = this.forward(pos.container, pos.offset);
+		var pos = this.forward(atpos.container, atpos.offset);
 		if(pos)
 			pos = this.backward(pos.container, pos.offset);
-
+		else
+			pos = { container : this.editor, offset : this.editor.childNodes.length }
+		
 		this.setAt(pos, rangeSide);
 		
 		return pos;
@@ -349,6 +357,9 @@
 	// setAt(pos, rangeSide) where pos.container and pos.offset are same as in the first signature
  	CaretNavigator.prototype.setAt = function(container, offset, rangeSide) {
 		var r = utils.getSelectionRange(), c, o, pos;
+		
+		if(!container)
+			return;
 		
 		if(typeof offset != 'number')
 		{

@@ -46,6 +46,9 @@ Issues and pull requests are most welcome. Fork it [here](https://github.com/Igo
 <link rel="import" href="../iron-pages/iron-pages.html">
 
 <link rel="import" href="./lib/ir-selectors-behavior.html">
+
+<link rel="import" href="./lib/ir-textarea-editor.html">
+
 <link rel="import" href="./lib/ir-textarea-mediaeditor.html">
 <link rel="import" href="./lib/ir-textarea-mediaembedder.html">
 <link rel="import" href="./lib/ir-textarea-linkeditor.html">
@@ -300,9 +303,9 @@ Issues and pull requests are most welcome. Fork it [here](https://github.com/Igo
 			</div>
 			<div id="borderWrapper">
 				<div id="floatWrapper">
-					<div id="editor" class="post" on-focus="_focusedEditor" contenteditable>
-						<content></content>
-					</div>
+					<ir-textarea-editor>
+						<div id="editor" class="post" on-focus="_focusedEditor" contenteditable><content></content></div>
+					</ir-textarea-editor>
 					<div id="resizeHandler" data-right="true" data-bottom="true"></div>
 				</div>
 				<io-menu id="contextMenu" listener="click" disabled options="{}"></io-menu>

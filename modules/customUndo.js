@@ -310,7 +310,7 @@ window.ir.textarea.CustomUndoEngine = (function() {
 			var pushUndo = function(force) { //, onlyUpdateRangeMemo) {
 				var r, sel = window.getSelection(), startMemo, endMemo, sc, ec, so, eo, t,
 					innerHTML, onlyUpdateRangeMemo, prevUndo;
-				
+
 				if(isDisabled())
 					return;
 				

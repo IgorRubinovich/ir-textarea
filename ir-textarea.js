@@ -77,6 +77,7 @@
 																		//contentFrame : '[content]', // '[content]<span class="paragraph"><br></span>',
 																		timeout : false,
 																		isDisabled : function() {
+																			return true;
 																			return this.disabled;
 																		}.bind(this),
 																		onRestoreState : function(el) {
