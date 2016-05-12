@@ -323,32 +323,150 @@ window.ir.textarea.paste = (function() {
 		pasteHtmlAtPos : function(html, pos) {
 			var c = pos.container, 
 				o = pos.offset, 
-				p = c.parentNode,
-				d = document.createElement('div');
+				parent, last, lastPos,
+				d = document.createElement('div'), index, len,
+				state = { html : {}, pos : {} }; // see states below
 			
 			d.innerHTML = html;
+			parent = utils.parentNode(pos.container);
+
+			/*
+			/ states and steps
 			
-			// if text node split it first
-			if(c.nodeType == 3)
+												pos
+			html								---
+			----								|a. text start	|b. text middle		|c. text end	|d. non-text	|e. last child text	|f. last child block
+												|   |---O		|   --|--O			|   ----|O		|	|O 			|   ---|.			|   ---O|.
+			____________________________________|_______________|___________________|_______________|_______________|___________________|___________________
+			1. start: text  end: text	--O-- 	|paste,merge	|split,paste,merge	|paste, merge	|paste			|append, merge		|append
+			2. start: text  end: block	--O   	|paste			|split,paste,merge	|paste, merge	|paste			|append, merge		|append
+			3. start: block end: text	  O-- 	|paste,merge	|split,paste,merge	|paste			|paste			|append				|append
+			4. start: block end: block	  O   	|paste			|split,paste		|paste			|paste			|append				|append
+												|				|                   |               |               |                   |
+			Pictograms:
+			-- text node
+			O  block node
+			|  caret
+			. end of parent container
+			
+			
+			/ steps order
+			is always same but steps are applied selectively
+			
+			1-4.b.			split
+			
+			1-4.a-d			paste
+			- or -
+			1-4.e-f			append
+			
+			1.a-c,e
+			2.b,c,e			merge (normalize)
+			3.a,b
+			
+			/ resulting position
+			
+				a					b						c						d						e					f
+			1	last, len(last)		last, len(last)			last, len(last)			last, len(last)			last,len(last)		last, len(last)
+			2	pos.cont,0			pos.cont, 0				pos.cont, 0				pos.cont,0				parent,len(parent)	pos.cont,len(pos.cont)	
+			3	last, len(last)		last, len(last)			last, len(last)			last, len(last)			last,len(last)		last,len(last)															
+			4	pos.cont,0			pos.cont,0				pos.cont,0				pos.cont,0				parent,len(parent)	parent,len(parent)
+			
+			- *.e-f (last position must remain last)
+			- 1.a-c, 2b-c, 3a,c (changes due to text merges)
+			
+			*/
+			
+			// first determine the state according to the table
+			
+			// identify html states 1-4
+			state.html = 				1 && d.firstChild.nodeType == 3 && d.lastChild.nodeType == 3;
+			state.html = state.html || 	2 && d.firstChild.nodeType == 3 && d.lastChild.nodeType == 1;
+			state.html = state.html || 	3 && d.firstChild.nodeType == 1 && d.lastChild.nodeType == 3;
+			state.html = state.html || 	4;
+
+			// identify pos states e-f
+			state.pos.lastChildText = 	pos.container.nodeType == 3 && 
+										parent.lastChild == pos.container && 
+										pos.offset == pos.container.textContent.length &&
+										(state.pos.code = 'e');
+			
+			state.pos.lastChildBlock = 	pos.container.nodeType == 1 && 
+										utils.canHaveChildren(pos.container) &&
+										pos.container.childNodes.length == pos.offset &&
+										(state.pos.code = 'f');
+										
+			state.pos.lastChild = state.pos.code;
+			
+			// identify pos states a-c
+			if(!state.pos.lastChild)
 			{
-				if(o > 0 && o < c.textContent.length)
-				{
-					p.insertBefore(document.createTextNode(c.textContent.slice(0, o)), c);
-					c.textContent = c.textContent.slice(o, c.textContent.length)
-				}
-				else
-				if(o != 0)
-					c = c.nextSibling
+				state.pos.textStart = utils.atText(pos, 'start') 	&& (state.pos.code = 'a');
+				state.pos.textMiddle = utils.atText(pos, 'middle') 	&& (state.pos.code = 'b');
+				state.pos.textEnd = utils.atText(pos, 'end') 		&& (state.pos.code = 'c');
 			}
 			
-			if(c)
+			if(!state.pos.code)
+				state.pos.code = "d";
+
+			// steps
+
+			// prepare
+			
+			// only move caret forward when at text end and it's not last child
+			if(state.pos.textEnd && pos.container.nextSibling)
+			{
+				pos.container = pos.container.nextSibling
+				pos.offset = 0;
+				state.pos.lastChild = true;
+				state.pos.code = "d";
+			}
+			
+			// split
+			// pos.container remains same because we insert the next text node before container
+			if(state.pos.textMiddle)
+			{
+				parent.insertBefore(tn = document.createTextNode(''), pos.container);
+				tn.textContent = pos.container.textContent.slice(0, pos.offset);
+				pos.container.textContent = pos.container.textContent.slice(pos.offset, pos.container.textContent.length);
+			}
+			
+			// append
+			if(state.pos.lastChildText)
 				while(d.firstChild)
-					p.insertBefore(last = d.firstChild, c);
+					parent.appendChild(last = d.firstChild);
+			else
+			if(state.pos.lastChildBlock)
+				while(d.firstChild)
+					pos.container.appendChild(last = d.firstChild);
+			// or insert
 			else
 				while(d.firstChild)
-					p.appendChild(last = d.firstChild);
+					parent.insertBefore(last = d.firstChild, pos.container);
+			
+			// infere new position
+			if(state.html == 1 || state.html == 3)
+			{
+				index = utils.getChildPositionInParent(last);
+				len = last.textContent.length;
 				
-			return last;
+				parent.normalize();
+				
+				lastPos = { container : last, offset : len }
+			}
+			else
+			{	
+				if(state.pos.code < "e")
+					lastPos = { container : pos.container, offset : 0 }
+				else
+				if(state.pos.code == "e")
+					lastPos = { container : parent, offset : parent.childNodes.length }
+				else
+					lastPos = { container : pos.container, offset : pos.container.childNodes.length }
+			}
+			
+			console.log('paste state: ', state.html, state.pos.code, "last pos: ", lastPos)
+			
+			return lastPos;
 		},
 		
 		

@@ -39,7 +39,7 @@
 		// a bunch of rules that define where the caret should stop - see caretRules.js for details
 		rulesetsDef = {
 			stopPoints : "PEMPTY>*,EDITOR>IS,*>EMPTYTEXT,IS||!TEXT,EMPTYTEXT||NCBLOCK,P>IS,CONTED>TEXT,NCBLOCK||NCBLOCK,NCBLOCK||NULL",
-			skipPoints : "*+SHADOW,TEXT|TRANS,IS>>!CONTED,*>>EDITOR,*||SHADOW,P||TEXT,INLINECONT||TEXT,INLINECONT>INLINECONT,TRANS>|*"
+			skipPoints : "*+CARET,*+SHADOW,TEXT|TRANS,IS>>!CONTED,*>>EDITOR,*||SHADOW,P||TEXT,INLINECONT||TEXT,INLINECONT>INLINECONT,TRANS>|*"
 		};
 	
 	ir.textarea.CaretNavigator = 	
@@ -52,8 +52,8 @@
 			};
 		
 		this.caretSpan = opts.caretSpan;
-		this.caretSpanShow = opts.caretSpanShow || this.defaultCaretShow;
-		this.caretSpanHide = opts.caretSpanHide || this.defaultCaretHide;
+		this.caretSpanShow = opts.caretSpanShow != false && (opts.caretSpanShow || this.defaultCaretShow);
+		this.caretSpanHide = opts.caretSpanHide != false && (opts.caretSpanHide || this.defaultCaretHide);
 		
 		this.updateRules(rulesetsDef, editor);
 	}
@@ -207,6 +207,13 @@
 	CaretNavigator.prototype.goAt = function(atpos, rangeSide)
 	{
 		this.caretSpanHide();
+		
+		if(atpos.container.nodeType == 1 && !atpos.container.childNodes[atpos.offset])
+		{
+			this.setAt(atpos, rangeSide);
+			return atpos;
+		}
+
 		
 		// flap and wibble to find the right spot
 		var pos = this.forward(atpos.container, atpos.offset);

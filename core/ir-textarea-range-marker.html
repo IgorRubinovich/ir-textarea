@@ -255,13 +255,14 @@
 				}
 				else
 				{
-					c = this.container;
-					o = this.offset;
+					c = this.realContainer;
+					o = this.realOffset;
 				}
 				
 				//if(isAfterCaret && end)
 				
-				if(c == this.editor && o == c.childNodes.length)
+				//if(c == this.editor && o == c.childNodes.length)
+				if(utils.canHaveChildren(c) && o == c.childNodes.length)
 				{
 					isAfterCaret = o > 0 && c.childNodes[o-1] && c.childNodes[o-1].isCaret;
 					if(!(isEnd && isAfterCaret))
@@ -555,17 +556,21 @@
 					
 				chm = pos.container && pos.container.hostMarker;
 				
-				if(chm && !chm.parentNode)
+				if(chm)
+					return chm;
+					
+				/*if(chm && !chm.parentNode)
 				{
 					pos = { container : chm.realContainer, offset : chm.realOffset }
 					chm = null;
-				}
+				}*/
 				// end marker lands on realContainer of start marker
 				if(!chm && pos.container.nodeType != 3 && this.bindToRange == 'end')
 				{
-					if(pos.container == this.editor && pos.offset < this.editor.childNodes.length)
-						pos.container = this.editor.childNodes[pos.offset];
-					
+					//if(pos.container == this.editor && pos.offset < this.editor.childNodes.length)
+					if(utils.canHaveChildren(pos.container) && pos.offset < this.editor.childNodes.length)
+						pos = { container : pos.container.childNodes[pos.offset], offset : 0 };
+
 					chm = pos.container.hostMarker
 					if(!chm)
 						chm = pos.container.previousSibling && (pos.container.previousSibling != this) && pos.container.previousSibling.hostMarker;

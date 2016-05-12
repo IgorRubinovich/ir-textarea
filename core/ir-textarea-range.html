@@ -79,7 +79,7 @@
 				startContainer : { type : Object, notify : true },
 				startOffset : { type : Number, notify : true },
 				endContainer : { type : Object, notify : true },
-				endOffet : { type : Number, notify : true }
+				endOffset : { type : Number, notify : true }
 			},
 			
 			log : function(e) {
@@ -116,6 +116,8 @@
 			},
 			
 			editorChanged : function() {
+				var caretNavOpts;
+				
 				this.$.start.editor = this.editor;
 				this.$.end.editor = this.editor;
 
@@ -124,6 +126,16 @@
 				
 				this.editor.addEventListener('mousedown', this.mouseDownHandler.bind(this));
 				this.editor.addEventListener('mouseup', this.mouseUpHandler.bind(this));
+
+
+				caretNavOpts = { 
+						log : false, 
+						caretSpan : this,
+						caretSpanShow : false,
+						caretSpanHide : false
+					};
+
+				this.caretNavigator = new ir.textarea.CaretNavigator(this.editor, caretNavOpts);
 			},
 			
 			mouseUpHandler : function(e) {
@@ -208,9 +220,16 @@
 				if(!(this.$.start.visible && this.$.start.isAt(startPos)))
 					this.$.start.goAt(startPos);
 				
+				if(startPos == endPos)
+					this.$.end.setAt(this.$.start)
+				else
 				if(!(this.$.end.visible && this.$.end.isAt(endPos)))
 					this.$.end.goAt(endPos)
 
+					this.$.end.hide();
+
+				this.$.start.show();
+					
 				this.updateNativeRange()
 				//if(this.collapsed)
 				//	this.$.end.hide();
@@ -233,7 +252,16 @@
 			},
 			
 			updateNativeRange : function() {
-				var sc = this.$.start.container, so = this.$.start.offset, ec = this.$.end.container, eo = this.$.end.offset;
+				var sc, ec, so, eo;
+				
+				sc = ec = this.$.start.container;
+				so = eo = this.$.start.offset;
+
+				if(!this.collapsed)
+				{
+					ec = this.$.end.container;
+					eo = this.$.end.offset;
+				}
 				
 				if(sc.hostMarker)
 				{
@@ -293,36 +321,44 @@
 			},
 			
 			enterKeyHandler : function(e) {
-				
-			},
-			
-			xenterKeyHandler : function(e) {
-				var last;
+				var cont, offset, nextPos, lastPos, lastCont, twice, forward;
 				
 				if(e.keyCode != 13)
 					return;
 
-				if(true || e.shiftKey)
-				{
-					if(SYMBOLS.NCCONT(this.startContainer) || (this.startContainer.nodeType == 3 && this.startOffset == this.startContainer.textContent.length))
-						paste.pasteHtmlAtPos("<br>", { container : this.startContainer, offset : this.startOffset });
-					else
-					if(this.$.start.visible)
-						paste.pasteHtmlAtPos("<br>", { container : this.$.start, offset : 0 });
-					else
-						paste.pasteHtmlAtPos("<br>", { container : this.startContainer, offset : this.startOffset });
+				cont = this.startPosition.container;
+				offset = this.startPosition.offset;
 				
-					this.go('forward');
+				// double the br 
+				twice = 
+				forward =
+					// when at end of textnode and there's no following br
+					(utils.atText(this.startPosition, 'end') && !this.startContainer.nextSibling) ||
+					// or when 
+					(utils.canHaveChildren(this.startContainer))
+					
+				forward = forward || this.$.start.visible || utils.atText(this.startPosition, 'end');
+				
+				this.hide();
+
+				lastPos = paste.pasteHtmlAtPos("<br>", this.startPosition);
+				lastCont = lastPos.container;
+				
+				this.setAt(lastPos);
+
+				if(twice)
+				{
+					this.hide();
+					paste.pasteHtmlAtPos("<br>", lastPos);
+					this.setAt(lastPos);
 				}
-				else
-					paste.pasteHtmlWithParagraphs(utils.newEmptyParagraph(), { editor : this.editor });
 				
 				e.preventDefault();
 				
 				this.preventNextDefault = true;
+
+				//this.update();
 				this.justUpdated = true;
-				
-				this.update();
 								
 				return true;
 			},
@@ -393,7 +429,11 @@
 					this.go(dir);
 					this.hide();
 					
-					otherpos = this.startContainer;
+					// reminder:
+					// pos is the original position
+					// otherpos is the next position in dir direction
+					
+					otherpos = this.startPosition;
 					
 					// get closest non-custom container blocks for both positions
 					poscont = pos.container;
@@ -401,11 +441,11 @@
 						poscont = utils.parentNode(poscont);
 					
 					otherposcont = otherpos.container;
-					while(otherposcont && poscont != this.editor && !SYMBOLS.NCCONT(otherposcont) && otherposcont.parentNode != top)
+					while(otherposcont && otherposcont != this.editor && !SYMBOLS.NCCONT(otherposcont) && otherposcont.parentNode != top)
 						otherposcont = utils.parentNode(otherposcont);
 
 					// 3a. we are in the same container block - but actually this shouldn't be happening
-					if(poscont == otherposcont)
+					if(poscont != pos.container && poscont == otherposcont)
 					{
 						// landed in an inline container - default action
 						if(SYMBOLS.INLINECONT(otherposcont))
@@ -425,20 +465,25 @@
 						
 						// and merge
 						utils.mergeNodes(poscont, poscont);
-					
 					}
-					// else pull the sibling element unless it's a container
+					// else pull the sibling element unless it's a container or pos and otherpos are in different custom elements
 					else
 					{
-						pos = this.startPosition; 							// pos is where we pull
-						otherposcont = poscont.previousSibling;
-						if(otherposcont && !SYMBOLS.NCCONT(otherposcont) && 
+						//otherposcont = poscont.previousSibling;
+						//pos = this.startPosition; 							// pos is where we pull
+						//poscont = pos.container;
+						if(pos.container[dir == "forward" ? "nextSibling" : "previousSibling"] == otherposcont && !SYMBOLS.NCCONT(otherposcont) && 
 							utils.getTopCustomElementAncestor(pos.container, this.editor) == utils.getTopCustomElementAncestor(otherposcont, this.editor))
 						{
-							pos.container.parentNode.insertBefore(otherposcont, pos.container);
-							if(otherposcont.nodeType == 3 && pos.container.nodeType == 3)
-								pos = { container : otherposcont.parentNode, offset : otherposcont.textContent.length };
+							otherpos.container.parentNode.insertBefore(pos.container, otherpos.container);
+							if(otherpos.container.nodeType == 3 && pos.container.nodeType == 3)
+							{
+								otherposcont.parentNode.normalize();
+								pos = { container : otherpos.container, offset : otherpos.container.textContent.length };
+							}
 						}
+						else
+							pos = this.startPosition;
 					}
 				}
 				

@@ -197,6 +197,13 @@ window.ir.textarea.utils = (function() {
 
 		throw new Error("couldn't find " + child + " in " + utils.parentNode(child));
 	}
+	
+	utils.getTopNonCustomContainer = function(child, top) {					
+		while(child && child != top && !child.is && (!utils.canHaveChildren(child) || !utils.isInlineElement(child)))
+			child = utils.parentNode(child);
+		
+		return child;
+	}
 
 	utils.getChildPathFromTop = function(child, top, withDelimiters) {
 		var t, p;
