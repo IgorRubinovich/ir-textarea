@@ -225,11 +225,7 @@
 				else
 				if(!(this.$.end.visible && this.$.end.isAt(endPos)))
 					this.$.end.goAt(endPos)
-
-					this.$.end.hide();
-
-				this.$.start.show();
-					
+		
 				this.updateNativeRange()
 				//if(this.collapsed)
 				//	this.$.end.hide();
@@ -314,16 +310,90 @@
 				if([16,17].indexOf(keyCode) > -1) // shift, ctrl, (alt)
 					return e.preventDefault();
 
-				"direction,enter,delete".split(',').forEach(function(handler) {
+				"direction,enter,shiftEnter,delete".split(',').forEach(function(handler) {
 					if(!handled)
 						handled = this[handler + "KeyHandler"].call(this, e);
 				}.bind(this));
 			},
 			
 			enterKeyHandler : function(e) {
+				var splitTop, cont, offset, nextPos, nextSplitTop, prevPos, prevSplitTop, state = {}, newp;
+				
+				if(e.keyCode != 13 || e.shiftKey)
+					return;
+					
+				pos = this.startPosition;
+				cont = pos.container;
+				offset = pos.offset;
+				
+				if(utils.getTopCustomElementAncestor(cont, this.editor))
+					return (e.shiftKey = true) && false;
+
+				// determine where we are in container
+				splitTop = utils.getNonCustomContainer(cont, this.editor);
+
+				nextPos = this.caretNavigator.forward(pos.container, pos.offset);
+				nextSplitTop = utils.getNonCustomContainer(nextPos.container, this.editor)
+				prevPos = this.caretNavigator.backward(pos.container, pos.offset);
+				prevSplitTop = utils.getNonCustomContainer(prevPos.container, this.editor)
+			
+				if(splitTop == this.editor)
+					state.atEditor = true;
+				else
+				if(nextSplitTop != splitTop)
+					state.atEnd = true;
+				else
+				if(prevSplitTop != splitTop)
+					state.atStart = true;
+				else
+					state.atMiddle = true;
+				
+					
+				// execute
+				if(state.atEditor)
+				{
+					paste.pasteHtmlAtPos(newp = utils.newEmptyParagraph(), pos);
+					paste.pasteHtmlAtPos(pos.container, { container : newp.firstChild, offset : 0 })
+				}
+				else
+				if(state.atMiddle)
+				{
+					this.hide();
+					utils.setCaretAt(this.startContainer, this.startOffset);
+					splitTop = utils.splitNode(this.startContainer, this.startOffset, splitTop);
+				}
+				else
+				if(state.atStart)
+					paste.pasteHtmlAtPos(utils.newEmptyParagraph(), { container : splitTop, offset : 0 });
+				else
+				{
+					paste.pasteHtmlAtPos(newp = utils.newEmptyParagraph(), 
+											splitTop.nextSibling ? 
+												{ container : splitTop.nextSibling, offset : 0 } : 
+												{ container : splitTop.parentNode, offset : utils.getChildPositionInParent(splitTop) + 1 }
+										);										
+				}
+				
+				// update carets
+				if(!newp)
+				{
+					this.setAt({ container : splitTop, offset : 0});
+					this.go('forward');
+				}
+				else
+					this.setAt({ container : newp.firstChild, offset : 0});
+				
+				e.preventDefault();
+				this.preventNextDefault = true;
+				this.justUpdated = true;
+
+				return true;
+			},
+			
+			shiftEnterKeyHandler : function(e) {
 				var cont, offset, nextPos, lastPos, lastCont, twice, forward;
 				
-				if(e.keyCode != 13)
+				if(e.keyCode != 13 || !e.shiftKey)
 					return;
 
 				cont = this.startPosition.container;
@@ -335,7 +405,7 @@
 					// when at end of textnode and there's no following br
 					(utils.atText(this.startPosition, 'end') && !this.startContainer.nextSibling) ||
 					// or when 
-					(utils.canHaveChildren(this.startContainer))
+					(SYMBOLS.NCCONT(this.startContainer))
 					
 				forward = forward || this.$.start.visible || utils.atText(this.startPosition, 'end');
 				
@@ -354,10 +424,7 @@
 				}
 				
 				e.preventDefault();
-				
 				this.preventNextDefault = true;
-
-				//this.update();
 				this.justUpdated = true;
 								
 				return true;

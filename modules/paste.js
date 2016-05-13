@@ -327,7 +327,11 @@ window.ir.textarea.paste = (function() {
 				d = document.createElement('div'), index, len,
 				state = { html : {}, pos : {} }; // see states below
 			
-			d.innerHTML = html;
+			if(typeof html == 'string')
+				d.innerHTML = html;
+			else
+				d.appendChild(html);
+			
 			parent = utils.parentNode(pos.container);
 
 			/*

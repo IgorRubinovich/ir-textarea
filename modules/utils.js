@@ -198,7 +198,7 @@ window.ir.textarea.utils = (function() {
 		throw new Error("couldn't find " + child + " in " + utils.parentNode(child));
 	}
 	
-	utils.getTopNonCustomContainer = function(child, top) {					
+	utils.getNonCustomContainer = function(child, top) {					
 		while(child && child != top && !child.is && (!utils.canHaveChildren(child) || !utils.isInlineElement(child)))
 			child = utils.parentNode(child);
 		
@@ -278,15 +278,6 @@ window.ir.textarea.utils = (function() {
 			range = document.createRange(),
 			currentrange = utils.getSelectionRange();
 
-		//console.log('setting caret at:', startTarget, startOffset, endTarget, endOffset);
-		/*try {
-			throw new Error('')
-		}
-		catch(e)
-		{
-			console.log(e.stack)
-		}*/
-		
 		if(!endTarget)
 		{
 			endTarget = startTarget;
