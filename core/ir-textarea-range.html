@@ -357,10 +357,8 @@
 			},
 
 			copy : function() {
-				this.posPush();
 				this.hide();
 				extract = utils.extractContents(this.$.start, this.$.end);
-				this.posPop();
 				
 				if(extract.nodeType == 3)
 					console.log(extract);
@@ -369,10 +367,8 @@
 			},
 			
 			cut : function() {
-				this.posPush();
 				this.hide();
 				extract = utils.extractContents(this.$.start, this.$.end, { cut : true });
-				this.posPop();
 				
 				if(extract.nodeType == 3)
 					console.log(extract);
@@ -380,7 +376,7 @@
 					console.log(Polymer.dom(extract).innerHTML);
 			},
 
-			copyKeyHandler : function(e) {
+			cutKeyHandler : function(e) {
 				if(e.keyCode == 88 && e.ctrlKey)
 				{
 					this.copy();

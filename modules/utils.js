@@ -664,7 +664,8 @@ window.ir.textarea.utils = (function() {
 		return np;
 	}
 	
-	utils.extractContents = function(startPos, endPos) {
+	// helper to extract functions
+	utils.extractBoundaries = function(startPos, endPos) {
 		var sc, ec, so, eo, i, commonContainer, extract, starts = [], ends = [], 
 			sfrag, efrag, starget, etarget, first, last;
 		
@@ -746,7 +747,28 @@ window.ir.textarea.utils = (function() {
 			commonAncestor = starts.shift();
 			ends.shift();
 		}
+		
+		return 	{ 
+					starts : starts, 
+					ends : ends, 
+					first : first, 
+					last : last, 
+					commonAncestor : commonAncestor 
+				}
+	}
+	
+	utils.extractContents = function(startPos, endPos) {
+		var sc, ec, so, eo, i, commonContainer, extract, starts, ends, 
+			sfrag, efrag, starget, etarget, first, last, boundaries, commonAncestor;
 
+		boundaries = utils.extractBoundaries(startPos, endPos);
+		
+		first = boundaries.first;
+		last = boundaries.last;
+		starts = boundaries.starts;
+		ends = boundaries.ends;
+		commonAncestor = boundaries.commonAncestor;
+		
 		extract = Polymer.dom(commonAncestor).cloneNode(false);
 
 		starget = etarget = extract;
@@ -768,7 +790,7 @@ window.ir.textarea.utils = (function() {
 			while(p && p != ec)
 			{
 				if(!first || p != first.original)
-					sfrag.appendChild(Polymer.dom(p).cloneNode(p != sc));
+					sfrag.appendChild(Polymer.dom(p).cloneNode(!first || p != sc));
 				else
 					sfrag.appendChild(first.copy);
 
