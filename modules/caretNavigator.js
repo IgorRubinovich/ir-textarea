@@ -208,7 +208,7 @@
 	{
 		this.caretSpanHide();
 		
-		if(atpos.container.nodeType == 1 && !Polymer.dom(atpos.container).childNodes[atpos.offset])
+		if(atpos.container.nodeType == 1 && !Polymer.dom(atpos.container).childNodes[atpos.offset] && utils.getTopCustomElementAncestor(atpos.container, this.editor))
 		{
 			this.setAt(atpos, rangeSide);
 			return atpos;

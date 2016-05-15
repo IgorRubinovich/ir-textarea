@@ -546,7 +546,7 @@
 				this.container = tn;
 				this.offset = 0;
 				
-				if(!r || r.collapsed)
+				if(this.bindToRange == 'start' && (!r || r.collapsed))
 					return utils.setCaretAt(tn, 0);
 
 				if(this.bindToRange == 'start')

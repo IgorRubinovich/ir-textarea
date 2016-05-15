@@ -173,7 +173,7 @@ window.ir.textarea.utils = (function() {
 		while(n && n != top)
 		{
 			if(n.is && n != node)
-				res = node;
+				res = n;
 
 			n = utils.parentNode(n, top);
 		}

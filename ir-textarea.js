@@ -255,6 +255,9 @@
 
 			if(this.isDisabled || target.isCaret || target == this)
 				return;
+			
+			if(ev.shiftKey)
+				return ev.stopPropagation();
 
 			parentCustomEl = utils.getTopCustomElementAncestor(target, this);
 			

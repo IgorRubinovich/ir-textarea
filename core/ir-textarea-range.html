@@ -141,6 +141,7 @@
 				});
 
 				this.editor.addEventListener('mousedown', this.mouseDownHandler.bind(this));
+				this.editor.addEventListener('mousemove', this.mouseMoveHandler.bind(this));
 				this.editor.addEventListener('mouseup', this.mouseUpHandler.bind(this));
 
 
@@ -156,11 +157,66 @@
 			
 			mouseUpHandler : function(e) {
 				var hm, cp = utils.caretPositionFromPoint(e.clientX, e.clientY), startPos, endPos, reverseFlow, 
-					lcpos = this.lastClickPos;
+					lcpos = this.lastClick.pos;
 
-				this.lastClickPos = null;
+				// this.lastClick.pos = null;
 				
-				if(lcpos && lcpos.container == cp.container && lcpos.offset == cp.offset)
+				console.log('mouseup lcpos, cp', lcpos, cp)
+				
+				if((lcpos && lcpos.container == cp.container && lcpos.offset == cp.offset) ||
+					 (e.clientX == this.lastClick.coords.x && e.clientY == this.lastClick.coords.y))
+				{
+					this.lastActive = 'start';
+					console.log('mouseup 1');
+				}
+				else
+				if(hm = cp.container.hostMarker || (utils.isContainer(cp.container) && (hm = cp.container.childNodes[cp.offset].hostMarker))) 
+				{						
+					cp.container = hm.caretSpace;
+					cp.offset = 0;
+					
+					this.setAt(cp);
+
+					console.log('mouseup:', cp);
+				}
+				else
+				if(e.shiftKey || lcpos)
+				{
+					if(lcpos)
+					{
+						startPos = this.$.start;
+						endPos = cp;
+					}
+					else
+					{
+						startPos = { container : this.startContainer, offset : this.startOffset };
+						endPos = cp;
+					}
+					
+					reverseFlow = utils.caretposcmp(startPos, endPos, this.editor) > 0;
+					
+					this.lastActive = reverseFlow ? 'end' : 'start'; 
+					
+					this.setAt(startPos, endPos);
+				
+					console.log('mouseup:', startPos, endPos);
+				}
+
+				this.justUpdated = true;
+				
+				e.preventDefault();
+			},
+			
+			mouseMoveHandler : function(e) {
+				return;
+				
+				var cp = utils.caretPositionFromPoint(e.clientX, e.clientY), 
+					lcpos = this.lastClick.pos;
+				
+				if(e.which != 1 || !lcpos)
+					return
+
+				if(lcpos.container == cp.container && lcpos.offset == cp.offset)
 				{
 					this.lastActive = 'start';
 				}
@@ -199,13 +255,15 @@
 			
 			mouseDownHandler : function(e) {
 				var cp = utils.caretPositionFromPoint(e.clientX, e.clientY);
-				//if(!e.shiftKey)
 
 				if(Polymer.dom(cp.container.firstChild).parentNode == this.editor)
 					cp.container = this.editor;
 
-				if(!this.lastClickPos)
-					this.lastClickPos = { container : cp.container, offset : cp.offset }
+				if(!this.lastClick.pos || !e.shiftKey)
+				{
+					this.lastClick.pos = { container : cp.container, offset : cp.offset }
+					this.lastClick.coords = { x : e.clientX, y : e.clientY }
+				}
 				
 				if(!e.shiftKey)
 					this.setAt(cp);
@@ -307,6 +365,8 @@
 
 				this.originalInnerHTML = '';
 
+				this.lastClick = {};
+				
 				this.posStack = [];
 			},
 			
@@ -323,6 +383,9 @@
 			keyUpHandler : function (e) {
 				var keyCode = e.keyCode || e.which;
 
+				if([16,17].indexOf(keyCode) > -1) // shift, ctrl, (alt)
+					return e.preventDefault();
+				
 				if(!this.justUpdated)
 				{
 					this.hide();
@@ -596,10 +659,12 @@
 						// landed in an inline container - default action
 						if(SYMBOLS.INLINECONT(otherposcont))
 							return true;
+							
+						pos = otherpos;
 					}
 					else
 					// 3b we are in different neighbouring container blocks
-					if(otherposcont && poscont[dir == "forward" ? "nextSibling" : "previousSibling"] == otherposcont)
+					if(otherposcont && !otherposcont.is && poscont[dir == "forward" ? "nextSibling" : "previousSibling"] == otherposcont)
 					{
 						// swap if needed
 						if(dir == 'backward')
