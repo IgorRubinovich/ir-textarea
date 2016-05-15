@@ -24,7 +24,7 @@
 
 			this.changed = true;
 
-			this.$.range.editor = this.$.editor;
+			this.$.range.editor = this; //.$.editor;
 			
 			this.__actionData = {};
 			
@@ -249,15 +249,15 @@
 				},
 				actionableTags = [menuGroups.resizeable, menuGroups.floatable, menuGroups.removeable].join(",");
 
-			if(this.isDisabled || target.isCaret)
-				return;
-				
 			cm.disabled = true;
 
-			target = actionTarget = utils.getClosestLightDomTarget(target, this.$.editor);
+			target = actionTarget = utils.getClosestLightDomTarget(target);
 
-			parentCustomEl = utils.getTopCustomElementAncestor(target, this.$.editor);
+			if(this.isDisabled || target.isCaret || target == this)
+				return;
 
+			parentCustomEl = utils.getTopCustomElementAncestor(target, this);
+			
 			if(parentCustomEl)
 			{			
 				ev.stopPropagation();

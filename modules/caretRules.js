@@ -223,7 +223,7 @@
 		SHADOW :	function(el) { 
 			return el && !utils.isInLightDom(el, this.editor); 
 		},
-		IS : 		function(el) { return el && el.is },
+		IS : 		function(el) { return el && el.is && el != this.editor },
 		NULL : 		function(el) { return !el },
 		CONT : 		function(el) { return utils.canHaveChildren(el) },
 		

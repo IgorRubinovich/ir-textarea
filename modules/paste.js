@@ -320,7 +320,7 @@ window.ir.textarea.paste = (function() {
 			}
 		},
 
-		pasteHtmlAtPos : function(html, pos) {
+		pasteHtmlAtPos : function(html, pos, top) {
 			var c = pos.container, 
 				o = pos.offset, 
 				parent, last, lastPos,
@@ -332,7 +332,7 @@ window.ir.textarea.paste = (function() {
 			else
 				d.appendChild(html);
 			
-			parent = utils.parentNode(pos.container);
+			parent = utils.parentNode(pos.container, top);
 
 			/*
 			/ states and steps
@@ -429,7 +429,7 @@ window.ir.textarea.paste = (function() {
 			// pos.container remains same because we insert the next text node before container
 			if(state.pos.textMiddle)
 			{
-				parent.insertBefore(tn = document.createTextNode(''), pos.container);
+				Polymer.dom(parent).insertBefore(tn = document.createTextNode(''), pos.container);
 				tn.textContent = pos.container.textContent.slice(0, pos.offset);
 				pos.container.textContent = pos.container.textContent.slice(pos.offset, pos.container.textContent.length);
 			}
@@ -437,15 +437,15 @@ window.ir.textarea.paste = (function() {
 			// append
 			if(state.pos.lastChildText)
 				while(d.firstChild)
-					parent.appendChild(last = d.firstChild);
+					Polymer.dom(parent).appendChild(last = d.firstChild);
 			else
 			if(state.pos.lastChildBlock)
 				while(d.firstChild)
-					pos.container.appendChild(last = d.firstChild);
+					Polymer.dom(pos.container).appendChild(last = d.firstChild);
 			// or insert
 			else
 				while(d.firstChild)
-					parent.insertBefore(last = d.firstChild, pos.container);
+					Polymer.dom(parent).insertBefore(last = d.firstChild, pos.container);
 			
 			// infere new position
 			if(state.html == 1 || state.html == 3)

@@ -124,6 +124,22 @@
 				this.editor.addEventListener('keydown', this.keyDownHandler.bind(this));
 				this.editor.addEventListener('keyup', this.keyUpHandler.bind(this));
 				
+				this.editor.addEventListener('mousedown', function(e) { 
+					if(!e.altKey) 
+						return;
+						
+					var cp = utils.caretPositionFromPoint(e.clientX, e.clientY), t;
+				
+					t = utils.parentNode(cp.container)
+					t.style.background = 'red';
+					
+					console.log(t);
+					
+					setTimeout(function() {
+						t.style.background = "none";
+					}, 300);
+				});
+
 				this.editor.addEventListener('mousedown', this.mouseDownHandler.bind(this));
 				this.editor.addEventListener('mouseup', this.mouseUpHandler.bind(this));
 
@@ -143,7 +159,12 @@
 					lcpos = this.lastClickPos;
 
 				this.lastClickPos = null;
-					
+				
+				if(lcpos && lcpos.container == cp.container && lcpos.offset == cp.offset)
+				{
+					this.lastActive = 'start';
+				}
+				else
 				if(hm = cp.container.hostMarker || (utils.isContainer(cp.container) && (hm = cp.container.childNodes[cp.offset].hostMarker))) 
 				{						
 					cp.container = hm.caretSpace;
@@ -170,17 +191,19 @@
 					this.lastActive = reverseFlow ? 'end' : 'start'; 
 					
 					this.setAt(startPos, endPos);
-					
-					this.justUpdated = true;
 				}
-				
+
+				this.justUpdated = true;
 				e.preventDefault();
 			},
 			
 			mouseDownHandler : function(e) {
 				var cp = utils.caretPositionFromPoint(e.clientX, e.clientY);
 				//if(!e.shiftKey)
-				
+
+				if(Polymer.dom(cp.container.firstChild).parentNode == this.editor)
+					cp.container = this.editor;
+
 				if(!this.lastClickPos)
 					this.lastClickPos = { container : cp.container, offset : cp.offset }
 				
@@ -283,6 +306,8 @@
 				this.listeners = {};
 
 				this.originalInnerHTML = '';
+
+				this.posStack = [];
 			},
 			
 			hide : function () {
@@ -290,6 +315,11 @@
 				this.$.end.hide();
 			},
 			
+			show : function () {
+				this.$.end.show();
+				this.$.start.show();
+			},
+
 			keyUpHandler : function (e) {
 				var keyCode = e.keyCode || e.which;
 
@@ -310,14 +340,64 @@
 				if([16,17].indexOf(keyCode) > -1) // shift, ctrl, (alt)
 					return e.preventDefault();
 
-				"direction,enter,shiftEnter,delete".split(',').forEach(function(handler) {
+				"copy,cut,direction,enter,shiftEnter,delete".split(',').forEach(function(handler) {
 					if(!handled)
 						handled = this[handler + "KeyHandler"].call(this, e);
 				}.bind(this));
 			},
 			
+			posPush : function() {
+				this.$.start.posPush();
+				this.$.end.posPush();
+			},
+			
+			posPop : function() {
+				this.$.start.goAt(this.$.start.posPop());
+				this.$.end.goAt(this.$.end.posPop());
+			},
+
+			copy : function() {
+				this.posPush();
+				this.hide();
+				extract = utils.extractContents(this.$.start, this.$.end);
+				this.posPop();
+				
+				if(extract.nodeType == 3)
+					console.log(extract);
+				else
+					console.log(Polymer.dom(extract).innerHTML);
+			},
+			
+			cut : function() {
+				this.posPush();
+				this.hide();
+				extract = utils.extractContents(this.$.start, this.$.end, { cut : true });
+				this.posPop();
+				
+				if(extract.nodeType == 3)
+					console.log(extract);
+				else
+					console.log(Polymer.dom(extract).innerHTML);
+			},
+
+			copyKeyHandler : function(e) {
+				if(e.keyCode == 88 && e.ctrlKey)
+				{
+					this.copy();
+					return true;
+				}
+			},
+			
+			copyKeyHandler : function(e) {
+				if(e.keyCode == 67 && e.ctrlKey)
+				{
+					this.copy();
+					return true;
+				}
+			},
+			
 			enterKeyHandler : function(e) {
-				var splitTop, cont, offset, nextPos, nextSplitTop, prevPos, prevSplitTop, state = {}, newp;
+				var splitTop, cont, offset, nextPos, nextSplitTop, prevPos, prevSplitTop, state = {}, newp, t;
 				
 				if(e.keyCode != 13 || e.shiftKey)
 					return;
@@ -364,14 +444,22 @@
 				}
 				else
 				if(state.atStart)
-					paste.pasteHtmlAtPos(utils.newEmptyParagraph(), { container : splitTop, offset : 0 });
+					paste.pasteHtmlAtPos(utils.newEmptyParagraph(), { container : splitTop, offset : 0 }, this.editor);
 				else
 				{
 					paste.pasteHtmlAtPos(newp = utils.newEmptyParagraph(), 
 											splitTop.nextSibling ? 
-												{ container : splitTop.nextSibling, offset : 0 } : 
-												{ container : splitTop.parentNode, offset : utils.getChildPositionInParent(splitTop) + 1 }
-										);										
+												{ container : Polymer.dom(splitTop).nextSibling, offset : 0 } : 
+												{ container : Polymer.dom(splitTop).parentNode, offset : utils.getChildPositionInParent(splitTop) + 1 },
+										this.editor);
+
+					t = pos.container.previousSibling;
+
+					// pull non-containers into the new paragraph
+					while(newp.previousSibling && newp.previousSibling != t)
+						newp.insertBefore(Polymer.dom(newp).previousSibling, newp.firstChild);
+
+					this.go('forward');
 				}
 				
 				// update carets
@@ -476,13 +564,13 @@
 						poscont = pn.previousSibling;
 					}
 						
-					utils.parentNode(pn, this.editor).removeChild(pn);
+					Polymer.dom(utils.parentNode(pn, this.editor)).removeChild(pn);
 					
 					// both remaining ends are text (think ---text---<br>---text---)
 					if(SYMBOLS.TEXT(poscont) && SYMBOLS.TEXT(otherposcont) && poscont.nextSibling == otherposcont)
 					{
 						l = poscont.textContent.length;
-						poscont.parentNode.normalize();
+						Polymer.dom(poscont).parentNode.normalize();
 						pos = { container : poscont, offset : l };
 					}
 					else
@@ -503,13 +591,8 @@
 					otherpos = this.startPosition;
 					
 					// get closest non-custom container blocks for both positions
-					poscont = pos.container;
-					while(poscont != this.editor && !SYMBOLS.NCCONT(poscont) && poscont.parentNode != top)
-						poscont = utils.parentNode(poscont);
-					
-					otherposcont = otherpos.container;
-					while(otherposcont && otherposcont != this.editor && !SYMBOLS.NCCONT(otherposcont) && otherposcont.parentNode != top)
-						otherposcont = utils.parentNode(otherposcont);
+					poscont = utils.getNonCustomContainer(pos.container, this.editor);
+					otherposcont = utils.getNonCustomContainer(otherpos.container, this.editor);
 
 					// 3a. we are in the same container block - but actually this shouldn't be happening
 					if(poscont != pos.container && poscont == otherposcont)
@@ -531,7 +614,8 @@
 						}
 						
 						// and merge
-						utils.mergeNodes(poscont, poscont);
+						pos = utils.mergeNodes(poscont, otherposcont, true);
+						//this.setAt();
 					}
 					// else pull the sibling element unless it's a container or pos and otherpos are in different custom elements
 					else
@@ -542,10 +626,10 @@
 						if(pos.container[dir == "forward" ? "nextSibling" : "previousSibling"] == otherposcont && !SYMBOLS.NCCONT(otherposcont) && 
 							utils.getTopCustomElementAncestor(pos.container, this.editor) == utils.getTopCustomElementAncestor(otherposcont, this.editor))
 						{
-							otherpos.container.parentNode.insertBefore(pos.container, otherpos.container);
+							Polymer.dom(Polymer.dom(otherpos.container).parentNode).insertBefore(pos.container, otherpos.container);
 							if(otherpos.container.nodeType == 3 && pos.container.nodeType == 3)
 							{
-								otherposcont.parentNode.normalize();
+								Polymer.dom(otherposcont).parentNode.normalize();
 								pos = { container : otherpos.container, offset : otherpos.container.textContent.length };
 							}
 						}

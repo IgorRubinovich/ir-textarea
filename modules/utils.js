@@ -188,7 +188,7 @@ window.ir.textarea.utils = (function() {
 
 		p = utils.parentNode(child)
 		
-		cn = p.is ? Polymer.dom(p).childNodes : p.childNodes;
+		cn = Polymer.dom(p).childNodes; // p.is ? Polymer.dom(p).childNodes : p.childNodes;
 		i = -1;
 		l = cn.length;
 		while(i < l)
@@ -204,36 +204,37 @@ window.ir.textarea.utils = (function() {
 		
 		return child;
 	}
+	
+	utils.posToCoorinatesPos = function(pos, top) {
+		return { container : utils.getChildPathFromTop(pos.container, top), offset : pos.offset };
+	}
 
-	utils.getChildPathFromTop = function(child, top, withDelimiters) {
-		var t, p;
+	utils.coordinatesPosToPos = function(coordinatePos, top) {
+		return { container : utils.getChildFromPath(coordinatePos.container, top), offset : coordinatePos.offset };
+	}
 
-		if(!child || (child == document.body && top != document.body) )
+	utils.getChildPathFromTop = function(child, top) {
+		var t = [], p = child;
+
+		while(p && p != top)
+		{
+			t.unshift(utils.getChildPositionInParent(p));
+			p = Polymer.dom(p).parentNode
+		}
+		if(p != top)
 			return null;
-		if(child == top)
-			return [];
 
-		p = child.parentNode;
-		if(Polymer.dom(child).parentNode != p && !utils.isInLightDom(p, top))
-			p = Polymer.dom(child).parentNode;
-
-		t = utils.getChildPathFromTop(p, top, withDelimiters);
-		if(!t)
-			return null;
-		t.push(utils.getChildPositionInParent(child, withDelimiters));
 		return t;
 	}
 
 	utils.getChildFromPath = function(pathArr, top, descend)
 	{
 		var res = top, i = 0, next;
-
-		descend = descend || 0;
 		
-		if(!pathArr)
+		if(!pathArr || !pathArr.length)
 			return null;
 
-		while(i < pathArr.length - descend)
+		while(i < pathArr.length)
 		{
 			if(pathArr[i] || pathArr[i] === 0)
 				next = (res.is ? Polymer.dom(res) : res).childNodes[pathArr[i]];
@@ -366,13 +367,13 @@ window.ir.textarea.utils = (function() {
 		if(node == top)
 			return top;
 
-		if(!node.previousSibling && node.parentNode == top)
+		if(!Polymer.dom(node).previousSibling && Polymer.dom(node).parentNode == top)
 			return top;
 		
 		pn = node;
 		while(!done)
 		{
-			if(pn.previousSibling && (ild = utils.isInLightDom(pn.previousSibling, top)))
+			if(Polymer.dom(pn).previousSibling && (ild = utils.isInLightDom(Polymer.dom(pn).previousSibling, top)))
 				done = pn;
 			else
 				done = pn = utils.parentNode(pn, top);
@@ -383,7 +384,7 @@ window.ir.textarea.utils = (function() {
 
 		if(pn == node)
 		{
-			pn = pn.previousSibling;
+			pn = Polymer.dom(pn).previousSibling;
 			while(Polymer.dom(pn).lastChild)
 				pn = Polymer.dom(pn).lastChild
 		}
@@ -413,11 +414,14 @@ window.ir.textarea.utils = (function() {
 	}
 	
 	utils.parentNode = function(node, top) {
-		if(node == top || node.parentNode == top)
+		if(node == top) // || node.parentNode == top)
 			return top;
-
-		if(!utils.getTopCustomElementAncestor(node.parentNode, top))
-			return node.parentNode;
+		
+		//if(!utils.getTopCustomElementAncestor(node.parentNode, top))
+		//	return node.parentNode;
+		
+		if(node instanceof DocumentFragment)
+			return node.host;
 		
 		return Polymer.dom(node).parentNode;
 
@@ -619,7 +623,7 @@ window.ir.textarea.utils = (function() {
 		limit - the root of the split.
 	*/
 	utils.splitNode = function(node, offset, limit) {
-		var parent = limit.parentNode,
+		var parent = Polymer.dom(limit).parentNode,
 			parentOffset = utils.getChildPositionInParent(limit),
 			doc = node.ownerDocument,
 			left,
@@ -628,7 +632,7 @@ window.ir.textarea.utils = (function() {
 		leftRange.setStart(parent, parentOffset);
 		leftRange.setEnd(node, offset);
 		left = leftRange.extractContents();
-		parent.insertBefore(left, limit);
+		Polymer.dom(parent).insertBefore(left, limit);
 
 		//Polymer.dom.flush();
 		
@@ -640,9 +644,9 @@ window.ir.textarea.utils = (function() {
 				//h.innerHTML = utils.recursiveOuterHTML(el);
 				//el.parentNode.insertBefore(h.firstChild, el);
 				clone = Polymer.dom(el).cloneNode(false);
-				Polymer.dom(clone).innerHTML = utils.recursiveInnerHTML(el);
-				el.parentNode.insertBefore(clone, el);
-				el.parentNode.removeChild(el);
+				clone.innerHTML = utils.recursiveInnerHTML(el);
+				Polymer.dom(Polymer.dom(el).parentNode).insertBefore(clone, el);
+				Polymer.dom(Polymer.dom(el).parentNode).removeChild(el);
 				Polymer.dom.flush();
 			}
 		})
@@ -652,7 +656,185 @@ window.ir.textarea.utils = (function() {
 
 		return limit;
 	}
+	
+	utils.clonePos = function(pos) {
+		var np;
+		np.container = pos.container;
+		np.offset = pos.offset;
+		return np;
+	}
+	
+	utils.extractContents = function(startPos, endPos) {
+		var sc, ec, so, eo, i, commonContainer, extract, starts = [], ends = [], 
+			sfrag, efrag, starget, etarget, first, last;
+		
+		sc = startPos.container;
+		ec = endPos.container;
+		so = startPos.offset;
+		eo = endPos.offset;
 
+		//
+		// "normalize" start
+		//
+		if(utils.atText(startPos, "start"))
+		{
+			sc = Polymer.dom(sc).parentNode;
+			startPos = { container : sc, offset : 0 }
+		}
+		else
+		if(utils.atText(startPos, "end"))
+			first = { original : sc, sopy : document.createTextNode(sc.textContent) };
+		else
+		if(utils.atText(startPos, "middle"))
+			first = { original : sc, copy : document.createTextNode(sc.textContent.slice(so, sc.textContent.length)) };
+
+		//
+		// "normalize" end
+		//
+		if(utils.atText(endPos, "start"))
+			endPos = { container : ec = Polymer.dom(ec).parentNode, offset : eo = 0 }
+		else
+		if(utils.atText(endPos, "end"))
+		{
+			eo = utils.getChildPositionInParent(ec) + 1;
+			ec = Polymer.dom(ec).parentNode
+			startPos = { container : ec, offset : eo }
+
+			if(sc == ec)
+				first = last = { original : sc, copy : document.createTextNode(sc.textContent.slice(so, eo)) };
+			else
+				last =  { original : ec, copy : document.createTextNode(ec.textContent.slice(0, eo)) };
+		}
+		else
+		if(utils.atText(endPos, "middle"))
+		{
+			if(sc == ec)
+				first = last = { original : sc, copy : document.createTextNode(sc.textContent.slice(so, eo)) };
+			else
+				last = { original : ec, copy : document.createTextNode(ec.textContent.slice(0, eo)) };
+		}
+		else
+		if(!utils.canHaveChildren(ec))
+			last = { original : ec };
+		else
+		if(!ec.childNodes[eo])
+			last = { original : Polymer.dom(ec).childNodes[eo-1] };
+
+		if(first && !first.copy)
+			first.copy = Polymer.dom(first.original).cloneNode(true);
+		if(last && !last.copy)
+			last.copy = Polymer.dom(last.original).cloneNode(true);
+		
+		// collect parents
+		p = sc;
+		starts.push(p);
+		while(p && (p = utils.parentNode(p)))
+			starts.push(p);
+		
+		p = ec;
+		ends.push(p);
+		while(p && (p = utils.parentNode(p)))
+			ends.push(p);
+
+		// reverse to align by tree top
+		starts.reverse();
+		ends.reverse();
+		
+		// pop first identical elements
+		while(starts.length && starts[0] == ends[0])
+		{
+			commonAncestor = starts.shift();
+			ends.shift();
+		}
+
+		extract = Polymer.dom(commonAncestor).cloneNode(false);
+
+		starget = etarget = extract;
+
+		// we're left with the deepest common ancestor
+		while(starts.length || ends.length)
+		{
+			sc = starts.shift();
+			ec = ends.shift();
+			p = Polymer.dom(sc).parentNode;
+			
+			sfrag = document.createDocumentFragment();
+			efrag = document.createDocumentFragment();
+
+			p = sc;
+			
+			// sc to end/ec
+			//if(first != last)
+			while(p && p != ec)
+			{
+				if(!first || p != first.original)
+					sfrag.appendChild(Polymer.dom(p).cloneNode(p != sc));
+				else
+					sfrag.appendChild(first.copy);
+
+				p = Polymer.dom(p).nextSibling;
+			}
+		
+			// start to ec
+			p = p == ec ? p : Polymer.dom(Polymer.dom(ec).parentNode).firstChild;
+			while(p && p != ec)
+			{
+				efrag.appendChild(Polymer.dom(p).cloneNode(p != sc));
+				p = Polymer.dom(p).nextSibling;
+			}
+			
+			if(p && last && (p != last.original))
+			{
+				efrag.appendChild(Polymer.dom(p).cloneNode(false));
+				p = Polymer.dom(p).nextSibling;				
+			}
+
+			if(sfrag.childNodes.length)
+				Polymer.dom(starget).appendChild(sfrag);
+			if(efrag.childNodes.length)
+				Polymer.dom(etarget).appendChild(efrag);
+
+			if(sc) // move down only if needed otherwise freeze s/e-target
+				starget = Polymer.dom(starget).firstChild;
+			if(ends.length)
+				etarget = Polymer.dom(etarget).lastChild;
+		}
+
+		if(last)
+		{
+			if(first && last.original == first.original)
+				extract = last.copy;
+			else
+				Polymer.dom(etarget == extract ? extract : Polymer.dom(etarget).parentNode).appendChild(last.copy);
+		}
+
+		return extract;
+	}
+
+	utils.commonContainer = function(sc, ec)
+	{
+		var p, res;
+
+		p = ec;
+		p.__painted = true;
+		while(p && (p = utils.parentNode(p)))
+			p.__painted = true;
+		
+		p = sc;
+		while(!p.__painted)
+			p = utils.parentNode(p);
+		
+		res = p;
+		
+		// unpaint
+		p = ec;
+		p.__painted = true;
+		while(p && (p = utils.parentNode(p)))
+			p.__painted = null;
+	
+		return res;
+	}
+	
 	utils.getElementPosition = function(element, fromElement) {
 		var top = 0, left = 0, width = 0, height = 0, cs, i;
 			fromElement = fromElement || document.body;
@@ -946,7 +1128,7 @@ window.ir.textarea.utils = (function() {
 		if(setCaretAtMergePoint)
 			utils.setCaretAt(caretPos.container, caretPos.offset);
 		
-		return ret;
+		return caretPos;
 	}	
 		
 	utils.isInlineElement = function(el) {

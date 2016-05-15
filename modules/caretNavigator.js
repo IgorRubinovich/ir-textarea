@@ -77,9 +77,9 @@
 		if(c == e.lastChild && c.nodeType == 3 && o == c.textContent.length)
 			return { container : c, offset : c.textContent.length }
 			
-		if((c == e && c.childNodes[o]))
+		if((c == e && Polymer.dom(c).childNodes[o]))
 		{
-			c = c.childNodes[o];
+			c = Polymer.dom(c).childNodes[o];
 			o = 0;
 		}
 
@@ -89,20 +89,20 @@
 		if(c.nodeType == 3 && o < c.textContent.length)
 			return { container : c, offset : o + 1}
 
-		if(c == e.nextSibling || (c == e && o == e.childNodes.length))
-			return { container : e, offset : e.childNodes.length };
+		if(c == Polymer.dom(e).nextSibling || (c == e && o == Polymer.dom(e).childNodes.length))
+			return { container : e, offset : Polymer.dom(e).childNodes.length };
 		
 		n = c;
 		
-		while(n && n != e.nextSibling) {
+		while(n && n != Polymer.dom(e).nextSibling) {
 			n = utils.nextNode(n, this.editor);
 			
 			if(!n)
-				return { container : this.editor, offset : this.editor.childNodes.length };;
+				return { container : this.editor, offset : Polymer.dom(this.editor).childNodes.length };;
 				
-			m = n.previousSibling || utils.parentNode(n, this.editor);
+			m = Polymer.dom(n).previousSibling || utils.parentNode(n, this.editor);
 
-			if(m == editor || (n == e && o == e.childNodes.length))
+			if(m == editor || (n == e && o == Polymer.dom(e).childNodes.length))
 				return { container : c, offset : o };
 
 			// non-end of textNode
@@ -130,7 +130,7 @@
 		}
 
 		// end
-		return { container : e, offset : e.childNodes.length };
+		return { container : e, offset : Polymer.dom(e).childNodes.length };
 	}
 
 	// given a container and and offset returns the previous legit caret position
@@ -148,9 +148,9 @@
 			o = c.nodeType == 3 ? c.textContent.length : 0;
 		}
 
-		if(c == e && c.childNodes[o])
+		if(c == e && Polymer.dom(c).childNodes[o])
 		{
-			c = c.childNodes[o];
+			c = Polymer.dom(c).childNodes[o];
 			o = 0;
 		}	
 
@@ -158,26 +158,26 @@
 			return { container : c, offset : o };		
 		
 		// non-beginning of textnode
-		if(c.nodeType == 3 && o > 0)
+		if(c.nodeType == 3 && o > 0 &&  !this.rulesets.skipPoints(null, c))
 			return { container : c, offset : o - 1 }
 
 		if(c == e && o == 0)
 			return { container : c, offset : 0 };
 		
-		if(c == e && o == e.childNodes.length)
-			c = temp = e.appendChild(document.createElement('span'));
+		if(c == e && o == Polymer.dom(e).childNodes.length)
+			c = temp = Polymer.dom(e).appendChild(document.createElement('span'));
 
 		n = c;
 		while(!res && n && n != e) {
 			n = utils.prevNode(n, this.editor);
-			m = n.previousSibling || utils.parentNode(n, this.editor);
+			m = Polymer.dom(n).previousSibling || utils.parentNode(n, this.editor);
 			
 			if(!res && n.nodeType == 3 && !this.rulesets.skipPoints(null, n))
 				res = { container : n, offset : n.textContent.length - (Symbols.INLINECONT(m) ? 1 : 0) };
 
 			if(!res && this.rulesets.stopPoints(null, m) && !this.rulesets.skipPoints(null, m))
 			//if(m && m.nodeType == 3 && m.textContent && utils.isInLightDom(m, this.editor) && !this.rulesets.skipPoints(null, m))
-				res = { container : m, offset : m.textContent.length - (m && m.nextSibling == n && Symbols.INLINECONT(n) ? 1 : 0) };
+				res = { container : m, offset : m.textContent.length - (m && Polymer.dom(m).nextSibling == n && Symbols.INLINECONT(n) ? 1 : 0) };
 			
 			// a stop
 			if(!res && (match = this.rulesets.stopPoints(m, n)))
@@ -194,10 +194,10 @@
 		}
 
 		if(temp)
-			temp.parentNode.removeChild(temp);
+			Polymer.dom(Polymer.dom(temp).parentNode).removeChild(temp);
 		
 		// return result or editor end
-		return res || { container : e, offset : e.childNodes.length };
+		return res || { container : e, offset : Polymer.dom(e).childNodes.length };
 	}
 	
 	CaretNavigator.prototype.stopFastGo = function() {
@@ -208,7 +208,7 @@
 	{
 		this.caretSpanHide();
 		
-		if(atpos.container.nodeType == 1 && !atpos.container.childNodes[atpos.offset])
+		if(atpos.container.nodeType == 1 && !Polymer.dom(atpos.container).childNodes[atpos.offset])
 		{
 			this.setAt(atpos, rangeSide);
 			return atpos;
@@ -220,7 +220,7 @@
 		if(pos)
 			pos = this.backward(pos.container, pos.offset);
 		else
-			pos = { container : this.editor, offset : this.editor.childNodes.length }
+			pos = { container : this.editor, offset : Polymer.dom(this.editor).childNodes.length }
 		
 		this.setAt(pos, rangeSide);
 		
@@ -240,7 +240,10 @@
 	
 	CaretNavigator.prototype.defaultCaretShow = function(container, offset, rangeSide)
 	{
-		container.parentNode.insertBefore(this.caretSpan, container);
+		Polymer.dom(container).parentNode.insertBefore(this.caretSpan, container);
+		
+		this.caretSpan.position = { conatainer : container, offset : offset };
+		
 		return { container : this.caretSpan.firstChild, offset : 0 }
 	}
 	
@@ -248,21 +251,21 @@
 	{
 		var caretSpan = this.caretSpan, index, pn;
 		
-		if(!caretSpan.parentNode)
+		if(!Polymer.dom(caretSpan).parentNode)
 			return;
 
 		index = utils.getChildPositionInParent(caretSpan); // + (caretSpan == utils.parentNode(caretSpan, this.editor).lastChild ? 0 : 1);
 
-		pn = caretSpan.parentNode;
+		pn = Polymer.dom(caretSpan).parentNode;
 		pn.removeChild(caretSpan);
 		
-		for(i = 0; i < pn.childNodes.length; i++)
-			if(pn.childNodes[i].nodeType == 3 && !pn.childNodes[i].textContent.length)
-				pn.removeChild(pn.childNodes[i]);
+		for(i = 0; i < Polymer.dom(pn).childNodes.length; i++)
+			if(Polymer.dom(pn).childNodes[i].nodeType == 3 && !Polymer.dom(pn).childNodes[i].textContent.length)
+				pn.removeChild(Polymer.dom(pn).childNodes[i]);
 		
 		c = pn, o = index;
 
-		childAtPos = pn.childNodes[o];
+		childAtPos = Polymer.dom(pn).childNodes[o];
 		if(childAtPos) // && !childAtPos.is)
 		{
 			c = childAtPos;
@@ -270,6 +273,8 @@
 		}
 		
 		this.virtualCaret = false;
+		
+		return this.caretSpan.position;
 	}
 	
 	// four signatures:
@@ -285,7 +290,7 @@
 		fast = typeof fastOrRangeSide == 'boolean' && fastOrRangeSide,
 		rangeSide = typeof fastOrRangeSide == 'string' && fastOrRangeSide;
 		
-		this.caretSpanHide();
+		pos = this.caretSpanHide();
 
 		if(typeof direction == 'object')
 		{
@@ -323,9 +328,9 @@
 				}
 			}
 						
-			if(c == this.editor && o < this.editor.childNodes.length)
+			if(c == this.editor && o < Polymer.dom(this.editor).childNodes.length)
 			{
-				c = this.editor.childNodes[o]
+				c = Polymer.dom(this.editor).childNodes[o]
 				o = 0;
 			}
 			
@@ -333,6 +338,12 @@
 			{
 				c = utils.getTopCustomElementAncestor(c, this.editor);
 				o = 0;
+			}
+			
+			if(pos)
+			{
+				c = pos.container;
+				o = pos.offset;
 			}
 			
 			next = this[direction](c, o);

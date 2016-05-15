@@ -83,6 +83,8 @@
 				this._activeHandlers = {};
 					
 				this.originalInnerHTML = '';			
+				
+				this.posStack = [];
 			},
 			
 			editorChanged : function(n, o) {
@@ -90,7 +92,7 @@
 					return;
 
 				var caretNavOpts = { 
-										log : false, 
+										log : true, 
 										caretSpan : this,
 										caretSpanShow : this.show.bind(this),
 										caretSpanHide : this.hide.bind(this)
@@ -137,7 +139,7 @@
 			goAt : function(pos, bindToRange) {
 				var p, h;
 				
-				if(pos.container == this.parentNode)
+				if(pos.container == Polymer.dom(this).parentNode)
 				{
 					if(this.containerElementOffset < pos.offset)
 						pos.offset--;
@@ -186,7 +188,7 @@
 							c && 
 							c.nodeType == 3 && 
 							c.textContent == '\u200B' 
-							&& m.childNodes.length == 1
+							&& Polymer.dom(m).childNodes.length == 1
 						);
 			},
 			
@@ -209,7 +211,7 @@
 						fc.textContent = fc.textContent.replace(/\u200B/g, '');
 						if(!fc.textContent.length)
 						{
-							m.removeChild(fc);
+							Polymer.dom(m).removeChild(fc);
 							fc = m.firstchild;
 						}
 						else
@@ -218,7 +220,7 @@
 					
 					if(fc)
 					{
-						lastInserted = this.parentNode.insertBefore(fc, this);
+						lastInserted = Polymer.dom(Polymer.dom(this).parentNode).insertBefore(fc, this);
 						
 						if(lastInserted.nodeType == 3)
 						lastInserted.isCaret = null;
@@ -242,8 +244,15 @@
 				if(/start|end/.test(rangeSide) && rangeSide != this.bindToRange)
 					return;
 				
-				if(!container && !r)
+				if(!container)
+				{
+					container = this.realContainer;
+					offset = this.realOffset;
+				}
+				
+				if(!container) // && !r)
 					return;
+
 					
 				if(this.isAtOrAfterMarker({container : container, offset : offset }))
 					return this.hide();
@@ -261,24 +270,29 @@
 				
 				//if(isAfterCaret && end)
 				
-				//if(c == this.editor && o == c.childNodes.length)
-				if(utils.canHaveChildren(c) && o == c.childNodes.length)
+				if(utils.canHaveChildren(c) && o == Polymer.dom(c).childNodes.length)
 				{
-					isAfterCaret = o > 0 && c.childNodes[o-1] && c.childNodes[o-1].isCaret;
+					isAfterCaret = o > 0 && Polymer.dom(c).childNodes[o-1] && Polymer.dom(c).childNodes[o-1].isCaret;
 					if(!(isEnd && isAfterCaret))
-						doPull = c.appendChild(this);
+					{
+						doPull = Polymer.dom(c).appendChild(this);
+						Polymer.dom.flush();
+					}
 				}
 				else
 				{
 					if(c == this.editor)
 					{
-						c = c.childNodes[o];
+						c = Polymer.dom(c).childNodes[o];
 						o = 0;
 					}
-					isAfterCaret = c.previousSibling && c.previousSibling.isCaret;
+					isAfterCaret = Polymer.dom(c).previousSibling && Polymer.dom(c).previousSibling.isCaret;
 					
 					if(!(isEnd && isAfterCaret))
-						doPull = c.parentNode.insertBefore(this, c);
+					{
+						doPull = Polymer.dom(Polymer.dom(c).parentNode).insertBefore(this, c);
+						Polymer.dom.flush();
+					}
 				}
 
 				if(doPull)
@@ -297,23 +311,25 @@
 				
 				this.visible = false;
 
-				if(!this.parentNode)
+				this.set('container', this.realContainer)
+				this.set('offset', this.realOffset)
+				
+				if(!Polymer.dom(this).parentNode)
 					return;
 
-				if(this.realContainer == this.editor && this.realOffset < this.editor.childNodes.length && !(this == this.editor.lastChild))
+				if(this.realContainer == this.editor && this.realOffset < Polymer.dom(this.editor).childNodes.length && !(this == Polymer.dom(this.editor).lastChild))
 				{
 					console.log('subtracting this.realOffset for ', this.realOffset, this.crealContainer);
 					this.realOffset--;
 				}
 
 					
-				pn = this.parentNode;
-				pn.removeChild(this);
+				pn = Polymer.dom(this).parentNode;
+				Polymer.dom(pn).removeChild(this);
+				Polymer.dom.flush();
 				
-				//this.setAt(this.realContainer, this.realOffset, true);
-					
-				//this.updateFromCurrentRange();
-				//this.update();
+				this.container = this.realContainer;
+				this.offset = this.realOffset;
 			},
 			
 			startListening : function()  {
@@ -402,6 +418,18 @@
 				//if(this.isListening)
 				this.adjust();
 			},
+			
+			getCoordinates : function () {
+				return utils.posToCoorinatesPos({ container : this.realContainer, offset : this.realOffset }, this.editor);
+			},
+			
+			posPush : function() {
+				this.posStack.push(this.getCoordinates());
+			},
+			
+			posPop : function() {
+				return utils.coordinatesPosToPos(this.posStack.pop(this.editor), this.editor);
+			},
 
 			adjust : function() {
 				var pos;
@@ -452,7 +480,7 @@
 						pd = utils.setCaretAt(tpce, 0);
 					else
 					if(cetnend && ev.keyCode == 39)
-						pd = utils.setCaretAt(tpce.parentNode, utils.getChildPositionInParent(tpce) + 1);
+						pd = utils.setCaretAt(Polymer.dom(tpce).parentNode, utils.getChildPositionInParent(tpce) + 1);
 						
 					if(pd)
 						ev.preventDefault();
@@ -484,7 +512,7 @@
 				if(ev.keyCode == 35) // end
 				{
 					this.hide();
-					pd = utils.setCaretAt(this.containerElement, this.containerElement.childNodes.length);
+					pd = utils.setCaretAt(this.containerElement, Polymer.dom(this.containerElement).childNodes.length);
 				}
 				
 				if(pd)
@@ -536,6 +564,9 @@
 				
 				c = r[this.bindToRange + "Container"];
 				o = r[this.bindToRange + "Offset"];
+		
+				if(Polymer.dom(c.firstChild).parentNode == this.editor)
+					c = this.editor;
 				
 				if(c.isCaret && c.hostMarker == this)
 					return;
@@ -567,9 +598,8 @@
 				// end marker lands on realContainer of start marker
 				if(!chm && pos.container.nodeType != 3 && this.bindToRange == 'end')
 				{
-					//if(pos.container == this.editor && pos.offset < this.editor.childNodes.length)
-					if(utils.canHaveChildren(pos.container) && pos.offset < this.editor.childNodes.length)
-						pos = { container : pos.container.childNodes[pos.offset], offset : 0 };
+					if(utils.canHaveChildren(pos.container) && pos.offset < Polymer.dom(this.editor).childNodes.length)
+						pos = { container : Polymer.dom(pos.container).childNodes[pos.offset], offset : 0 };
 
 					chm = pos.container.hostMarker
 					if(!chm)
@@ -609,7 +639,7 @@
 				else
 				if(!chm)
 				{
-					containerElement = !container || container == this.editor ? container : container.parentNode;
+					containerElement = !container || container == this.editor ? container : Polymer.dom(container).parentNode;
 					containerOffset = !container || container == this.editor ? offset : utils.getChildPositionInParent(container, true);
 					
 					if(containerElement)
@@ -627,13 +657,13 @@
 				
 				if(this.container)
 				{
-					if((this.container == this.editor || (this.container.nodeType == 3 && this.container.parentNode == this.editor)))
+					if((this.container == this.editor || (this.container.nodeType == 3 && Polymer.dom(this.container).parentNode == this.editor)))
 						this.set('tagOutline', 'editor')
 					else
 					if(this.container.isCaret)
 						this.set('tagOutline', utils.tagOutline(this.realContainer))
 					else
-						this.set('tagOutline', utils.tagOutline(this.container.nodeType == 3 ? this.container.parentNode : this.realContainer));
+						this.set('tagOutline', utils.tagOutline(this.container.nodeType == 3 ? Polymer.dom(this.container).parentNode : this.realContainer));
 				}
 				
 				if(setRange)
@@ -649,15 +679,7 @@
 					return utils.setCaretAt(r.sc, r.so, container, offset);
 				}
 			},			
-		})
-		
-			
-		function parentNode(node) {
-			if(Polymer.dom(node).parentNode != node.parentNode && !utils.isInLightDom(node, top))
-				return Polymer.dom(node).parentNode;
-			else
-				return node.parentNode;
-		}
+		})			
 	})();
 </script>
 			
