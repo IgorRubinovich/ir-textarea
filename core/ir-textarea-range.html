@@ -376,8 +376,8 @@
 			},
 			
 			show : function () {
-				this.$.end.show();
 				this.$.start.show();
+				this.$.end.show();
 			},
 
 			keyUpHandler : function (e) {
@@ -428,6 +428,8 @@
 					console.log(extract);
 				else
 					console.log(Polymer.dom(extract).innerHTML);
+
+				this.show();
 			},
 			
 			cut : function() {
@@ -462,6 +464,8 @@
 				if(e.keyCode == 88 && e.ctrlKey)
 				{
 					this.cut();
+				
+					this.justUpdated = true;
 					
 					e.preventDefault();
 					this.preventNextDefault = true;
@@ -473,10 +477,11 @@
 			copyKeyHandler : function(e) {
 				if(e.keyCode == 67 && e.ctrlKey)
 				{
+					this.copy();
+
 					e.preventDefault();
 					this.preventNextDefault = true;
-
-					this.copy();
+					
 					return true;
 				}
 			},
