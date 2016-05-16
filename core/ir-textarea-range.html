@@ -403,7 +403,7 @@
 				if([16,17].indexOf(keyCode) > -1) // shift, ctrl, (alt)
 					return e.preventDefault();
 
-				"copy,cut,direction,enter,shiftEnter,delete".split(',').forEach(function(handler) {
+				"selectAll,copy,cut,direction,enter,shiftEnter,delete".split(',').forEach(function(handler) {
 					if(!handled)
 						handled = this[handler + "KeyHandler"].call(this, e);
 				}.bind(this));
@@ -455,8 +455,13 @@
 				
 				extract = utils.extractContents(s, e, { delete : true });
 				
-				this.posPop();
-				this.go('forward');
+				if(Polymer.dom(this.editor).childNodes.length)
+				{
+					this.posPop();
+					this.go('forward');
+				}
+				else
+					this.setAt(this.editor, 0)
 				
 				if(extract.nodeType == 3)
 					console.log(extract);
@@ -492,12 +497,25 @@
 				}
 			},
 			
+			selectAllKeyHandler : function(e) {
+				if(e.keyCode != 65 || !e.ctrlKey)
+					return;
+
+				this.setAt({ container : this.editor, offset : 0 }, { container : this.editor, offset : Polymer.dom(this.editor).childNodes.length})
+			
+				e.preventDefault();
+				
+				return true;
+			},
+
 			enterKeyHandler : function(e) {
 				var splitTop, cont, offset, nextPos, nextSplitTop, prevPos, prevSplitTop, state = {}, newp, t;
 				
 				if(e.keyCode != 13 || e.shiftKey)
 					return;
-					
+				
+				this.hide();
+				
 				pos = this.startPosition;
 				cont = pos.container;
 				offset = pos.offset;
@@ -529,7 +547,9 @@
 				if(state.atEditor)
 				{
 					paste.pasteHtmlAtPos(newp = utils.newEmptyParagraph(), pos);
-					paste.pasteHtmlAtPos(pos.container, { container : newp.firstChild, offset : 0 })
+					if(pos.container.tagName == 'BR')
+						Polymer.dom(Polymer.dom(pos.container).parentNode).removeChild(pos.container);
+					//paste.pasteHtmlAtPos(pos.container, { container : newp.firstChild, offset : 0 })
 				}
 				else
 				if(state.atMiddle)
@@ -549,11 +569,11 @@
 												{ container : Polymer.dom(splitTop).parentNode, offset : utils.getChildPositionInParent(splitTop) + 1 },
 										this.editor);
 
-					t = pos.container.previousSibling;
+					t = Polymer.dom(pos.container).previousSibling;
 
 					// pull non-containers into the new paragraph
-					while(newp.previousSibling && newp.previousSibling != t)
-						newp.insertBefore(Polymer.dom(newp).previousSibling, newp.firstChild);
+					while(Polymer.dom(newp).previousSibling && newp.previousSibling != t)
+						Polymer.dom(newp).insertBefore(Polymer.dom(newp).previousSibling, newp.firstChild);
 
 					this.go('forward');
 				}
@@ -580,6 +600,8 @@
 				if(e.keyCode != 13 || !e.shiftKey)
 					return;
 
+				this.hide();
+					
 				cont = this.startPosition.container;
 				offset = this.startPosition.offset;
 				
@@ -592,8 +614,6 @@
 					(SYMBOLS.NCCONT(this.startContainer))
 					
 				forward = forward || this.$.start.visible || utils.atText(this.startPosition, 'end');
-				
-				this.hide();
 
 				lastPos = paste.pasteHtmlAtPos("<br>", this.startPosition);
 				lastCont = lastPos.container;

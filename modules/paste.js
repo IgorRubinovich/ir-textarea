@@ -446,7 +446,9 @@ window.ir.textarea.paste = (function() {
 			else
 				while(d.firstChild)
 					Polymer.dom(parent).insertBefore(last = d.firstChild, pos.container);
-			
+
+			Polymer.dom.flush();
+				
 			// infere new position
 			if(state.html == 1 || state.html == 3)
 			{

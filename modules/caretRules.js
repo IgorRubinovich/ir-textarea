@@ -239,7 +239,7 @@
 			var ce;
 			if(!el)
 				return;
-			if(el.nodeType == 3)
+			if(el.nodeType == 3 || Symbols.INLINECONT.call(this, el) || Symbols.NCBLOCK.call(this, el))
 				 el = el.parentNode;
 			if(el && el.getAttribute) 
 				ce = el.getAttribute('contenteditable');

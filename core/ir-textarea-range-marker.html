@@ -185,10 +185,10 @@
 			hasContent : function() {
 				var m = this.$.marker, c = m.firstChild;
 				return !(
-							c && 
-							c.nodeType == 3 && 
+							!c ||
+							(c.nodeType == 3 && 
 							c.textContent == '\u200B' 
-							&& Polymer.dom(m).childNodes.length == 1
+							&& Polymer.dom(m).childNodes.length == 1)
 						);
 			},
 			
@@ -221,20 +221,28 @@
 					if(fc)
 					{
 						lastInserted = Polymer.dom(Polymer.dom(this).parentNode).insertBefore(fc, this);
-						
+					
 						if(lastInserted.nodeType == 3)
 						lastInserted.isCaret = null;
 						lastInserted.hostMarker = null;
 					}
 				}
-				if(lastInserted && lastInserted.nodeType == 3)
+				
+				Polymer.dom.flush();
+				
+				this.hide();
+				
+				/*if(lastInserted && lastInserted.nodeType == 3)
 				{
-					this.setAt(lastInserted, lastInserted.textContent.length);
-					this.hide()
+					this.goAt({ container : lastInserted, offset : lastInserted.textContent.length});
+					console.log('set caret at ', this.realContainer, this.realOffset)
 				}
-				this.observerConnect();
+				else
+					this.goAt({ container : this.realContainer, offset : this.realOffset});
 
-				this.update();
+				this.show();
+				*/
+				this.observerConnect();
 			},
 
 			show : function(container, offset, rangeSide) {

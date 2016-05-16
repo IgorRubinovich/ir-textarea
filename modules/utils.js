@@ -629,9 +629,15 @@ window.ir.textarea.utils = (function() {
 			left,
 			leftRange = doc.createRange(), clone;
 
-		leftRange.setStart(parent, parentOffset);
-		leftRange.setEnd(node, offset);
-		left = leftRange.extractContents();
+		//leftRange.setStart(parent, parentOffset);
+		//leftRange.setEnd(node, offset);
+		//left = leftRange.extractContents();
+		
+		left = utils.extractContents(
+			{ container : parent, offset : parentOffset }, 
+			{ container : node, offset : offset}, 
+			{ delete : true, splitRoot : limit }
+		);
 		Polymer.dom(parent).insertBefore(left, limit);
 
 		//Polymer.dom.flush();
@@ -661,8 +667,8 @@ window.ir.textarea.utils = (function() {
 		return { container : pos.container, offset : pos.offset };
 	}
 	
-	// helper to extract functions
-	utils.extractBoundaries = function(startPos, endPos) {
+	// helper to extract functions. top serves as split root.
+	utils.extractBoundaries = function(startPos, endPos, top) {
 		var sc, ec, so, eo, i, commonAncestor, extract, starts = [], ends = [], 
 			sfrag, efrag, starget, etarget, first, last;
 		
@@ -713,12 +719,17 @@ window.ir.textarea.utils = (function() {
 						remainder : ec.textContent.slice(0, eo) 
 					};
 			else
+			if(ec.nodeType == 3)
 				last =  
 					{ 
 						original : ec, 
 						copy : document.createTextNode(ec.textContent.slice(0, eo)),
 						remainder : ec.textContent.slice(eo, ec.textContent.length)
 					};
+			else
+				last = {
+					original : ec
+				}
 		}
 		else
 		if(utils.atText(endPos, "middle"))
@@ -755,17 +766,35 @@ window.ir.textarea.utils = (function() {
 		// collect parents
 		p = sc;
 		starts.push(p);
-		while(p && (p = utils.parentNode(p)))
-			starts.push(p);
+		
+		if(p != top)
+			while(p && (p = utils.parentNode(p)))
+				starts.push(p);
 		
 		p = ec;
 		ends.push(p);
-		while(p && (p = utils.parentNode(p)))
+ 		while(p && (p = utils.parentNode(p)))
 			ends.push(p);
 
 		// reverse to align by tree top
 		starts.reverse();
 		ends.reverse();
+
+		if(top)
+		{
+			i = starts.indexOf(Polymer.dom(top).parentNode);
+			if(i > -1)
+				starts.splice(0, i + 1);
+			i = ends.indexOf(Polymer.dom(top).parentNode);
+			if(i > -1)
+				ends.splice(0, i + 1);
+			
+			if(!starts.length)
+				starts.push(top);
+			
+			if(!ends.length)
+				ends.push(top);			
+		}
 		
 		// pop first identical elements
 		while(starts.length && starts[0] == ends[0])
@@ -790,7 +819,7 @@ window.ir.textarea.utils = (function() {
 		opts = opts || {};
 		del = opts.delete;
 			
-		boundaries = utils.extractBoundaries(startPos, endPos);
+		boundaries = utils.extractBoundaries(startPos, endPos, opts.splitRoot);
 		
 		first = boundaries.first;
 		last = boundaries.last;
@@ -801,7 +830,7 @@ window.ir.textarea.utils = (function() {
 		extract = Polymer.dom(commonAncestor).cloneNode(false);
 
 		starget = etarget = extract;
-
+		
 		// we're left with the deepest common ancestor
 		while(starts.length || ends.length)
 		{
