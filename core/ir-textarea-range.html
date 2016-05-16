@@ -420,16 +420,22 @@
 			},
 
 			copy : function() {
+				var s, e;
+				
 				this.hide();
 				console.log('copy')
-				extract = utils.extractContents(this.$.start, this.$.end);
 				
+				s = this.$.start;
+				e = this.$.end;
+				
+				extract = utils.extractContents(this.$.start, this.$.end);
+
 				if(extract.nodeType == 3)
 					console.log(extract);
 				else
 					console.log(Polymer.dom(extract).innerHTML);
 
-				this.show();
+				this.setAt(s, e);
 			},
 			
 			cut : function() {
