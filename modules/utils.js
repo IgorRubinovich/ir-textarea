@@ -658,15 +658,12 @@ window.ir.textarea.utils = (function() {
 	}
 	
 	utils.clonePos = function(pos) {
-		var np;
-		np.container = pos.container;
-		np.offset = pos.offset;
-		return np;
+		return { container : pos.container, offset : pos.offset };
 	}
 	
 	// helper to extract functions
 	utils.extractBoundaries = function(startPos, endPos) {
-		var sc, ec, so, eo, i, commonContainer, extract, starts = [], ends = [], 
+		var sc, ec, so, eo, i, commonAncestor, extract, starts = [], ends = [], 
 			sfrag, efrag, starget, etarget, first, last;
 		
 		sc = startPos.container;
@@ -684,10 +681,17 @@ window.ir.textarea.utils = (function() {
 		}
 		else
 		if(utils.atText(startPos, "end"))
-			first = { original : sc, sopy : document.createTextNode(sc.textContent) };
+			first = { 
+						original : sc, 
+						remainder : ""
+					};
 		else
 		if(utils.atText(startPos, "middle"))
-			first = { original : sc, copy : document.createTextNode(sc.textContent.slice(so, sc.textContent.length)) };
+			first = { 
+						original : sc, 
+						copy : document.createTextNode(sc.textContent.slice(so, sc.textContent.length)),
+						remainder : sc.textContent.slice(0, so)
+					};
 
 		//
 		// "normalize" end
@@ -702,22 +706,44 @@ window.ir.textarea.utils = (function() {
 			startPos = { container : ec, offset : eo }
 
 			if(sc == ec)
-				first = last = { original : sc, copy : document.createTextNode(sc.textContent.slice(so, eo)) };
+				first = last = 
+					{ 
+						original : ec, 
+						copy : document.createTextNode(ec.textContent.slice(ec, eo)), 
+						remainder : ec.textContent.slice(0, eo) 
+					};
 			else
-				last =  { original : ec, copy : document.createTextNode(ec.textContent.slice(0, eo)) };
+				last =  
+					{ 
+						original : ec, 
+						copy : document.createTextNode(ec.textContent.slice(0, eo)),
+						remainder : ec.textContent.slice(eo, ec.textContent.length)
+					};
 		}
 		else
 		if(utils.atText(endPos, "middle"))
 		{
 			if(sc == ec)
-				first = last = { original : sc, copy : document.createTextNode(sc.textContent.slice(so, eo)) };
+				first = last = 
+					{ 
+						original : sc, 
+						copy : document.createTextNode(sc.textContent.slice(so, eo)),
+						remainder : sc.textContent.slice(0, so) + sc.textContent.slice(eo, sc.textContent.length)
+					};
 			else
-				last = { original : ec, copy : document.createTextNode(ec.textContent.slice(0, eo)) };
+				last = 
+					{ 
+						original : ec, 
+						copy : document.createTextNode(ec.textContent.slice(0, eo)),
+						remainder : ec.textContent.slice(eo, ec.textContent.length)
+					};
 		}
 		else
+		// ends with block
 		if(!utils.canHaveChildren(ec))
 			last = { original : ec };
 		else
+		// after last element in container
 		if(!ec.childNodes[eo])
 			last = { original : Polymer.dom(ec).childNodes[eo-1] };
 
@@ -757,10 +783,13 @@ window.ir.textarea.utils = (function() {
 				}
 	}
 	
-	utils.extractContents = function(startPos, endPos) {
-		var sc, ec, so, eo, i, commonContainer, extract, starts, ends, 
-			sfrag, efrag, starget, etarget, first, last, boundaries, commonAncestor;
+	utils.extractContents = function(startPos, endPos, opts) {
+		var sc, ec, so, eo, i, commonContainer, extract, starts, ends, next,
+			sfrag, efrag, starget, etarget, first, last, boundaries, commonAncestor, n, del;
 
+		opts = opts || {};
+		del = opts.delete;
+			
 		boundaries = utils.extractBoundaries(startPos, endPos);
 		
 		first = boundaries.first;
@@ -778,7 +807,6 @@ window.ir.textarea.utils = (function() {
 		{
 			sc = starts.shift();
 			ec = ends.shift();
-			p = Polymer.dom(sc).parentNode;
 			
 			sfrag = document.createDocumentFragment();
 			efrag = document.createDocumentFragment();
@@ -786,15 +814,35 @@ window.ir.textarea.utils = (function() {
 			p = sc;
 			
 			// sc to end/ec
-			//if(first != last)
 			while(p && p != ec)
 			{
+				next = Polymer.dom(p).nextSibling;
 				if(!first || p != first.original)
-					sfrag.appendChild(Polymer.dom(p).cloneNode(!first || p != sc));
+				{
+					sfrag.appendChild(p);
+					
+					if(del)
+					{
+						Polymer.dom(Polymer.dom(p).parentNode).removeChild(p); // must remove explicitly or Polymer won't update
+						Polymer.dom.flush();
+					}
+				}
 				else
+				{
 					sfrag.appendChild(first.copy);
-
-				p = Polymer.dom(p).nextSibling;
+					if(del)
+					{
+						n = Polymer.dom(Polymer.dom(first.original).parentNode);
+						if(first.remainder)
+							first.original.textContent = first.remainder;
+						else
+						{
+							Polymer.dom(Polymer.dom(first.original).parentNode).removeChild(first.original)
+							Polymer.dom.flush();
+						}
+					}
+				}
+				p = next;
 			}
 		
 			// start to ec
@@ -802,7 +850,13 @@ window.ir.textarea.utils = (function() {
 			while(p && p != ec)
 			{
 				efrag.appendChild(Polymer.dom(p).cloneNode(p != sc));
+				n = p;
 				p = Polymer.dom(p).nextSibling;
+				if(del)
+				{
+					Polymer.dom(Polymer.dom(n).parentNode).removeChild(n);
+					Polymer.dom.flush();
+				}
 			}
 			
 			if(p && last && (p != last.original))
@@ -810,7 +864,10 @@ window.ir.textarea.utils = (function() {
 				efrag.appendChild(Polymer.dom(p).cloneNode(false));
 				p = Polymer.dom(p).nextSibling;				
 			}
-
+			else
+			if(p && !last)
+				Polymer.dom(Polymer.dom(p).parentNode).removeChild(p);
+			
 			if(sfrag.childNodes.length)
 				Polymer.dom(starget).appendChild(sfrag);
 			if(efrag.childNodes.length)
@@ -825,11 +882,36 @@ window.ir.textarea.utils = (function() {
 		if(last)
 		{
 			if(first && last.original == first.original)
+			{
 				extract = last.copy;
+				if(del)
+					if(last.remainder)
+						last.original.textContent = last.remainder;
+					else
+					{
+						Polymer.dom(Polymer.dom(last.original).parentNode).removeChild(last.original)
+						Polymer.dom.flush();
+					}
+			}
 			else
+			{
 				Polymer.dom(etarget == extract ? extract : Polymer.dom(etarget).parentNode).appendChild(last.copy);
+				if(del)
+				{
+					if(last.remainder)
+						last.original.textContent = last.remainder;
+					else
+					{
+						Polymer.dom(Polymer.dom(last.original).parentNode).removeChild(last.original)
+						Polymer.dom.flush();
+					}
+				}
+			}
 		}
 
+		if(del)
+			Polymer.dom.flush()
+		
 		return extract;
 	}
 

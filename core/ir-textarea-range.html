@@ -421,6 +421,7 @@
 
 			copy : function() {
 				this.hide();
+				console.log('copy')
 				extract = utils.extractContents(this.$.start, this.$.end);
 				
 				if(extract.nodeType == 3)
@@ -430,19 +431,41 @@
 			},
 			
 			cut : function() {
+				var s, e;
+				
+				console.log('cut')
+
 				this.hide();
-				extract = utils.extractContents(this.$.start, this.$.end, { cut : true });
+				
+				s = utils.clonePos(this.$.start);
+				e = utils.clonePos(this.$.end);
+
+				this.go('backward'); // it's safer to go backward because positions and elements won't change as much there
+				this.posPush();
+				
+				this.hide();
+				
+				extract = utils.extractContents(s, e, { delete : true });
+				
+				this.posPop();
+				this.go('forward');
 				
 				if(extract.nodeType == 3)
 					console.log(extract);
 				else
 					console.log(Polymer.dom(extract).innerHTML);
+				
+				return true;
 			},
 
 			cutKeyHandler : function(e) {
 				if(e.keyCode == 88 && e.ctrlKey)
 				{
-					this.copy();
+					this.cut();
+					
+					e.preventDefault();
+					this.preventNextDefault = true;
+					
 					return true;
 				}
 			},

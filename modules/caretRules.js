@@ -40,7 +40,7 @@
 			
 		2.4 relationship descriptors <REL>:
 			*+[SYM1]			- node is 
-			*-=[SYM1]			- node is not
+			*-[SYM1]			- node is not
 			[SYM1]|[SYM2] 		- ordered siblings
 			[SYM1]|||[SYM2] 	- unordered siblings (effectively (<SYM1>|<SYM2> or <SYM2>|<SYM1>))
 			[SYM1]>[SYM2] 		- immediate descendant e. g. ED>IS
