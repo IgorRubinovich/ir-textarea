@@ -819,7 +819,8 @@ window.ir.textarea.utils = (function() {
 				next = Polymer.dom(p).nextSibling;
 				if(!first || p != first.original)
 				{
-					sfrag.appendChild(p);
+					n = Polymer.dom(p).cloneNode(!first || p != sc);
+					sfrag.appendChild(n);
 					
 					if(del)
 					{
@@ -865,7 +866,7 @@ window.ir.textarea.utils = (function() {
 				p = Polymer.dom(p).nextSibling;				
 			}
 			else
-			if(p && !last)
+			if(p && p != ec && !last && del)
 				Polymer.dom(Polymer.dom(p).parentNode).removeChild(p);
 			
 			if(sfrag.childNodes.length)

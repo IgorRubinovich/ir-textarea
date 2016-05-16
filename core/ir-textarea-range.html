@@ -473,6 +473,9 @@
 			copyKeyHandler : function(e) {
 				if(e.keyCode == 67 && e.ctrlKey)
 				{
+					e.preventDefault();
+					this.preventNextDefault = true;
+
 					this.copy();
 					return true;
 				}
