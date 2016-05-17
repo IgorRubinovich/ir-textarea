@@ -95,9 +95,10 @@
 			
 			_collapsed : function(startContainer,startoffset,endContainer,endOffset)
 			{
-				//this.set("collapsed", );
-				//console.log(this.startContainer == this.endContainer && this.startOffset == this.endOffset)
-				return this.startContainer == this.endContainer && this.startOffset == this.endOffset
+				return 	this.$.start.collapsed = 
+						this.$.end.collapsed = 
+						
+						this.startContainer == this.endContainer && this.startOffset == this.endOffset;
 			},
 			
 			collapse : function(toEnd) {
@@ -521,7 +522,7 @@
 				offset = pos.offset;
 				
 				if(utils.getTopCustomElementAncestor(cont, this.editor))
-					return (e.shiftKey = true) && false;
+					return this.lineBreakHandler(e);;
 
 				// determine where we are in container
 				splitTop = utils.getNonCustomContainer(cont, this.editor);
@@ -560,33 +561,50 @@
 				}
 				else
 				if(state.atStart)
+				{
 					paste.pasteHtmlAtPos(utils.newEmptyParagraph(), { container : splitTop, offset : 0 }, this.editor);
+				}
 				else
 				{
-					paste.pasteHtmlAtPos(newp = utils.newEmptyParagraph(), 
-											splitTop.nextSibling ? 
-												{ container : Polymer.dom(splitTop).nextSibling, offset : 0 } : 
-												{ container : Polymer.dom(splitTop).parentNode, offset : utils.getChildPositionInParent(splitTop) + 1 },
-										this.editor);
+					if(!SYMBOLS.EMPTYCONT(splitTop))
+					{
+						//Polymer.dom(Polymer.dom(splitTop).parentNode).insertBefore(utils.newEmptyClone(splitTop), splitTop)						
 
-					t = Polymer.dom(pos.container).previousSibling;
+						paste.pasteHtmlAtPos(newp = utils.newEmptyClone(splitTop), 
+												Polymer.dom(splitTop).nextSibling ? 
+													{ container : Polymer.dom(splitTop).nextSibling, offset : 0 } : 
+													{ container : Polymer.dom(splitTop).parentNode, offset : utils.getChildPositionInParent(splitTop) + 1 },
+											this.editor);
 
-					// pull non-containers into the new paragraph
-					while(Polymer.dom(newp).previousSibling && newp.previousSibling != t)
-						Polymer.dom(newp).insertBefore(Polymer.dom(newp).previousSibling, newp.firstChild);
+						t = Polymer.dom(pos.container).previousSibling;
+					
+						// pull non-containers into the new paragraph
+						while(Polymer.dom(newp).previousSibling && newp.previousSibling != t && !SYMBOLS.CONT(newp))
+							Polymer.dom(newp).insertBefore(Polymer.dom(newp).previousSibling, newp.firstChild);
 
-					this.go('forward');
+						this.go('forward');
+
+					}
+					else
+						Polymer.dom(Polymer.dom(splitTop).parentNode).insertBefore(utils.newEmptyClone(splitTop), splitTop)						
 				}
 				
 				// update carets
 				if(!newp)
 				{
-					this.setAt({ container : splitTop, offset : 0});
+					this.setAt({ container : splitTop, offset : 0 });
 					this.go('forward');
+					//this.go('backward');
 				}
 				else
+				{
 					this.setAt({ container : newp.firstChild, offset : 0});
-				
+					if(SYMBOLS.TEXT(t = newp.nextSibling))
+					{
+						Polymer.dom(Polymer.dom(t).parentNode).removeChild(t);
+						Polymer.dom(newp).insertBefore(t, newp.firstChild);
+					}
+				}
 				e.preventDefault();
 				this.preventNextDefault = true;
 				this.justUpdated = true;
@@ -594,12 +612,7 @@
 				return true;
 			},
 			
-			shiftEnterKeyHandler : function(e) {
-				var cont, offset, nextPos, lastPos, lastCont, twice, forward;
-				
-				if(e.keyCode != 13 || !e.shiftKey)
-					return;
-
+			lineBreakHandler : function(e) {
 				this.hide();
 					
 				cont = this.startPosition.container;
@@ -634,6 +647,15 @@
 				return true;
 			},
 			
+			shiftEnterKeyHandler : function(e) {
+				var cont, offset, nextPos, lastPos, lastCont, twice, forward;
+				
+				if(e.keyCode != 13 || !e.shiftKey)
+					return 
+					
+				this.lineBreakHandler(e);
+			},
+			
 			deleteKeyHandler : function(e)
 			{
 				var pn, dir, 
@@ -666,6 +688,12 @@
 				if(SYMBOLS.INLINECONT(pn))
 					return true;
 
+				if(pn && pn.tagName == 'BR' && !Polymer.dom(pn).nextSibling)
+				{
+					pos = { container : Polymer.dom(pn).parentNode, offset : utils.getChildPositionInParent(pn) }
+					Polymer.dom(Polymer.dom(pn).parentNode).removeChild(pn);
+				}
+					
 				// 2. default action - caret before non-container block or custom element				
 				if(utils.isInLightDom(pn, this.editor) && (SYMBOLS.NCBLOCK(pn) || SYMBOLS.IS(pn)))
 				{

@@ -1,9 +1,23 @@
 <dom-module id="ir-textarea-range-marker">
 	<style>
+		#marker.uncollapsed {
+			border-top : black solid 1px;
+			border-bottom : black solid 1px;
+			padding-left : 2px;
+			padding-right : 2px;
+		}
+		
+		:host[bind-to-range=start] #marker.uncollapsed {
+			border-left : black solid 1px;
+		}
+		:host[bind-to-range=end] #marker.uncollapsed{
+			border-right : black solid 1px;
+		}
+
 		#marker {
-			background : violet;
-			padding-left : 3px;
-			padding-right : 3px;
+			background : cyan;
+			padding-left : 2px;
+			padding-right : 2px;
 			outline : none;
 		}
 	</style>
@@ -59,7 +73,16 @@
 				tagOutline : {
 					type : String,
 					notify : true
+				},
+				collapsed : {
+					type : Boolean,
+					notify : true,
+					observer : "_collapsed"
 				}
+			},
+			
+			_collapsed : function() {
+				this.$.marker.classList[this.collapsed ? "remove" : "add"]('uncollapsed');
 			},
 			
 			ready : function() {
@@ -77,8 +100,8 @@
 						//attributes : true
 					}
 
-				if(this.bindToRange == 'end')
-					this.$.marker.style.background = 'lightgreen';
+				//if(this.bindToRange == 'end')
+				//	this.$.marker.style.background = 'lightgreen';
 
 				this._activeHandlers = {};
 					

@@ -198,8 +198,12 @@ window.ir.textarea.utils = (function() {
 		throw new Error("couldn't find " + child + " in " + utils.parentNode(child));
 	}
 	
+	utils.isNonCustomContainer = function(el) {
+		return !el.is && utils.canHaveChildren(el) && (!utils.isInlineElement(el) || utils.isParagraph(el));
+	}
+	
 	utils.getNonCustomContainer = function(child, top) {					
-		while(child && child != top && !child.is && (!utils.canHaveChildren(child) || !utils.isInlineElement(child)))
+		while(child && child != top && !utils.isNonCustomContainer(child))
 			child = utils.parentNode(child);
 		
 		return child;
@@ -640,7 +644,7 @@ window.ir.textarea.utils = (function() {
 		);
 		Polymer.dom(parent).insertBefore(left, limit);
 
-		//Polymer.dom.flush();
+		Polymer.dom.flush();
 		
 		utils.visitNodes(limit.previousSibling, function(el) {  // hard-reattach custom elements lest they lose their powers
 			var h;
@@ -925,7 +929,8 @@ window.ir.textarea.utils = (function() {
 			}
 			else
 			{
-				Polymer.dom(etarget == extract ? extract : Polymer.dom(etarget).parentNode).appendChild(last.copy);
+				//Polymer.dom(etarget == extract ? extract : Polymer.dom(etarget).parentNode).appendChild(last.copy);
+				Polymer.dom(etarget).appendChild(last.copy);
 				if(del)
 				{
 					if(last.remainder)
@@ -1189,8 +1194,20 @@ window.ir.textarea.utils = (function() {
 		return el && el.matches && el.matches('span.paragraph') && (!el.firstChild || (el.firstChild && el.firstChild.tagName == 'BR'));
 	}
 
+	utils.newEmptyClone = function (el) {
+		var c = Polymer.dom(el).cloneNode();
+		Polymer.dom(c).appendChild(document.createElement('br'))
+		return c;
+	}
+	
 	utils.newEmptyParagraph = function (nobr) { 
-		var el; el = document.createElement('span'); if(!nobr) el.appendChild(document.createElement('br')); el.classList.add("paragraph"); return el 
+		var el; 
+		el = document.createElement('span'); 
+		
+		if(!nobr) 
+			el.appendChild(document.createElement('br')); 
+		
+		el.classList.add("paragraph"); return el 
 	},
 
 	utils.wrapInParagraph = function(el) {
@@ -1204,7 +1221,7 @@ window.ir.textarea.utils = (function() {
 	utils.mergeNodes = function (left, right, setCaretAtMergePoint) {
 		var caretPos, ret, t;
 
-		ret = caretPos = utils.getLastCaretPosition(left);
+		caretPos = utils.getLastCaretPosition(left);
 
 		if(left.nodeType == 1) // left <-- right
 		{
@@ -1214,30 +1231,34 @@ window.ir.textarea.utils = (function() {
 
 			if(right.nodeType == 1) // element - element
 			{
-				while(right.firstChild)
-				{
-					if(right.firstChild.is)
-					{
-						// got to do this to force custom elements rendered after merge
-						h = utils.recursiveOuterHTML(right.firstChild);
-						t = document.createElement('div');
-						right.removeChild(right.firstChild);
-						left.appendChild(t); 
-						t.outerHTML = h;
-					}
-					else
-						left.appendChild(right.removeChild(right.firstChild));
+				t = Polymer.dom(left).lastChild; 
+				
+				if(t && t.tagName == 'BR')
+					Polymer.dom(left).removeChild(t)
+				
+				
+				if(Polymer.dom(left).lastChild && Polymer.dom(left).lastChild.nodeType == 3)
+					ret = { container : Polymer.dom(left).lastChild, offset : Polymer.dom(left).lastChild.textContent.length };
+				else
+				if(Polymer.dom(right).firstChild)
+					ret = { container : Polymer.dom(right).firstChild, offset : 0 };
+
+				while(Polymer.dom(right).firstChild)
+				{					
+					Polymer.dom(left).appendChild(Polymer.dom(right).removeChild(Polymer.dom(right).firstChild));
+					Polymer.dom.flush();
 				}
 
-				right.parentNode.removeChild(right);
+				Polymer.dom(Polymer.dom(right).parentNode).removeChild(right);
 			}
 			else					// element - text
-				left.appendChild(right.parentNode.removeChild(right));
+				Polymer.dom(left).appendChild(Polymer.dom(Polymer.dom(right).parentNode).removeChild(right));
 
+			Polymer.dom.flush();
 			if(setCaretAtMergePoint)
-				utils.setCaretAt(caretPos.container, caretPos.offset);
+				utils.setCaretAt(ret.container, ret.offset);
 
-			ret = left;
+			//ret = left;
 		}
 		else
 		{
@@ -1246,23 +1267,23 @@ window.ir.textarea.utils = (function() {
 			if(right.nodeType == 1)	// left -> right
 			{
 				if(right.firstChild)
-					right.insertBefore(left.parentNode.removeChild(left), right.firstChild);
+					Polymer.dom(right).insertBefore(Polymer.dom(Polymer.dom(left).parentNode).removeChild(left), Polymer.dom(right).firstChild);
 				else
-					right.appendChild(left.parentNode.removeChild(left));
+					Polymer.dom(right).appendChild(Polymer.dom(Polymer.dom(left).parentNode).removeChild(left));
 			}
 			else 				// text - text
 			{
 				right.textContent = left.textContent + right.textContent;
-				left.parentNode.removeChild(left);
+				Polymer.dom(Polymer.dom(left).parentNode).removeChild(left);
 			}
 
 			ret = right;
 		}
 
 		if(setCaretAtMergePoint)
-			utils.setCaretAt(caretPos.container, caretPos.offset);
+			utils.setCaretAt(ret.container, ret.offset);
 		
-		return caretPos;
+		return ret;
 	}	
 		
 	utils.isInlineElement = function(el) {

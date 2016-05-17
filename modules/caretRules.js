@@ -239,8 +239,8 @@
 			var ce;
 			if(!el)
 				return;
-			if(el.nodeType == 3 || Symbols.INLINECONT.call(this, el) || Symbols.NCBLOCK.call(this, el))
-				 el = el.parentNode;
+			while(el.nodeType == 3 || Symbols.INLINECONT.call(this, el) || Symbols.NCBLOCK.call(this, el))
+				 el = utils.parentNode(el, this.editor);
 			if(el && el.getAttribute) 
 				ce = el.getAttribute('contenteditable');
 			return ce && ce != 'false' 
@@ -248,6 +248,7 @@
 		TEXT : 		function(el) { return el && el.nodeType == 3 },
 		NBTEXT : 	function(el) { return el && el.nodeType == 3 && /\S/.test(el.textContent) },
 		EMPTYTEXT : function(el) { return Symbols.TEXT.call(this, el) && /^\s*$/.test(el.textContent) },
+		EMPTYCONT : function(el) { return Symbols.CONT.call(this, el) && (!el.childNodes.length || (utils.singleChildNode(el) && el.firstChild.tagName == "BR") )},
 		P : 		function(el) { return utils.isParagraph(el) },
 		PEMPTY : 	function(el) { return utils.isEmptyParagraph(el) },
 		CARET : 	function(el) { return el && el.isCaret },

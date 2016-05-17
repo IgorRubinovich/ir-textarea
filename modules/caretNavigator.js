@@ -38,8 +38,12 @@
 
 		// a bunch of rules that define where the caret should stop - see caretRules.js for details
 		rulesetsDef = {
-			stopPoints : "PEMPTY>*,EDITOR>IS,*>EMPTYTEXT,P>NULL,IS||!TEXT,EMPTYTEXT||NCBLOCK,P>IS,CONTED>TEXT,NCBLOCK||NCBLOCK,NCBLOCK||NULL,CONT|NCBLOCK,CONTED>NCBLOCK",
-			skipPoints : "*+CARET,*+SHADOW,TEXT|TRANS,IS>>!CONTED,*>>EDITOR,*||SHADOW,P||TEXT,INLINECONT||TEXT,INLINECONT>INLINECONT,TRANS>|*"
+			stopPoints : 	"PEMPTY>*,EDITOR>IS,*>EMPTYTEXT,P>NULL,IS||!TEXT," + 
+							"EMPTYTEXT||NCBLOCK,P>IS,CONTED>TEXT,NCBLOCK||NCBLOCK," +
+							"NCBLOCK||NULL,CONT|NCBLOCK,CONTED>NCBLOCK",
+
+			skipPoints : "*+CARET,*+SHADOW,TEXT|TRANS,IS>>!CONTED,*>>EDITOR,*||SHADOW,P||TEXT,INLINECONT||TEXT,INLINECONT>INLINECONT,TRANS>|*",
+			inlineTextNeighbours : "INLINECONT||TEXT"
 		};
 	
 	ir.textarea.CaretNavigator = 	
@@ -106,8 +110,15 @@
 				return { container : c, offset : o };
 
 			// non-end of textNode
+			
 			if(n.nodeType == 3 && !this.rulesets.skipPoints(null, n))
-				return { container : n, offset : Symbols.INLINECONT(m) ? 1 : 0 }
+				// return { container : n, offset : Symbols.INLINECONT(m) ? 1 : 0 }
+				// maybe
+					return {
+						container : n, 
+						offset : this.rulesets.inlineTextNeighbours(m, n) || this.rulesets.inlineTextNeighbours(m.previousSibling, m) ? 1 : 0 
+					}
+				
 			
 			if(m && m != c && m.nodeType == 3 && m.textContent && utils.isInLightDom(m, this.editor) && !this.rulesets.skipPoints(null, m))
 				return { container : m, offset : 0 };
@@ -173,7 +184,7 @@
 			m = Polymer.dom(n).previousSibling || utils.parentNode(n, this.editor);
 			
 			if(!res && n.nodeType == 3 && !this.rulesets.skipPoints(null, n))
-				res = { container : n, offset : n.textContent.length - (Symbols.INLINECONT(m) ? 1 : 0) };
+				res = { container : n, offset : n.textContent.length - (Symbols.INLINECONT(n.nextSibling) || Symbols.TEXT(n.nextSibling) ? 1 : 0) };
 
 			if(!res && this.rulesets.stopPoints(null, m) && !this.rulesets.skipPoints(null, m))
 			//if(m && m.nodeType == 3 && m.textContent && utils.isInLightDom(m, this.editor) && !this.rulesets.skipPoints(null, m))
