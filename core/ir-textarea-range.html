@@ -142,7 +142,7 @@
 				});
 
 				this.editor.addEventListener('mousedown', this.mouseDownHandler.bind(this));
-				this.editor.addEventListener('mousemove', this.mouseMoveHandler.bind(this));
+				//this.editor.addEventListener('mousemove', this.mouseUpHandler.bind(this));
 				this.editor.addEventListener('mouseup', this.mouseUpHandler.bind(this));
 
 
@@ -159,6 +159,9 @@
 			mouseUpHandler : function(e) {
 				var hm, cp = utils.caretPositionFromPoint(e.clientX, e.clientY), startPos, endPos, reverseFlow, 
 					lcpos = this.lastClick.pos;
+				
+				if(e.type == 'mousemove' && e.which != 1)
+					return;
 				
 				console.log('mouseup lcpos, cp', lcpos, cp)
 				

@@ -181,7 +181,11 @@
 		n = c;
 		while(!res && n && n != e) {
 			n = utils.prevNode(n, this.editor);
-			m = Polymer.dom(n).previousSibling || utils.parentNode(n, this.editor);
+			if(n == this.editor)
+				res = { container : this.editor, offset : 0 }
+			
+			if(!res)
+				m = Polymer.dom(n).previousSibling || utils.parentNode(n, this.editor);
 			
 			if(!res && n.nodeType == 3 && !this.rulesets.skipPoints(null, n))
 				res = { container : n, offset : n.textContent.length - (Symbols.INLINECONT(n.nextSibling) || Symbols.TEXT(n.nextSibling) ? 1 : 0) };
