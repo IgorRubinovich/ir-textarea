@@ -451,7 +451,7 @@
 			},
 			
 			getCoordinates : function () {
-				return utils.posToCoorinatesPos({ container : this.realContainer, offset : this.realOffset }, this.editor);
+				return utils.posToCoorinatesPos({ container : this.realContainer, offset : this.realOffset }, this.editor, true);
 			},
 			
 			posPush : function() {
@@ -459,7 +459,7 @@
 			},
 			
 			posPop : function() {
-				return utils.coordinatesPosToPos(this.posStack.pop(this.editor), this.editor);
+				return utils.coordinatesPosToPos(this.posStack.pop(this.editor), this.editor, true);
 			},
 
 			adjust : function() {
@@ -604,8 +604,14 @@
 
 				if(this.realContainer && (c == this.realContainer && o == this.realOffset))
 					return
+
+				if(c == this.editor)
+				{
+					c = Polymer.dom(c).childNodes[o]
+					o = 0;
+				}
 				
-				this.setAt(c, o);
+				this.goAt({ container : c, offset : o});
 			},
 			
 			isAtOrAfterMarker : function(pos) {

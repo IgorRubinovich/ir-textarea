@@ -159,16 +159,13 @@
 			mouseUpHandler : function(e) {
 				var hm, cp = utils.caretPositionFromPoint(e.clientX, e.clientY), startPos, endPos, reverseFlow, 
 					lcpos = this.lastClick.pos;
-
-				// this.lastClick.pos = null;
 				
 				console.log('mouseup lcpos, cp', lcpos, cp)
 				
 				if((lcpos && lcpos.container == cp.container && lcpos.offset == cp.offset) ||
 					 (e.clientX == this.lastClick.coords.x && e.clientY == this.lastClick.coords.y))
 				{
-					this.lastActive = 'start';
-					console.log('mouseup 1');
+					this.lastActive = null;
 				}
 				else
 				if(hm = cp.container.hostMarker || (utils.isContainer(cp.container) && (hm = cp.container.childNodes[cp.offset].hostMarker))) 
@@ -203,7 +200,9 @@
 					console.log('mouseup:', startPos, endPos);
 				}
 
-				this.justUpdated = true;
+				//this.justUpdated = true;
+				
+				this.updateFromCurrentRange();
 				
 				e.preventDefault();
 			},
@@ -382,7 +381,7 @@
 			},
 
 			keyUpHandler : function (e) {
-				var keyCode = e.keyCode || e.which;
+				var keyCode = e.keyCode || e.which, ars, prs, ap, pp, noupdate;
 
 				if([16,17].indexOf(keyCode) > -1) // shift, ctrl, (alt)
 					return e.preventDefault();
@@ -394,7 +393,33 @@
 				}
 				if(this.preventNextDefault)
 					e.preventDefault();
+				
+				if(this.lastActive)
+				{
+					ars = this.$[this.lastActive];
+					prs = this.$[this.lastActive == "start" ? "end" : "start"];
+					
+					ap = ars.posPop();
+					pp = prs.posPop();
+					
+					if(ap && e.shiftKey && (keyCode == 38 || keyCode == 40))
+					{
+						if(keyCode == 38)
+							ars.go('backward');
+						if(keyCode == 40)
+							ars.go('forward');
+						prs.goAt(pp);
+					
+						noupdate = true;
+					}
+				}
 
+				if(this.collapsed)
+					this.lastActive = null;
+				
+				//if(!noupdate)
+				this.updateFromCurrentRange();				
+				
 				this.preventNextDefault = this.justUpdated = false;
 			},
 			
@@ -791,7 +816,7 @@
 			},
 			
 			directionKeyHandler : function(e) {
-				var dir, keyCode = e.keyCode, activeRangeSide, passiveRangeSide, ars, prs;
+				var dir, keyCode = e.keyCode, activeRangeSide, passiveRangeSide, ars, prs, prevPos;
 				
 				dir = [36,37,33,38].indexOf(keyCode) > -1 && "backward"; 		 // home, left, pgUp, up
 				dir = dir || [35,39,34,40].indexOf(keyCode) > -1 && "forward";  // end, right, pgDn, down
@@ -799,13 +824,12 @@
 				if(!dir)
 					return false;
 				
-				if(this.collapsed)
-					this.lastActive = null;
-
-				if(this.collapsed && !e.shiftKey)
+				//if(this.collapsed && !e.shiftKey)
+				//	this.lastActive = null;
+				if(!e.shiftKey)
 					activeRangeSide = 'start';
 				else
-				if(!e.shiftKey || (e.shiftKey && !this.lastActive))
+				if(e.shiftKey && !this.lastActive)
 				{
 					if(dir == "backward") 
 						activeRangeSide = 'start';
@@ -820,10 +844,11 @@
 					
 				passiveRangeSide = activeRangeSide == "start" ? "end" : "start";
 				
+				ars = this.$[activeRangeSide];
+				prs = this.$[passiveRangeSide];
+				
 				if(dir && ([37,39].indexOf(keyCode) > -1))
 				{
-					ars = this.$[activeRangeSide];
-					prs = this.$[passiveRangeSide];
 					if(this.collapsed || e.shiftKey)
 					{ // e.shiftKey ? activeRangeSide : "both", 
 						ars.go(dir, { container : prs.realContainer, offset : prs.realOffset })
@@ -837,15 +862,21 @@
 							this.$.end.goAt({container : ars.realContainer, offset : ars.realOffset});
 					}
 					else
-						this.collapse(activeRangeSide == "end")
+						this.collapse(dir == "forward")
 					
 					this.updateNativeRange();
 					
 					this.justUpdated = true;
-					
+				
 					e.preventDefault();
 				}
-				
+				else
+				{
+					//this.hide();
+					prs.posPush();
+					ars.posPush();
+					this.justUpdated = true;
+				}
 				return true;
 			},
 			

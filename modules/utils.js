@@ -181,8 +181,8 @@ window.ir.textarea.utils = (function() {
 		return (n == top) ? res : null;
 	}
 
-	utils.getChildPositionInParent = function(child) {
-		var i, cn, p, l, caret = 0;
+	utils.getChildPositionInParent = function(child, skipCaret) {
+		var i, cn, p, l, c = 0, res;
 		if(!child || child == document.body)
 			return null;
 
@@ -191,10 +191,20 @@ window.ir.textarea.utils = (function() {
 		cn = Polymer.dom(p).childNodes; // p.is ? Polymer.dom(p).childNodes : p.childNodes;
 		i = -1;
 		l = cn.length;
-		while(i < l)
-			if(cn[++i] == child)
-				return i;
-
+		while(i < l && !res)
+		{
+			i++;
+			if(cn[i] && cn[i].isCaret)
+				c++;
+			if(cn[i] == child)
+				res = i;
+		}
+		
+		console.log("getChildPositionInParent carets:", c);
+		
+		if(i >= 0)
+			return res - (skipCaret ? c : 0);
+		
 		throw new Error("couldn't find " + child + " in " + utils.parentNode(child));
 	}
 	
@@ -209,20 +219,26 @@ window.ir.textarea.utils = (function() {
 		return child;
 	}
 	
-	utils.posToCoorinatesPos = function(pos, top) {
-		return { container : utils.getChildPathFromTop(pos.container, top), offset : pos.offset };
+	utils.posToCoorinatesPos = function(pos, top, skipCaret) {
+		if(!pos)
+			return null;
+
+		return { container : utils.getChildPathFromTop(pos.container, top, skipCaret), offset : pos.offset };
 	}
 
-	utils.coordinatesPosToPos = function(coordinatePos, top) {
-		return { container : utils.getChildFromPath(coordinatePos.container, top), offset : coordinatePos.offset };
+	utils.coordinatesPosToPos = function(coordinatePos, top, skipCaret) {
+		if(!coordinatePos)
+			return null;
+		
+		return { container : utils.getChildFromPath(coordinatePos.container, top, skipCaret), offset : coordinatePos.offset };
 	}
 
-	utils.getChildPathFromTop = function(child, top) {
+	utils.getChildPathFromTop = function(child, top, skipCaret) {
 		var t = [], p = child;
 
 		while(p && p != top)
 		{
-			t.unshift(utils.getChildPositionInParent(p));
+			t.unshift(utils.getChildPositionInParent(p, skipCaret));
 			p = Polymer.dom(p).parentNode
 		}
 		if(p != top)
@@ -231,20 +247,29 @@ window.ir.textarea.utils = (function() {
 		return t;
 	}
 
-	utils.getChildFromPath = function(pathArr, top, descend)
+	utils.getChildFromPath = function(pathArr, top, skipCaret)
 	{
-		var res = top, i = 0, next;
+		var res = top, i = 0, k, next, cn, coord, c = 0;
 		
 		if(!pathArr || !pathArr.length)
 			return null;
 
 		while(i < pathArr.length)
 		{
-			if(pathArr[i] || pathArr[i] === 0)
-				next = (res.is ? Polymer.dom(res) : res).childNodes[pathArr[i]];
+			cn = Polymer.dom(res).childNodes;
+			coord = pathArr[i];
+			if(skipCaret)
+				for(k = 0; k <= coord; k++)
+					if(cn[k] && cn[k].isCaret)
+						c++, coord++;
+			
+			if(coord >= 0)
+				next = cn[coord];
 
 			if(!next)
 				return null; // res;
+
+			console.log("getChildFromPath carets:", c);
 
 			res = next;
 			
