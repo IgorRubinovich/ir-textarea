@@ -160,8 +160,9 @@
 				var hm, cp = utils.caretPositionFromPoint(e.clientX, e.clientY), startPos, endPos, reverseFlow, 
 					lcpos = this.lastClick.pos;
 				
-				if(e.type == 'mousemove' && e.which != 1)
+				if(!utils.isDescendantOf(e.target, this.editor))
 					return;
+
 				
 				console.log('mouseup lcpos, cp', lcpos, cp)
 				
@@ -210,55 +211,12 @@
 				e.preventDefault();
 			},
 			
-			mouseMoveHandler : function(e) {
-				return;
-				
-				var cp = utils.caretPositionFromPoint(e.clientX, e.clientY), 
-					lcpos = this.lastClick.pos;
-				
-				if(e.which != 1 || !lcpos)
-					return
-
-				if(lcpos.container == cp.container && lcpos.offset == cp.offset)
-				{
-					this.lastActive = 'start';
-				}
-				else
-				if(hm = cp.container.hostMarker || (utils.isContainer(cp.container) && (hm = cp.container.childNodes[cp.offset].hostMarker))) 
-				{						
-					cp.container = hm.caretSpace;
-					cp.offset = 0;
-					
-					this.setAt(cp);
-				}
-				else
-				if(e.shiftKey || lcpos)
-				{
-					if(lcpos)
-					{
-						startPos = this.$.start;
-						endPos = cp;
-					}
-					else
-					{
-						startPos = { container : this.startContainer, offset : this.startOffset };
-						endPos = cp;
-					}
-					
-					reverseFlow = utils.caretposcmp(startPos, endPos, this.editor) > 0;
-					
-					this.lastActive = reverseFlow ? 'end' : 'start'; 
-					
-					this.setAt(startPos, endPos);
-				}
-
-				this.justUpdated = true;
-				e.preventDefault();
-			},
-			
 			mouseDownHandler : function(e) {
 				var cp = utils.caretPositionFromPoint(e.clientX, e.clientY);
 
+				if(!utils.isDescendantOf(e.target, this.editor))
+					return;
+					
 				if(Polymer.dom(cp.container.firstChild).parentNode == this.editor)
 					cp.container = this.editor;
 
@@ -724,13 +682,13 @@
 					Polymer.dom(Polymer.dom(pn).parentNode).removeChild(pn);
 				}
 
-				// 2. default action - caret before non-container block // or custom element				
-				if(utils.isInLightDom(pn, this.editor) && SYMBOLS.NCBLOCK(pn) || SYMBOLS.IS(pn)) // || SYMBOLS.INLINECONT(pn)))
+				// 2. caret before non-container block // or custom element				
+				if(SYMBOLS.NCBLOCK(pn) || SYMBOLS.IS(pn)) // || SYMBOLS.INLINECONT(pn)))
 				{
 					if(dir == "forward")
 					{
 						poscont = pos.container;
-						otherposcont = pn.nextSibling;
+						otherposcont = Polymer.dom(pn).nextSibling;
 					}
 					else
 					{
@@ -739,12 +697,14 @@
 					}
 						
 					Polymer.dom(utils.parentNode(pn, this.editor)).removeChild(pn);
+					Polymer.dom.flush();
 					
 					// both remaining ends are text (think ---text---<br>---text---)
 					if(SYMBOLS.TEXT(poscont) && SYMBOLS.TEXT(otherposcont) && poscont.nextSibling == otherposcont)
 					{
 						l = poscont.textContent.length;
 						Polymer.dom(poscont).parentNode.normalize();
+						Polymer.dom.flush();
 						pos = { container : poscont, offset : l };
 					}
 					else
@@ -774,7 +734,7 @@
 					else
 					{
 				
-						// 3. jump in dir and check against the other position
+						// 4. jump in dir and check against the other position
 						this.go(dir);
 						this.hide();
 						
@@ -795,7 +755,7 @@
 							otherpos = this.startPosition;
 						}
 						
-						// 3a. we are in the same container block - but actually this shouldn't be happening
+						// 4a. we are in the same container block - but actually this shouldn't be happening
 						if(poscont != pos.container && poscont == otherposcont)
 						{
 							// landed in an inline container - default action
@@ -805,9 +765,7 @@
 							pos = otherpos;
 						}
 						else
-						// 3b we are in different neighbouring container blocks
-						//if(otherposcont && !otherposcont.is && poscont[dir == "forward" ? "nextSibling" : "previousSibling"] == otherposcont)
-						
+						// 4b we are in different neighbouring container blocks
 						if(this.caretNavigator.rulesets.delMergeConditions(poscont, otherposcont))
 						{
 							// swap if needed
