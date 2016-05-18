@@ -200,8 +200,6 @@ window.ir.textarea.utils = (function() {
 				res = i;
 		}
 		
-		console.log("getChildPositionInParent carets:", c);
-		
 		if(i >= 0)
 			return res - (skipCaret ? c : 0);
 		
@@ -213,7 +211,7 @@ window.ir.textarea.utils = (function() {
 	}
 	
 	utils.getNonCustomContainer = function(child, top) {					
-		while(child && child != top && !utils.isNonCustomContainer(child))
+		while(child && child != top && Polymer.dom(child).parentNode != top && !utils.isNonCustomContainer(child))
 			child = utils.parentNode(child);
 		
 		return child;
@@ -268,8 +266,6 @@ window.ir.textarea.utils = (function() {
 
 			if(!next)
 				return null; // res;
-
-			console.log("getChildFromPath carets:", c);
 
 			res = next;
 			
@@ -1244,7 +1240,7 @@ window.ir.textarea.utils = (function() {
 	},
 
 	utils.mergeNodes = function (left, right, setCaretAtMergePoint) {
-		var caretPos, ret, t;
+		var caretPos, ret, t, p, l, r, offset;
 
 		caretPos = utils.getLastCaretPosition(left);
 
@@ -1291,18 +1287,34 @@ window.ir.textarea.utils = (function() {
 
 			if(right.nodeType == 1)	// left -> right
 			{
-				if(right.firstChild)
-					Polymer.dom(right).insertBefore(Polymer.dom(Polymer.dom(left).parentNode).removeChild(left), Polymer.dom(right).firstChild);
+				r = Polymer.dom(right);
+				l = Polymer.dom(left);
+
+				Polymer.dom(l.parentNode).removeChild(left);
+
+				if(r.firstChild)
+				{
+					Polymer.dom.flush();
+					r.insertBefore(l.node, r.firstChild);
+				}
 				else
-					Polymer.dom(right).appendChild(Polymer.dom(Polymer.dom(left).parentNode).removeChild(left));
+				{
+					Polymer.dom(l.parentNode).removeChild(left)
+					r.appendChild(l.node);
+				}
+				
+				ret = { container : l.node, offset : l.node.textContent.length }
+				
 			}
-			else 				// text - text
+			else 					// text - text
 			{
+				offset = right.textContent.length;
 				right.textContent = left.textContent + right.textContent;
+
 				Polymer.dom(Polymer.dom(left).parentNode).removeChild(left);
+				ret = { container : right, offset : offset };
 			}
 
-			ret = right;
 		}
 
 		if(setCaretAtMergePoint)

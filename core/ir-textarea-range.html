@@ -686,17 +686,18 @@
 			
 			deleteKeyHandler : function(e)
 			{
-				var pn, dir, 
+				var pn, dir, otherdir,
 					keyCode = e.keyCode || e.which, isTn, deleteCandidate, mergeCandidate,
 					pos = this.startPosition, initialpos = pos, otherpos,
-					poscont, otherposcont, targetPos, i, l;
+					poscont, otherposcont, targetPos, i, l, bc, ac, t, s;
 				
 				dir = keyCode == 8 && "backward"; // backspace
 				dir = dir || (keyCode == 46) && "forward"; // del
 				if(!dir)
 					return false;
 
-				// four outcomes:
+				otherdir = dir == "forward" ? "backward" : "forward";
+					
 				// 1a. default action - non-end of text in direction dir
 				if(!this.$.start.visible && !utils.atText(pos, dir == "forward" ? "end" : "start"))
 					return true;
@@ -707,23 +708,24 @@
 				{
 					pn = pos.container;
 					if(pn.nodeType == 3)
-						pn = pn.nextSibling;
+						pn = Polymer.dom(pn).nextSibling;
 				}
 				else
-					pn = pos.container.previousSibling;
+					pn = Polymer.dom(pos.container).previousSibling;
 				
 				// 1b. default action - we are before an inline container
-				if(SYMBOLS.INLINECONT(pn))
-					return true;
+				//if(SYMBOLS.INLINECONT(pn))
+				//	return true;
 
+				// remove trailing BR. will work for both directions
 				if(pn && pn.tagName == 'BR' && !Polymer.dom(pn).nextSibling)
 				{
 					pos = { container : Polymer.dom(pn).parentNode, offset : utils.getChildPositionInParent(pn) }
 					Polymer.dom(Polymer.dom(pn).parentNode).removeChild(pn);
 				}
-					
-				// 2. default action - caret before non-container block or custom element				
-				if(utils.isInLightDom(pn, this.editor) && (SYMBOLS.NCBLOCK(pn) || SYMBOLS.IS(pn)))
+
+				// 2. default action - caret before non-container block // or custom element				
+				if(utils.isInLightDom(pn, this.editor) && SYMBOLS.NCBLOCK(pn) || SYMBOLS.IS(pn)) // || SYMBOLS.INLINECONT(pn)))
 				{
 					if(dir == "forward")
 					{
@@ -746,69 +748,100 @@
 						pos = { container : poscont, offset : l };
 					}
 					else
-					{
 						pos = { container : otherposcont, offset : 0 };
-					}
 				}
 				else
 				{
-					// 3. jump in dir and check against the other position
-					this.go(dir);
-					this.hide();
+					// 3. check for pull conditions (NCCONT < backspace < pullable or pullable > del > backspace)
+					ac = pos.container;
+					bc = Polymer.dom(ac).previousSibling;
 					
-					// reminder:
-					// pos is the original position
-					// otherpos is the next position in dir direction
-					
-					otherpos = this.startPosition;
-					
-					// get closest non-custom container blocks for both positions
-					poscont = utils.getNonCustomContainer(pos.container, this.editor);
-					otherposcont = utils.getNonCustomContainer(otherpos.container, this.editor);
-
-					// 3a. we are in the same container block - but actually this shouldn't be happening
-					if(poscont != pos.container && poscont == otherposcont)
+					if(this.caretNavigator.rulesets.delPullConditions(bc, ac))
 					{
-						// landed in an inline container - default action
-						if(SYMBOLS.INLINECONT(otherposcont))
-							return true;
-							
-						pos = otherpos;
-					}
-					else
-					// 3b we are in different neighbouring container blocks
-					if(otherposcont && !otherposcont.is && poscont[dir == "forward" ? "nextSibling" : "previousSibling"] == otherposcont)
-					{
-						// swap if needed
-						if(dir == 'backward')
+						if(dir == "forward" && SYMBOLS.NCCONT(ac)) // del after pullable
 						{
-							t = poscont;
-							poscont = otherposcont;
-							otherposcont = t;
-						}
-						
-						// and merge
-						pos = utils.mergeNodes(poscont, otherposcont, true);
-						//this.setAt();
-					}
-					// else pull the sibling element unless it's a container or pos and otherpos are in different custom elements
-					else
-					{
-						//otherposcont = poscont.previousSibling;
-						//pos = this.startPosition; 							// pos is where we pull
-						//poscont = pos.container;
-						if(pos.container[dir == "forward" ? "nextSibling" : "previousSibling"] == otherposcont && !SYMBOLS.NCCONT(otherposcont) && 
-							utils.getTopCustomElementAncestor(pos.container, this.editor) == utils.getTopCustomElementAncestor(otherposcont, this.editor))
-						{
-							Polymer.dom(Polymer.dom(otherpos.container).parentNode).insertBefore(pos.container, otherpos.container);
-							if(otherpos.container.nodeType == 3 && pos.container.nodeType == 3)
-							{
-								Polymer.dom(otherposcont).parentNode.normalize();
-								pos = { container : otherpos.container, offset : otherpos.container.textContent.length };
-							}
+							t = Polymer.dom(ac).firstChild
+							Polymer.dom(ac)[t ? "insertBefore" : "appendChild"](bc, t);
 						}
 						else
-							pos = this.startPosition;
+						if(dir == "backward" && SYMBOLS.NCCONT(bc)) // del after pullable
+						{
+							t = Polymer.dom(ac).firstChild
+							Polymer.dom(bc).appendChild(ac);
+							this.setAt({ container : ac, offset : 0});
+						}
+					}
+					else
+					{
+				
+						// 3. jump in dir and check against the other position
+						this.go(dir);
+						this.hide();
+						
+						// reminder:
+						// pos is the original position
+						// otherpos is the next position in dir direction
+						
+						otherpos = this.startPosition;
+						
+						// get closest non-custom container blocks for both positions
+						poscont = utils.getNonCustomContainer(pos.container, this.editor);
+						otherposcont = utils.getNonCustomContainer(otherpos.container, this.editor);
+
+						if(otherposcont == poscont)
+						{
+							this.go(dir);
+							this.hide();
+							otherpos = this.startPosition;
+						}
+						
+						// 3a. we are in the same container block - but actually this shouldn't be happening
+						if(poscont != pos.container && poscont == otherposcont)
+						{
+							// landed in an inline container - default action
+							if(SYMBOLS.INLINECONT(otherposcont))
+								return true;
+								
+							pos = otherpos;
+						}
+						else
+						// 3b we are in different neighbouring container blocks
+						//if(otherposcont && !otherposcont.is && poscont[dir == "forward" ? "nextSibling" : "previousSibling"] == otherposcont)
+						
+						if(this.caretNavigator.rulesets.delMergeConditions(poscont, otherposcont))
+						{
+							// swap if needed
+							if(dir == 'backward')
+							{
+								t = poscont;
+								poscont = otherposcont;
+								otherposcont = t;
+							}
+							
+							// and merge
+							pos = utils.mergeNodes(poscont, otherposcont, true);
+							//this.setAt();
+						}
+						// else pull the sibling element unless it's a container or pos and otherpos are in different custom elements
+						else
+						{
+							//otherposcont = poscont.previousSibling;
+							//pos = this.startPosition; 							// pos is where we pull
+							//poscont = pos.container;
+							if(Polymer.dom(pos.container)[dir == "forward" ? "nextSibling" : "previousSibling"] == otherposcont && 
+								!SYMBOLS.NCCONT(otherposcont) && 
+									utils.getTopCustomElementAncestor(pos.container, this.editor) == utils.getTopCustomElementAncestor(otherposcont, this.editor))
+							{
+								Polymer.dom(Polymer.dom(otherpos.container).parentNode).insertBefore(pos.container, otherpos.container);
+								if(otherpos.container.nodeType == 3 && pos.container.nodeType == 3)
+								{
+									Polymer.dom(otherposcont).parentNode.normalize();
+									pos = { container : otherpos.container, offset : otherpos.container.textContent.length };
+								}
+							}
+							else
+								pos = this.startPosition;
+						}
 					}
 				}
 				

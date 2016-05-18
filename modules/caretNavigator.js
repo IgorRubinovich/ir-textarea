@@ -43,7 +43,10 @@
 							"NCBLOCK||NULL,CONT|NCBLOCK,CONTED>NCBLOCK",
 
 			skipPoints : "*+CARET,*+SHADOW,TEXT|TRANS,IS>>!CONTED,*>>EDITOR,*||SHADOW,P||TEXT,INLINECONT||TEXT,INLINECONT>INLINECONT,TRANS>|*",
-			inlineTextNeighbours : "INLINECONT||TEXT"
+			inlineTextNeighbours : "INLINECONT||TEXT",
+			
+			delMergeConditions : "TEXT||TEXT,TEXT||NCCONT,NCCONT||NCCONT",
+			delPullConditions : "NCCONT||NCBLOCK,NCCONT||IS"
 		};
 	
 	ir.textarea.CaretNavigator = 	
@@ -149,9 +152,10 @@
 	{
 		var c = container, o = offset, m, n, match,
 			e = this.editor, cn, temp, res;
-		
-		Polymer.dom(this.editor).querySelectorAll('br').forEach((x,i) => {x.i = i+1})
-		
+
+		if(Polymer.dom(c.firstChild).parentNode == e) // reset to component root
+			c = e;
+			
 		// this is required or we will always be looking from first child regardless of offset		
 		if(c.nodeType == 1 && (cn = utils.childNodes(c))[o] && o > 0)
 		{
@@ -180,9 +184,10 @@
 
 		n = c;
 		while(!res && n && n != e) {
+			m = n;
 			n = utils.prevNode(n, this.editor);
 			if(n == this.editor)
-				res = { container : this.editor, offset : 0 }
+				res = { container : m, offset : 0 }
 			
 			if(!res)
 				m = Polymer.dom(n).previousSibling || utils.parentNode(n, this.editor);

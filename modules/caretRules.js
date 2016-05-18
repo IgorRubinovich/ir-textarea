@@ -219,7 +219,7 @@
 	CaretRule.prototype.Symbols = {
 		'*' :		function()	 { return true },
 		NODE : 		function(el) { return el instanceof Node },
-		EDITOR : 	function(el) { return el == editor },
+		EDITOR : 	function(el) { return el == this.editor },
 		SHADOW :	function(el) { 
 			return el && !utils.isInLightDom(el, this.editor); 
 		},
