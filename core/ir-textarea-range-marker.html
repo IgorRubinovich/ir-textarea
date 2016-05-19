@@ -66,6 +66,11 @@
 					type : Number,
 					notify : true
 				},				
+				realPosition : {
+					type : Object,
+					notify : true,
+					computed : "_realPosition(realContainer,realOffset)"
+				},				
 				caretSpace : {
 					type : Object,
 					notify : true
@@ -79,6 +84,10 @@
 					notify : true,
 					observer : "_collapsed"
 				}
+			},
+			
+			_realPosition : function() {
+				return { container : this.realContainer, offset : this.realOffset }
 			},
 			
 			_collapsed : function() {
@@ -332,7 +341,8 @@
 					this.visible = true;
 				}
 				
-				this.updateFromCurrentRange();
+				if(!this.justUpdated)
+					this.updateFromCurrentRange();
 				
 				return
 			},
@@ -568,6 +578,7 @@
 				if(!tn)
 				{
 					tn = this.$.marker.appendChild(document.createTextNode('\u200B'));
+					Polymer.dom.flush();
 					tn.isCaret = true;
 					tn.hostMarker = this.hostMarker;
 					
@@ -605,9 +616,9 @@
 				if(this.realContainer && (c == this.realContainer && o == this.realOffset))
 					return
 
-				if(c == this.editor)
+				while((SYMBOLS.NCCONT(c) || c == this.editor) && Polymer.dom(c).childNodes[o])
 				{
-					c = Polymer.dom(c).childNodes[o]
+					c = Polymer.dom(c).childNodes[o];
 					o = 0;
 				}
 				
@@ -635,7 +646,7 @@
 				// end marker lands on realContainer of start marker
 				if(!chm && pos.container.nodeType != 3 && this.bindToRange == 'end')
 				{
-					if(utils.canHaveChildren(pos.container) && pos.offset < Polymer.dom(this.editor).childNodes.length)
+					if(utils.canHaveChildren(pos.container) && pos.offset < Polymer.dom(pos.container).childNodes.length)
 						pos = { container : Polymer.dom(pos.container).childNodes[pos.offset], offset : 0 };
 
 					chm = pos.container.hostMarker

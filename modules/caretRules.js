@@ -229,6 +229,8 @@
 		
 		// non-custom container
 		NCCONT :	function(el) { return el && !el.is && utils.canHaveChildren(el) },
+		// non-custom non-inline container block
+		NCCONTBLOCK: function(el) { return el && !utils.isInlineElement(el) && utils.canHaveChildren(el) },
 		
 		// empty non-custom container
 		NCCONTEMPTY : function(el) { return !el.is && utils.canHaveChildren(el) && (!el.firstChild || el.firstChild.tagName == 'BR')},

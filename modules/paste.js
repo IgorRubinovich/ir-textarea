@@ -448,7 +448,7 @@ window.ir.textarea.paste = (function() {
 					Polymer.dom(parent).insertBefore(last = d.firstChild, pos.container);
 
 			Polymer.dom.flush();
-				
+
 			// infere new position
 			if(state.html == 1 || state.html == 3)
 			{
@@ -469,8 +469,6 @@ window.ir.textarea.paste = (function() {
 				else
 					lastPos = { container : pos.container, offset : pos.container.childNodes.length }
 			}
-			
-			console.log('paste state: ', state.html, state.pos.code, "last pos: ", lastPos)
 			
 			return lastPos;
 		},

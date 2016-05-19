@@ -8,7 +8,7 @@ window.ir.textarea.utils = (function() {
 	
 	var INLINE_ELEMENTS = {};
 	
-	"font,b,big,i,small,tt,abbr,acronym,cite,code,dfn,em,kbd,strong,samp,time,var,a,bdo,br,img,map,object,q,script,span,sub,sup".split(/,/)
+	"font,b,big,i,u,small,tt,abbr,acronym,cite,code,dfn,em,kbd,strong,samp,time,var,a,bdo,br,img,map,object,q,script,span,sub,sup".split(/,/)
 		.forEach(function(tag) { INLINE_ELEMENTS[tag.toUpperCase()] = true });
 		
 	var TRANSITIONAL_ELEMENTS = ['UL', 'TABLE', 'TBODY', 'TH', 'TR'];
@@ -210,11 +210,39 @@ window.ir.textarea.utils = (function() {
 		return !el.is && utils.canHaveChildren(el) && (!utils.isInlineElement(el) || utils.isParagraph(el));
 	}
 	
-	utils.getNonCustomContainer = function(child, top) {					
-		while(child && child != top && Polymer.dom(child).parentNode != top && !utils.isNonCustomContainer(child))
+	utils.getNonCustomContainer = function(child, top, excludeTop) {
+		var c = child, ncc;
+		
+		ncc = utils.getTopCustomElementAncestor(child, top);
+		if(ncc)
+			child = ncc;
+		
+		while(child && child != top && !utils.isNonCustomContainer(child) && (!excludeTop || Polymer.dom(child).parentNode != top))
 			child = utils.parentNode(child);
 		
 		return child;
+	}
+	
+	utils.posInSameContainer = function(p1, p2) {
+		var pd1, pd2;
+		
+		if(p1.container == p2.container)
+			return true;
+		
+		pd1 = Polymer.dom(p1.container);
+		pd2 = Polymer.dom(p2.container);
+		
+		if(pd1.parentNode == pd2.parentNode)
+			return true;
+	
+		// last position
+		if(!pd2.childNodes[p2.offset] && pd1.parentNode == p2.container)
+			return true;
+
+		if(!pd1.childNodes[p1.offset] && pd2.parentNode == p2.container)
+			return true;
+		
+		return;
 	}
 	
 	utils.posToCoorinatesPos = function(pos, top, skipCaret) {
@@ -417,7 +445,13 @@ window.ir.textarea.utils = (function() {
 	}
 	
 	// where: start, end, middle. note that sometimes start == end
+	// if no `where` argument is given will return false or the position.
+	
+	// Example 1: utils.atText({ container : node, offset : 1 }),  "middle")
+	// Example 2: utils.atText({ container : node, offset : 1 })) -(return)-> "middle"
 	utils.atText = function(pos, where){
+		var r;
+		
 		if(!pos.container)
 			return false;
 		
@@ -426,16 +460,16 @@ window.ir.textarea.utils = (function() {
 		
 		l = pos.container.textContent.length;
 		
-		if(pos.offset == 0 && where == 'start')
-			return true;
+		if(pos.offset == 0)
+			r = 'start';
+		else
+		if(pos.offset > 0 && pos.offset < l)
+			r = 'middle';
+		else
+		if(pos.offset == l)
+			r = 'end';
 		
-		if(pos.offset > 0 && pos.offset < l && where == 'middle')
-			return true;
-
-		if(pos.offset == l && where == 'end')
-			return true;
-		
-		return false;		
+		return (where && r) || r;
 	}
 	
 	utils.parentNode = function(node, top) {
@@ -1026,19 +1060,17 @@ window.ir.textarea.utils = (function() {
 
 	// check whether child is descendant of ancestor, set orEqual to true to consider ancestor as a descendant
 	utils.isDescendantOf = function(child, ancestor, orEqual) {
-		var pp;
+		var pp = child;
 
 		if(child == ancestor)
 			return orEqual;
 		
-		while(child && child != document.body)
+		while(pp && pp != document.body) 
 		{
-			pp = Polymer.dom(child).parentNode;
-			if(child.parentNode == ancestor || (pp && pp.parentNode == ancestor))
+			if(pp == ancestor)
 				return true;
-			else
-				child = (child.parentNode == pp ? child.parentNode : (utils.isInLightDom(child, ancestor) ? pp : Polymer.dom(child).getOwnerRoot().host));
-
+			
+			pp = Polymer.dom(pp).parentNode;
 		}
 		return false;
 	};

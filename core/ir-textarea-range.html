@@ -158,16 +158,18 @@
 			
 			mouseUpHandler : function(e) {
 				var hm, cp = utils.caretPositionFromPoint(e.clientX, e.clientY), startPos, endPos, reverseFlow, 
-					lcpos = this.lastClick.pos;
+					lcpos = this.lastClick.pos, lccoords = this.lastClick.coords, target = e.target;
 				
-				if(!utils.isDescendantOf(e.target, this.editor))
+				if(Polymer.dom(target.firstChild).parentNode == this.editor)
+					target = this.editor;
+				
+				if(!utils.isDescendantOf(target, this.editor, true))
 					return;
-
 				
 				console.log('mouseup lcpos, cp', lcpos, cp)
 				
 				if((lcpos && lcpos.container == cp.container && lcpos.offset == cp.offset) ||
-					 (e.clientX == this.lastClick.coords.x && e.clientY == this.lastClick.coords.y))
+					 (lccoords && e.clientX == lccoords.x && e.clientY == lccoords.y))
 				{
 					this.lastActive = null;
 				}
@@ -204,17 +206,21 @@
 					console.log('mouseup:', startPos, endPos);
 				}
 
-				//this.justUpdated = true;
-				
+				//if(!this.justUpdated)
 				this.updateFromCurrentRange();
-				
+
+				this.justUpdated = false;
+	
 				e.preventDefault();
 			},
 			
 			mouseDownHandler : function(e) {
-				var cp = utils.caretPositionFromPoint(e.clientX, e.clientY);
+				var target = e.target, cp = utils.caretPositionFromPoint(e.clientX, e.clientY);
 
-				if(!utils.isDescendantOf(e.target, this.editor))
+				if(Polymer.dom(target.firstChild).parentNode == this.editor)
+					target = this.editor;
+				
+				if(!utils.isDescendantOf(target, this.editor, true))
 					return;
 					
 				if(Polymer.dom(cp.container.firstChild).parentNode == this.editor)
@@ -225,6 +231,8 @@
 					this.lastClick.pos = { container : cp.container, offset : cp.offset }
 					this.lastClick.coords = { x : e.clientX, y : e.clientY }
 				}
+				
+				this.justUpdated = true;
 				
 				if(!e.shiftKey)
 					this.setAt(cp);
@@ -342,7 +350,7 @@
 			},
 
 			keyUpHandler : function (e) {
-				var keyCode = e.keyCode || e.which, ars, prs, ap, pp, noupdate;
+				var keyCode = e.keyCode || e.which, ars, prs, ap, pp, noupdate, atmidtext;
 
 				if([16,17].indexOf(keyCode) > -1) // shift, ctrl, (alt)
 					return e.preventDefault();
@@ -365,10 +373,13 @@
 					
 					if(ap && e.shiftKey && (keyCode == 38 || keyCode == 40))
 					{
-						if(keyCode == 38)
+						atmidtext = utils.atText(ars.realPosition, 'middle')
+						if(keyCode == 38 && !atmidtext)
 							ars.go('backward');
-						if(keyCode == 40)
+						else
+						if(keyCode == 40 && !atmidtext)
 							ars.go('forward');
+
 						prs.goAt(pp);
 					
 						noupdate = true;
@@ -524,7 +535,7 @@
 				if(nextSplitTop != splitTop)
 					state.atEnd = true;
 				else
-				if(prevSplitTop != splitTop)
+				if(prevSplitTop != splitTop || prevPos.container == splitTop)
 					state.atStart = true;
 				else
 					state.atMiddle = true;
@@ -584,12 +595,13 @@
 				}
 				else
 				{
-					this.setAt({ container : newp.firstChild, offset : 0});
-					if(SYMBOLS.TEXT(t = newp.nextSibling))
+					t = newp.nextSibling;
+					if(SYMBOLS.TEXT(t) || SYMBOLS.IS(t))
 					{
 						Polymer.dom(Polymer.dom(t).parentNode).removeChild(t);
 						Polymer.dom(newp).insertBefore(t, newp.firstChild);
 					}
+					this.setAt({ container : newp.firstChild, offset : 0});
 				}
 				e.preventDefault();
 				this.preventNextDefault = true;
@@ -634,15 +646,117 @@
 			},
 			
 			shiftEnterKeyHandler : function(e) {
-				var cont, offset, nextPos, lastPos, lastCont, twice, forward;
+				var pn, dir, otherdir,
+					keyCode = e.keyCode || e.which, isTn, deleteCandidate, mergeCandidate,
+					pos = this.startPosition, initialpos = pos, otherpos,
+					poscont, otherposcont, targetPos, i, l, bc, ac, t, s;
 				
-				if(e.keyCode != 13 || !e.shiftKey)
-					return 
-					
-				this.lineBreakHandler(e);
+				dir = keyCode == 8 && "backward"; // backspace
+				dir = dir || (keyCode == 46) && "forward"; // del
+				if(!dir)
+					return false;
+
+				otherdir = dir == "forward" ? "backward" : "forward";
 			},
 			
 			deleteKeyHandler : function(e)
+			{
+				var pn, dir, otherdir,
+					keyCode = e.keyCode || e.which, isTn, deleteCandidate, mergeCandidate,
+					pos = this.startPosition, initialpos = pos, otherpos,
+					poscont, otherposcont, targetPos, i, l, bc, ac, t, s, atText;
+				
+				dir = keyCode == 8 && "backward"; // backspace
+				dir = dir || (keyCode == 46) && "forward"; // del
+				if(!dir)
+					return false;
+
+				pos = this.startPosition;
+				
+				this.hide();
+				
+				// 1. default action - midtext or (end + backspace / start + delete)
+				atText = utils.atText(pos);
+				
+				if(
+					atText == "middle" ||
+					(dir == 'forward' && atText == 'start') ||
+					(dir == 'backward' && atText == 'end')
+				)
+					return true;
+
+				
+				// 2. even if it's text we now consider pos.container a non-container block
+				if(pos.container.nodeType == 3)
+				{
+					// note! bc and ac are relative to dir
+					bc = pos.container;
+					ac = Polymer.dom(bc)[dir == 'forward' ? 'nextSibling' : 'previousSibling'] || (dir == 'backward' && Polymer.dom(bc).parentNode);
+				}
+				else
+				{
+					if(dir == 'forward')
+					{
+						ac = pos.container;
+						bc = Polymer.dom(ac).previousSibling;
+					}
+					else
+					{
+						bc = pos.container;
+						ac = Polymer.dom(bc).previousSibling;
+					}
+				}
+				
+				// 3. all simple delete cases - NCBLOCK,EMPTYCONT,IS
+				if(SYMBOLS.NCBLOCK(ac) || SYMBOLS.EMPTYCONT(ac) || SYMBOLS.IS(ac))
+				{
+					if(dir == 'forward') 
+						this.go(dir);
+						
+					//this.posPush();
+
+					Polymer.dom(Polymer.dom(ac).parentNode).removeChild(ac);
+					Polymer.dom.flush();					
+
+					this.setAt(bc);
+				}
+
+				// 4. ac is non-empty inlie container - go there and default action
+				if(SYMBOLS.INLINECONT(ac))
+				{
+					//if((dir == 'forward' && bc.nodeType == 3) || (dir == 'backward' && ac.nodeType == 3))
+					//	this.go(dir);
+					return true;
+				}
+				
+				
+				e.preventDefault();
+				this.preventNextDefault = this.justUpdated = true;
+				
+				return true;
+
+				/*if(pos.container.nodeType == 3)
+					ac = (dir == 'forward' ? )
+				
+				// 2. neighbours - regard the textnode 
+				bc = this.caretNavigator.backward(pos);
+				ac = this.caretNavigator.forward(pos);
+
+				
+				// bc and ac are in same container
+				if(utils.posInSameContainer(bc, ac))
+				{
+					
+				}
+				*/
+				/*if(this.caretNavigator.rulesets.delMergeConditions(bc, ac))
+					pos = utils.mergeNodes(bc, ac);
+
+				if(this.caretNavigator.rulesets.delPullConditions(bc, ac))
+				*/				
+			},
+			
+			_deleteKeyHandler : function(e)
 			{
 				var pn, dir, otherdir,
 					keyCode = e.keyCode || e.which, isTn, deleteCandidate, mergeCandidate,
@@ -669,7 +783,7 @@
 						pn = Polymer.dom(pn).nextSibling;
 				}
 				else
-					pn = Polymer.dom(pos.container).previousSibling;
+					pn = Polymer.dom(pos.container).previousSibling || Polymer.dom(pos.container).parentNode;
 				
 				// 1b. default action - we are before an inline container
 				//if(SYMBOLS.INLINECONT(pn))
@@ -678,12 +792,26 @@
 				// remove trailing BR. will work for both directions
 				if(pn && pn.tagName == 'BR' && !Polymer.dom(pn).nextSibling)
 				{
-					pos = { container : Polymer.dom(pn).parentNode, offset : utils.getChildPositionInParent(pn) }
-					Polymer.dom(Polymer.dom(pn).parentNode).removeChild(pn);
+					//pos = { container : Polymer.dom(pn).parentNode, offset : utils.getChildPositionInParent(pn) }
+					t = Polymer.dom(pn).parentNode;
+					s = Polymer.dom(pn).nextSibling
+					
+					t = pn;
+					
+					pn = pos.container;
+					if(dir == "forward")
+						pn = Polymer.dom(pos.container).nextSibling;
+					else
+						pn = Polymer.dom(pos.container).previousSibling;
+										
+					if(!pn)
+						pn = Polymer.dom(pos.container).parentNode;
+
+					Polymer.dom(Polymer.dom(t).parentNode).removeChild(t);
 				}
 
 				// 2. caret before non-container block // or custom element				
-				if(SYMBOLS.NCBLOCK(pn) || SYMBOLS.IS(pn)) // || SYMBOLS.INLINECONT(pn)))
+				if(SYMBOLS.NCBLOCK(pn) || SYMBOLS.IS(pn) || SYMBOLS.EMPTYCONT(pn)) // || SYMBOLS.INLINECONT(pn)))
 				{
 					if(dir == "forward")
 					{
@@ -708,23 +836,26 @@
 						pos = { container : poscont, offset : l };
 					}
 					else
-						pos = { container : otherposcont, offset : 0 };
+						pos = { container : otherposcont.firstChild || otherposcont, offset : 0 };
 				}
 				else
 				{
 					// 3. check for pull conditions (NCCONT < backspace < pullable or pullable > del > backspace)
-					ac = pos.container;
+					ac = pn; // pos.container;
+					if(utils.atText(pos, "end"))
+						ac = Polymer.dom(pos.container).nextSibling;
+					
 					bc = Polymer.dom(ac).previousSibling;
 					
 					if(this.caretNavigator.rulesets.delPullConditions(bc, ac))
 					{
-						if(dir == "forward" && SYMBOLS.NCCONT(ac)) // del after pullable
+						if((dir == "forward" && !SYMBOLS.NCCONTBLOCK(ac)) || (dir == "backward" && !SYMBOLS.NCCONTBLOCK(bc))) // del after pullable
 						{
 							t = Polymer.dom(ac).firstChild
 							Polymer.dom(ac)[t ? "insertBefore" : "appendChild"](bc, t);
 						}
 						else
-						if(dir == "backward" && SYMBOLS.NCCONT(bc)) // del after pullable
+						if((dir == "backward" && !SYMBOLS.NCCONTBLOCK(bc)) || (dir == "backward" && !SYMBOLS.NCCONTBLOCK(ac))) // del after pullable
 						{
 							t = Polymer.dom(ac).firstChild
 							Polymer.dom(bc).appendChild(ac);
@@ -745,10 +876,10 @@
 						otherpos = this.startPosition;
 						
 						// get closest non-custom container blocks for both positions
-						poscont = utils.getNonCustomContainer(pos.container, this.editor);
-						otherposcont = utils.getNonCustomContainer(otherpos.container, this.editor);
+						poscont = utils.getNonCustomContainer(pos.container, this.editor, true);
+						otherposcont = utils.getNonCustomContainer(otherpos.container, this.editor, true);
 
-						if(otherposcont == poscont)
+						if(otherposcont == pos.container)
 						{
 							this.go(dir);
 							this.hide();

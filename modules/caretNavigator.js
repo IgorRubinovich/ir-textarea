@@ -38,15 +38,16 @@
 
 		// a bunch of rules that define where the caret should stop - see caretRules.js for details
 		rulesetsDef = {
-			stopPoints : 	"PEMPTY>*,EDITOR>IS,*>EMPTYTEXT,P>NULL,IS||!TEXT," + 
+			stopPoints : 	"PEMPTY>*,EDITOR>IS,*>EMPTYTEXT,NCCONT>NULL,IS||!TEXT," + 
 							"EMPTYTEXT||NCBLOCK,P>IS,CONTED>TEXT,NCBLOCK||NCBLOCK," +
 							"NCBLOCK||NULL,CONT|NCBLOCK,CONTED>NCBLOCK",
 
-			skipPoints : "*+CARET,*+SHADOW,TEXT|TRANS,IS>>!CONTED,*>>EDITOR,*||SHADOW,P||TEXT,INLINECONT||TEXT,INLINECONT>INLINECONT,TRANS>|*",
-			inlineTextNeighbours : "INLINECONT||TEXT",
+			skipPoints : "*+CARET,*+SHADOW,TEXT|TRANS,IS>>!CONTED,*>>EDITOR,*||SHADOW,P||TEXT,INLINECONT||TEXT,INLINECONT||INLINECONT,INLINECONT>INLINECONT,TRANS>|*",
 			
-			delMergeConditions : "TEXT||TEXT,TEXT||NCCONT,NCCONT||NCCONT",
-			delPullConditions : "NCCONT||NCBLOCK,NCCONT||IS"
+			inlineTextNeighbours : "INLINECONT||TEXT,INLINECONT>TEXT",
+			
+			delMergeConditions 	: "TEXT||TEXT,TEXT||NCCONTBLOCK,NCCONTBLOCK||NCCONTBLOCK",
+			delPullConditions 	: "NCCONTBLOCK||NCBLOCK,NCCONT||IS"
 		};
 	
 	ir.textarea.CaretNavigator = 	
@@ -55,7 +56,7 @@
 		this.log = opts.log || function() {};
 		if(this.log === true)
 			this.log = function() { 
-				console.log(Array.prototype.slice.call(arguments).join(' ')); 
+				this.log(Array.prototype.slice.call(arguments).join(' ')); 
 			};
 		
 		this.caretSpan = opts.caretSpan;
@@ -80,7 +81,7 @@
 			c = cn[o];
 			o = 0;
 		}
-		
+
 		if(c == e.lastChild && c.nodeType == 3 && o == c.textContent.length)
 			return { container : c, offset : c.textContent.length }
 			
@@ -102,6 +103,9 @@
 		n = c;
 		
 		while(n && n != Polymer.dom(e).nextSibling) {
+			if(!Symbols.CONT && Symbols.CONT(Polymer.dom(n.parentNode)))
+				return { container : Polymer.dom(n.parentNode), offset : Polymer.dom(n.parentNode).childNodes.length }
+		
 			n = utils.nextNode(n, this.editor);
 			
 			if(!n)
@@ -151,7 +155,7 @@
 	CaretNavigator.prototype.backward = function(container, offset)
 	{
 		var c = container, o = offset, m, n, match,
-			e = this.editor, cn, temp, res;
+			e = this.editor, cn, temp, res, k;
 
 		if(Polymer.dom(c.firstChild).parentNode == e) // reset to component root
 			c = e;
@@ -192,10 +196,11 @@
 			if(!res)
 				m = Polymer.dom(n).previousSibling || utils.parentNode(n, this.editor);
 			
-			if(!res && n.nodeType == 3 && !this.rulesets.skipPoints(null, n))
-				res = { container : n, offset : n.textContent.length - (Symbols.INLINECONT(n.nextSibling) || Symbols.TEXT(n.nextSibling) ? 1 : 0) };
+			k = Polymer.dom(n).nextSibling || Polymer.dom(n).parentNode;
+			if(!res && n.nodeType == 3 && !this.rulesets.skipPoints(n, k))
+				res = { container : n, offset : n.textContent.length - (Symbols.INLINECONT(k) || Symbols.TEXT(k) ? 1 : 0) };
 
-			if(!res && this.rulesets.stopPoints(null, m) && !this.rulesets.skipPoints(null, m))
+			if(!res && (m && m.nodeType == 3 || this.rulesets.stopPoints(null, m)) && !this.rulesets.skipPoints(null, m))
 			//if(m && m.nodeType == 3 && m.textContent && utils.isInLightDom(m, this.editor) && !this.rulesets.skipPoints(null, m))
 				res = { container : m, offset : m.textContent.length - (m && Polymer.dom(m).nextSibling == n && Symbols.INLINECONT(n) ? 1 : 0) };
 			
@@ -228,12 +233,15 @@
 	{
 		this.caretSpanHide();
 		
-		if(atpos.container.nodeType == 1 && !Polymer.dom(atpos.container).childNodes[atpos.offset] && utils.getTopCustomElementAncestor(atpos.container, this.editor))
+		if(atpos.container.nodeType == 1 && !Polymer.dom(atpos.container).childNodes[atpos.offset] && 
+			!utils.getTopCustomElementAncestor(atpos.container, this.editor))
 		{
 			this.setAt(atpos, rangeSide);
 			return atpos;
 		}
 
+		if(!utils.isInLightDom(atpos))
+			console.log()
 		
 		// flap and wibble to find the right spot
 		var pos = this.forward(atpos.container, atpos.offset);
