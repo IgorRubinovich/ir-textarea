@@ -469,7 +469,10 @@ window.ir.textarea.utils = (function() {
 		if(pos.offset == l)
 			r = 'end';
 		
-		return (where && r) || r;
+		if(where)
+			return where == r;
+		
+		return r;
 	}
 	
 	utils.parentNode = function(node, top) {
@@ -1311,6 +1314,7 @@ window.ir.textarea.utils = (function() {
 			if(setCaretAtMergePoint)
 				utils.setCaretAt(ret.container, ret.offset);
 
+			return ret;
 			//ret = left;
 		}
 		else

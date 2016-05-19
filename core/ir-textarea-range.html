@@ -202,8 +202,6 @@
 					this.lastActive = reverseFlow ? 'end' : 'start'; 
 					
 					this.setAt(startPos, endPos);
-				
-					console.log('mouseup:', startPos, endPos);
 				}
 
 				//if(!this.justUpdated)
@@ -646,25 +644,49 @@
 			},
 			
 			shiftEnterKeyHandler : function(e) {
-				var pn, dir, otherdir,
-					keyCode = e.keyCode || e.which, isTn, deleteCandidate, mergeCandidate,
-					pos = this.startPosition, initialpos = pos, otherpos,
-					poscont, otherposcont, targetPos, i, l, bc, ac, t, s;
+				var dir, keyCode = e.keyCode || e.which, br;
 				
-				dir = keyCode == 8 && "backward"; // backspace
-				dir = dir || (keyCode == 46) && "forward"; // del
-				if(!dir)
+				if(keyCode != 13 || !e.shiftKey)
 					return false;
 
-				otherdir = dir == "forward" ? "backward" : "forward";
+				this.hide();
+					
+				if(utils.atText(this.startPosition, 'end') && !this.startContainer.nextSibling)
+					paste.pasteHtmlAtPos(document.createElement('br'), this.startPosition);
+					
+				paste.pasteHtmlAtPos(br = document.createElement('br'), this.startPosition);
+				this.setAfter(br);
+			
+				e.preventDefault();
+				this.preventNextDefault = this.justUpdated = true;
+			
+				return true;
 			},
 			
+			setAfter : function(el, dir) {
+				if(el.nodeType == 3 && dir != "backward")
+					return this.setAt(el, el.textContent.length);
+			
+				this.setAt(el, 0);
+				if(dir != "backward")
+					this.go("forward");
+			},
+			
+			setBefore : function(el, dir) {
+				if(el.nodeType == 3 && dir == "backward")
+					return this.setAt(el, el.textContent.length);
+
+				this.setAt(el, 0);
+				if(dir == 'backward')
+					this.go('forward');
+			},
+
 			deleteKeyHandler : function(e)
 			{
 				var pn, dir, otherdir,
-					keyCode = e.keyCode || e.which, isTn, deleteCandidate, mergeCandidate,
+					keyCode = e.keyCode || e.which,
 					pos = this.startPosition, initialpos = pos, otherpos,
-					poscont, otherposcont, targetPos, i, l, bc, ac, t, s, atText;
+					bccont, accont, acfar, acfarcont, i, p, bc, ac, t, s, atText, done, acpos, bcpos;
 				
 				dir = keyCode == 8 && "backward"; // backspace
 				dir = dir || (keyCode == 46) && "forward"; // del
@@ -707,26 +729,100 @@
 					}
 				}
 				
-				// 3. all simple delete cases - NCBLOCK,EMPTYCONT,IS
-				if(SYMBOLS.NCBLOCK(ac) || SYMBOLS.EMPTYCONT(ac) || SYMBOLS.IS(ac))
+				// 2a - remove br if it's on the way ('cause BR is the queen of all things special)
+				if(ac && ac.tagName == 'BR')
 				{
-					if(dir == 'forward') 
-						this.go(dir);
+					t = Polymer.dom(ac)[dir == "forward" ? "nextSibling" : "previousSibling"];
+				
+					if(bc.nodeType == 3 && t.nodeType == 3)
+						p = utils.posToCoorinatesPos({ container : bc, offset : bc.textContent.length }, this.editor); // correct for both directions!
+				
+					if(t && t.tagName != 'BR') {
+						Polymer.dom(Polymer.dom(ac).parentNode).removeChild(ac);
+						Polymer.dom.flush(); // apparently flush includes normalize
+						Polymer.dom(bc).parentNode.normalize();
+						Polymer.dom.flush(); // apparently flush includes normalize
 						
-					//this.posPush();
+						if(p)
+							this.setAt(utils.coordinatesPosToPos(p, this.editor));
+						else
+							this.setAfter(bc, dir);					
 
-					Polymer.dom(Polymer.dom(ac).parentNode).removeChild(ac);
+						this.hide();
+						pos = this.startPosition;
+						if(utils.atText(this.startContainer, "middle"))
+							done = true;
+						else
+						if(pos.container.nodeType == 3)
+						{
+							// note! bc and ac are relative to dir
+							bc = pos.container;
+							ac = Polymer.dom(bc)[dir == 'forward' ? 'nextSibling' : 'previousSibling'] || (dir == 'backward' && Polymer.dom(bc).parentNode);
+						}
+						else
+						if(dir == 'forward')
+						{
+							ac = pos.container;
+							bc = Polymer.dom(ac).previousSibling;
+						}
+						else
+						{
+							bc = pos.container;
+							ac = Polymer.dom(bc).previousSibling;
+						}
+					}
+				}
+				
+				// 3. all simple delete cases - NCBLOCK,EMPTYCONT,IS
+				if(!done && SYMBOLS.NCBLOCK(ac) || SYMBOLS.EMPTYCONT(ac) || SYMBOLS.IS(ac))
+				{
+					/*if(dir == 'forward')
+					{
+						this.go(dir);
+						this.hide();
+					}	*/
+
+					t = Polymer.dom(ac).parentNode;
+					
+					Polymer.dom(t).removeChild(ac);
 					Polymer.dom.flush();					
 
-					this.setAt(bc);
+					this.setAfter(bc, dir);
+
+					this.posPush();
+					t.parentNode.normalize();
+					this.posPop();
+					
+					done = true;
 				}
 
 				// 4. ac is non-empty inlie container - go there and default action
-				if(SYMBOLS.INLINECONT(ac))
-				{
-					//if((dir == 'forward' && bc.nodeType == 3) || (dir == 'backward' && ac.nodeType == 3))
-					//	this.go(dir);
+				if(!done && SYMBOLS.INLINECONT(ac))
 					return true;
+
+				// 5. ac is non-empty, non-inline, non custom container
+				//    so it should be a block
+				//    5a. get container blocks
+				if(!done)
+				{
+					bccont = utils.getNonCustomContainer(bc, this.editor, true);
+					accont = utils.getNonCustomContainer(ac, this.editor, true);
+					acpos  = this.caretNavigator.forward(bc, this.editor);
+					
+					//    5b merge
+					if(this.caretNavigator.rulesets.delMergeConditions(bccont, accont))
+					{
+						t = utils.mergeNodes(bccont, accont);
+						this.setAt(t);
+					}
+					else
+					//	  5c pull
+					if(this.caretNavigator.rulesets.delPullConditions(bc, accont))
+					{
+						Polymer.dom(accont).insertBefore(bc, Polymer.dom(accont).firstChild)
+						Polymer.dom.flush();
+						this.setBefore(bc, dir);
+					}
 				}
 				
 				
@@ -734,7 +830,6 @@
 				this.preventNextDefault = this.justUpdated = true;
 				
 				return true;
-
 				/*if(pos.container.nodeType == 3)
 					ac = (dir == 'forward' ? )
 				

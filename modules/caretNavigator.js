@@ -47,7 +47,7 @@
 			inlineTextNeighbours : "INLINECONT||TEXT,INLINECONT>TEXT",
 			
 			delMergeConditions 	: "TEXT||TEXT,TEXT||NCCONTBLOCK,NCCONTBLOCK||NCCONTBLOCK",
-			delPullConditions 	: "NCCONTBLOCK||NCBLOCK,NCCONT||IS"
+			delPullConditions 	: "NCCONTBLOCK||TEXT,NCCONTBLOCK||NCBLOCK,NCCONT||IS"
 		};
 	
 	ir.textarea.CaretNavigator = 	
@@ -270,7 +270,7 @@
 	{
 		Polymer.dom(container).parentNode.insertBefore(this.caretSpan, container);
 		
-		this.caretSpan.position = { conatainer : container, offset : offset };
+		this.caretSpan.position = { container : container, offset : offset };
 		
 		return { container : this.caretSpan.firstChild, offset : 0 }
 	}

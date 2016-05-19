@@ -84,7 +84,7 @@ window.ir.textarea.paste = (function() {
 			var div, paragraph, r, sp, caretAt = {}, firstIsEmptyParagraph,
 				container, newWrapperParagraph, container, firstToWrap, index,
 				isNewParagraph, lastInserted, pos, first, last, takeout, tp,
-				sc, ec, so, eo,
+				sc, ec, so, eo, emptyp,
 				editor = opts.editor;
 
 			if(!html)
@@ -121,37 +121,48 @@ window.ir.textarea.paste = (function() {
 				if(r.startContainer.nodeType == 3 && r.startOffset > 0)
 					pos = { container : r.startContainer, offset : r.startOffset };
 				else
-					pos = { container : r.startContainer.parentNode, offset : utils.getChildPositionInParent(r.startContainer) };
+					pos = { container : Polymer.dom(r.startContainer).parentNode, offset : utils.getChildPositionInParent(r.startContainer) };
 
 				r.deleteContents();
 
-				if(!editor.childNodes.length)
-					utils.setCaretAt(editor.appendChild(utils.newEmptyParagraph()), 0);
+				if(!Polymer.dom(editor).childNodes.length)
+				{
+					Polymer.dom(editor).appendChild(emptyp = utils.newEmptyParagraph());
+					Polymer.dom.flush();
+					utils.setCaretAt(emptyp, 0);
+				}
 				else
-					utils.setCaretAt(pos.container, pos.offset);
+					utils.setCaretAt(emptyp = pos.container, pos.offset);
 			}
 			
 			if(!editor.childNodes.length)
-				r = utils.setCaretAt(editor.appendChild(utils.newEmptyParagraph()), 0);
-			
+			{
+				Polymer.dom(editor).appendChild(emptyp = utils.newEmptyParagraph());
+				Polymer.dom.flush();
+				r = utils.setCaretAt(emptyp, 0);
+			}
 			// sometimes startOffset == number of child nodes
 			if(r.startContainer == editor && r.startContainer.nodeType == 1 && r.startOffset == r.startContainer.childNodes.length)
 			{
-				r.startContainer.appendChild(document.createTextNode(''));
-				r = utils.setCaretAt(r.startContainer.childNodes[r.startOffset], 0);
+				Polymer.dom(r.startContainer).appendChild(emptyp = document.createTextNode(''));
+				Polymer.dom.flush();
+				r = utils.setCaretAt(Polymer.dom(r.startContainer).childNodes[r.startOffset], 0);
 			}
 
 			// remove 'br' if is direct child of $.editor
-			if(r.startContainer == editor && r.startContainer.nodeType == 1 && r.startContainer.childNodes[r.startOffset].nodeType == 1 && r.startContainer.childNodes[r.startOffset].tagName == 'BR')
+			if(r.startContainer == editor && r.startContainer.nodeType == 1 && 
+								Polymer.dom(r.startContainer).childNodes[r.startOffset].nodeType == 1 && 
+								r.startContainer.childNodes[r.startOffset].tagName == 'BR')
 			{
-				r.startContainer.insertBefore(utils.newEmptyParagraph(), r.startContainer.childNodes[r.startOffset]);
-				r = utils.setCaretAt(r.startContainer.childNodes[r.startOffset], 0);
-				r.startContainer.parentNode.removeChild(r.startContainer.nextSibling);
+				Polymer.dom(r.startContainer).insertBefore(utils.newEmptyParagraph(), Polymer.dom(r.startContainer).childNodes[r.startOffset]);
+				r = utils.setCaretAt(Polymer.dom(r.startContainer).childNodes[r.startOffset], 0);
+				Polymer.dom(Polymer.dom(r.startContainer).parentNode).removeChild(Polymer.dom(r.startContainer).nextSibling);
 			}
 			// add empty paragraph if doesn't exist
-			if(editor.childNodes.length == 0)
+			if(Polymer.dom(editor).childNodes.length == 0)
 			{
-				editor.appendChild(utils.newEmptyParagraph());
+				Polymer.dom(editor).appendChild(utils.newEmptyParagraph());
+				Polymer.dom.flush();
 				r = utils.setCaretAt();
 			}
 			
@@ -161,8 +172,8 @@ window.ir.textarea.paste = (function() {
 			// move selection range off $.editor on both ends or FF will act funny
 			if(r.startContainer == editor || r.endContainer == editor)
 			{
-				if(sc == editor) sc = r.startContainer.childNodes[r.startOffset], so = 0;
-				if(ec == editor) ec = r.endContainer.childNodes[r.endOffset], eo = 0;
+				if(sc == editor) sc = Polymer.dom(r.startContainer).childNodes[r.startOffset], so = 0;
+				if(ec == editor) ec = Polymer.dom(r.endContainer).childNodes[r.endOffset], eo = 0;
 
 				r = utils.setCaretAt(sc, so, ec, eo);
 
@@ -174,7 +185,7 @@ window.ir.textarea.paste = (function() {
 
 			first = r.startContainer;
 			firstOffset = r.startOffset;
-			if(first.firstChild && (!utils.selfOrLeftmostDescendantIsSpecial(first.childNodes[firstOffset])))
+			if(Polymer.dom(first).firstChild && (!utils.selfOrLeftmostDescendantIsSpecial(first.childNodes[firstOffset])))
 			{
 				first = first.childNodes[firstOffset];
 				firstOffset = 0;
