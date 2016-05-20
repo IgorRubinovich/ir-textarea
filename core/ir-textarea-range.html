@@ -705,8 +705,20 @@
 				)
 					return true;
 
+				// 2a if deleting in an empty container simply replace it with br
+				t = Polymer.dom(pos.container).parentNode;
+				if(SYMBOLS.EMPTYCONT(t))
+				{
+					ac = Polymer.dom(Polymer.dom(t).parentNode).insertBefore(document.createElement('br'), t);
+					Polymer.dom(Polymer.dom(t).parentNode).removeChild(t);
+					Polymer.dom.flush();
+					this.setBefore(ac, dir);
+					this.hide();
+					pos = this.startPosition;
+					//done = true;
+				}
 				
-				// 2. even if it's text we now consider pos.container a non-container block
+				// 2b. even if it's text we now consider pos.container a non-container block
 				if(pos.container.nodeType == 3)
 				{
 					// note! bc and ac are relative to dir
@@ -725,7 +737,9 @@
 						bc = pos.container;
 						ac = Polymer.dom(bc).previousSibling;
 					}
+					
 				}
+
 				
 				// 2a - remove br if it's on the way ('cause BR is the queen of all things special)
 				if(ac && ac.tagName == 'BR' && bc && bc.nodeType == 3 &&  (SYMBOLS.TEXT(t) || SYMBOLS.NCCONTBLOCK))
@@ -769,7 +783,7 @@
 						else
 						{
 							bc = pos.container;
-							ac = Polymer.dom(bc).previousSibling;
+							ac = Polymer.dom(bc).nextSibling;
 						}
 					}
 				}
@@ -777,24 +791,35 @@
 				// 3. all simple delete cases - NCBLOCK,EMPTYCONT,IS
 				if(!done && SYMBOLS.NCBLOCK(ac) || SYMBOLS.EMPTYCONT(ac) || SYMBOLS.IS(ac))
 				{
-					/*if(dir == 'forward')
-					{
-						this.go(dir);
-						this.hide();
-					}	*/
-
-					t = Polymer.dom(ac).parentNode;
-					
+					t = Polymer.dom(pos.container).parentNode;
 					Polymer.dom(t).removeChild(ac);
 					Polymer.dom.flush();					
-
-					this.setAfter(bc, dir);
-
-					this.posPush();
-					t.parentNode.normalize();
-					this.posPop();
 					
-					done = true;
+					if(bc) //Polymer.dom(t).childNodes.length)
+					{
+						this.setAfter(bc, dir);
+						done = true;
+						this.posPush();
+						t.normalize();
+						this.posPop();
+						done = true;
+					}
+					else
+					{
+						this.setAt(t, i);
+						pos = this.startContainer;
+						if(dir == 'forward')
+						{
+							ac = pos.container;
+							bc = Polymer.dom(ac).previousSibling;
+						}
+						else
+						{
+							bc = pos.container;
+							ac = Polymer.dom(bc).nextSibling;
+						}
+					}
+					
 				}
 
 				// 4. ac is non-empty inlie container - go there and default action
@@ -808,7 +833,12 @@
 				{
 					bccont = utils.getNonCustomContainer(bc, this.editor, true);
 					accont = utils.getNonCustomContainer(ac, this.editor, true);
-					acpos  = this.caretNavigator.forward(bc, this.editor);
+					if(!accont || accont == bccont) {
+						acpos  = this.caretNavigator[dir](bc, this.editor);
+						ac = acpos.container;
+						accont = accont = utils.getNonCustomContainer(ac, this.editor, true);
+						//accont = Polymer.dom(acpos.container)[dir == 'forward' ? 'nextSibling' : 'previousSibling']
+					}
 					
 					//    5b merge
 					if(this.caretNavigator.rulesets.delMergeConditions(bccont, accont))
