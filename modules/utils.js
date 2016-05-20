@@ -1356,6 +1356,8 @@ window.ir.textarea.utils = (function() {
 		if(setCaretAtMergePoint)
 			utils.setCaretAt(ret.container, ret.offset);
 		
+		Polymer.dom.flush();
+		
 		return ret;
 	}	
 		

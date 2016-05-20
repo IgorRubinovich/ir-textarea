@@ -166,8 +166,6 @@
 				if(!utils.isDescendantOf(target, this.editor, true))
 					return;
 				
-				console.log('mouseup lcpos, cp', lcpos, cp)
-				
 				if((lcpos && lcpos.container == cp.container && lcpos.offset == cp.offset) ||
 					 (lccoords && e.clientX == lccoords.x && e.clientY == lccoords.y))
 				{
@@ -730,27 +728,30 @@
 				}
 				
 				// 2a - remove br if it's on the way ('cause BR is the queen of all things special)
-				if(ac && ac.tagName == 'BR')
+				if(ac && ac.tagName == 'BR' && bc && bc.nodeType == 3 &&  (SYMBOLS.TEXT(t) || SYMBOLS.NCCONTBLOCK))
 				{
 					t = Polymer.dom(ac)[dir == "forward" ? "nextSibling" : "previousSibling"];
 				
-					if(bc.nodeType == 3 && t.nodeType == 3)
-						p = utils.posToCoorinatesPos({ container : bc, offset : bc.textContent.length }, this.editor); // correct for both directions!
+					if(bc && bc.nodeType == 3 && t.nodeType == 3)
+						p = utils.posToCoorinatesPos({ 
+							container : Polymer.dom(ac).previousSibling, 
+							offset : Polymer.dom(ac).previousSibling.textContent.length }, this.editor); // correct for both directions!
 				
-					if(t && t.tagName != 'BR') {
+					if(p) {
 						Polymer.dom(Polymer.dom(ac).parentNode).removeChild(ac);
-						Polymer.dom.flush(); // apparently flush includes normalize
-						Polymer.dom(bc).parentNode.normalize();
-						Polymer.dom.flush(); // apparently flush includes normalize
+						Polymer.dom.flush();
 						
 						if(p)
+						{
+							dir == "forward" ? utils.mergeNodes(bc, t) : utils.mergeNodes(t, bc);
 							this.setAt(utils.coordinatesPosToPos(p, this.editor));
+						}
 						else
 							this.setAfter(bc, dir);					
 
 						this.hide();
 						pos = this.startPosition;
-						if(utils.atText(this.startContainer, "middle"))
+						if(utils.atText(pos, "middle"))
 							done = true;
 						else
 						if(pos.container.nodeType == 3)
@@ -1066,12 +1067,14 @@
 				
 				ars = this.$[activeRangeSide];
 				prs = this.$[passiveRangeSide];
+
+				this.hide();
 				
 				if(dir && ([37,39].indexOf(keyCode) > -1))
 				{
 					if(this.collapsed || e.shiftKey)
 					{ // e.shiftKey ? activeRangeSide : "both", 
-						ars.go(dir, { container : prs.realContainer, offset : prs.realOffset })
+						ars.go(dir, this.$.start)
 						if(!e.shiftKey)
 							prs.setAt(ars.container, ars.offset);
 						else
