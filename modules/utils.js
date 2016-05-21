@@ -1274,9 +1274,19 @@ window.ir.textarea.utils = (function() {
 		return p;
 	},
 
+	
 	utils.mergeNodes = function (left, right, setCaretAtMergePoint) {
-		var caretPos, ret, t, p, l, r, offset;
+		var caretPos, ret, t, p, l, r, offset, atText;
 
+		if(Polymer.dom(left).nextSibling != right)
+		{
+			t = left
+			left = right;
+			right = t;
+			if(Polymer.dom(right).nextSibling != left)
+				throw new Error(left + " " + right + ' are not neighbours')
+		}
+		
 		caretPos = utils.getLastCaretPosition(left);
 
 		if(left.nodeType == 1) // left <-- right
@@ -1314,8 +1324,6 @@ window.ir.textarea.utils = (function() {
 			if(setCaretAtMergePoint)
 				utils.setCaretAt(ret.container, ret.offset);
 
-			return ret;
-			//ret = left;
 		}
 		else
 		{
@@ -1342,20 +1350,28 @@ window.ir.textarea.utils = (function() {
 				ret = { container : l.node, offset : l.node.textContent.length }
 				
 			}
-			else 					// text - text
-			{
-				offset = right.textContent.length;
-				right.textContent = left.textContent + right.textContent;
+		}
+		
+		if(utils.atText(ret, 'end'))
+		{
+			left = ret.container
+			right = Polymer.dom(left).nextSibling || {};
+			ret = null;
+		}
+		
+		if(!ret && left.nodeType == 3 && right.nodeType == 3) // text - text
+		{
+			offset = left.textContent.length;
+			left.textContent = left.textContent + right.textContent;
 
-				Polymer.dom(Polymer.dom(left).parentNode).removeChild(left);
-				ret = { container : right, offset : offset };
-			}
-
+			utils.removeFromParent(right);
+			ret = { container : left, offset : offset };
 		}
 
 		if(setCaretAtMergePoint)
 			utils.setCaretAt(ret.container, ret.offset);
 		
+		ret.container.normalize();
 		Polymer.dom.flush();
 		
 		return ret;
@@ -1364,9 +1380,29 @@ window.ir.textarea.utils = (function() {
 	utils.isInlineElement = function(el) {
 		return el && el.tagName && INLINE_ELEMENTS[el.tagName];
 	}
+	
+	utils.sameParent = function(e1, e2)
+	{
+		return Polymer.dom(e1).parentNode == Polymer.dom(e2).parentNode
+	}
+	
+	utils.sameNonCustomContainer = function(el1, el2) {
+		return utils.getNonCustomContainer(el1) == utils.getNonCustomContainer(el2);
+	}
 
 	utils.isContainer = function(el) {
 		return utils.isParagraph(el) || (utils.canHaveChildren(el) && !utils.isInlineElement(el) && !utils.isSpecialElement(el))
+	}
+
+	utils.isTag = function(el, tag) {
+		return el && el.tag == tag;
+	}
+	
+	utils.removeFromParent = function(c) 
+	{
+		Polymer.dom(Polymer.dom(c).parentNode).removeChild(c);
+		Polymer.dom.flush();
+		return c;
 	}
 	
 	utils.numerify = function(x) {

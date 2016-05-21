@@ -691,6 +691,11 @@
 				if(!dir)
 					return false;
 
+
+				var nextInDir = function(n) { return Polymer.dom(n)[dir == "forward" ? "nextSibling" : "previousSibling"] };
+				var nextInDirOrParent = function(n) { return nextInDir(n) || Polymer.dom(n).parentNode; };
+				var mergeInDir = function(n1, n2) { return dir == "forward" ? utils.mergeNodes(bccont, accont) : utils.mergeNodes(accont, bccont); };
+				
 				pos = this.startPosition;
 				
 				this.hide();
@@ -719,11 +724,11 @@
 				}
 				
 				// 2b. even if it's text we now consider pos.container a non-container block
-				if(pos.container.nodeType == 3)
+				if(SYMBOLS.TEXT(pos.container))
 				{
 					// note! bc and ac are relative to dir
 					bc = pos.container;
-					ac = Polymer.dom(bc)[dir == 'forward' ? 'nextSibling' : 'previousSibling'] || (dir == 'backward' && Polymer.dom(bc).parentNode);
+					ac = nextInDirOrParent(bc);
 				}
 				else
 				{
@@ -742,18 +747,17 @@
 
 				
 				// 2a - remove br if it's on the way ('cause BR is the queen of all things special)
-				if(ac && ac.tagName == 'BR' && bc && bc.nodeType == 3 &&  (SYMBOLS.TEXT(t) || SYMBOLS.NCCONTBLOCK))
+				if(utils.isTag('BR') && SYMBOLS.TEXT(bc) && (SYMBOLS.TEXT(t) || SYMBOLS.NCCONTBLOCK))
 				{
-					t = Polymer.dom(ac)[dir == "forward" ? "nextSibling" : "previousSibling"];
-				
-					if(bc && bc.nodeType == 3 && t.nodeType == 3)
+					t = nextInDir(ac);
+
+					if(SYMBOLS.TEXT(bc) && SYMBOLS.TEXT(t))
 						p = utils.posToCoorinatesPos({ 
 							container : Polymer.dom(ac).previousSibling, 
 							offset : Polymer.dom(ac).previousSibling.textContent.length }, this.editor); // correct for both directions!
 				
 					if(p) {
-						Polymer.dom(Polymer.dom(ac).parentNode).removeChild(ac);
-						Polymer.dom.flush();
+						utils.removeFromParent(ac);
 						
 						if(p)
 						{
@@ -770,9 +774,8 @@
 						else
 						if(pos.container.nodeType == 3)
 						{
-							// note! bc and ac are relative to dir
 							bc = pos.container;
-							ac = Polymer.dom(bc)[dir == 'forward' ? 'nextSibling' : 'previousSibling'] || (dir == 'backward' && Polymer.dom(bc).parentNode);
+							ac = nextInDirOrParent(bc);
 						}
 						else
 						if(dir == 'forward')
@@ -843,7 +846,7 @@
 					//    5b merge
 					if(this.caretNavigator.rulesets.delMergeConditions(bccont, accont))
 					{
-						t = utils.mergeNodes(bccont, accont);
+						t = mergeInDir(bccont, accont);
 						this.setAt(t);
 					}
 					else
@@ -924,14 +927,7 @@
 					
 					t = pn;
 					
-					pn = pos.container;
-					if(dir == "forward")
-						pn = Polymer.dom(pos.container).nextSibling;
-					else
-						pn = Polymer.dom(pos.container).previousSibling;
-										
-					if(!pn)
-						pn = Polymer.dom(pos.container).parentNode;
+					pn = nextInDirOrParent(pos.container);
 
 					Polymer.dom(Polymer.dom(t).parentNode).removeChild(t);
 				}

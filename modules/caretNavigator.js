@@ -72,7 +72,7 @@
 	// given a container and and offset returns the next legit caret position
 	CaretNavigator.prototype.forward = function(container, offset)
 	{
-		var c = container, o = offset, m, n, match, skipMatch,
+		var c = container, o = offset, m, n, match, skipMatch, prev,
 			e = this.editor, cn;
 
 		// this is required or we will always be looking from first child regardless of offset
@@ -103,6 +103,8 @@
 		n = c;
 		
 		while(n && n != Polymer.dom(e).nextSibling) {
+			prev = n;
+			
 			if(!Symbols.CONT && Symbols.CONT(Polymer.dom(n.parentNode)))
 				return { container : Polymer.dom(n.parentNode), offset : Polymer.dom(n.parentNode).childNodes.length }
 		
@@ -119,13 +121,13 @@
 			// non-end of textNode
 			
 			if(n.nodeType == 3 && !this.rulesets.skipPoints(null, n))
-				// return { container : n, offset : Symbols.INLINECONT(m) ? 1 : 0 }
-				// maybe
-					return {
-						container : n, 
-						offset : this.rulesets.inlineTextNeighbours(m, n) || this.rulesets.inlineTextNeighbours(m.previousSibling, m) ? 1 : 0 
-					}
-				
+				return {
+					container : n,
+					offset : 	(this.rulesets.inlineTextNeighbours(m, n) || this.rulesets.inlineTextNeighbours(m.previousSibling, m)) &&
+								utils.sameNonCustomContainer(prev,n)
+								? 1 : 0 
+				}
+			
 			
 			if(m && m != c && m.nodeType == 3 && m.textContent && utils.isInLightDom(m, this.editor) && !this.rulesets.skipPoints(null, m))
 				return { container : m, offset : 0 };
