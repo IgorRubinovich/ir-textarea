@@ -42,7 +42,7 @@
 							"EMPTYTEXT||NCBLOCK,P>IS,CONTED>TEXT,NCBLOCK||NCBLOCK," +
 							"NCBLOCK||NULL,CONT|NCBLOCK,CONTED>NCBLOCK",
 
-			skipPoints : "*+CARET,*+SHADOW,TEXT|TRANS,IS>>!CONTED,*>>EDITOR,*||SHADOW,P||TEXT,INLINECONT||TEXT,INLINECONT||INLINECONT,INLINECONT>INLINECONT,TRANS>|*",
+			skipPoints : "*+CARET,*+SHADOW,TEXT|TRANS,IS>>!CONTED,*>>EDITOR,*||SHADOW,P||TEXT,IS||INLINECONT,INLINECONT||TEXT,INLINECONT||INLINECONT,INLINECONT>INLINECONT,TRANS>|*",
 			
 			inlineTextNeighbours : "INLINECONT||TEXT,INLINECONT>TEXT",
 			
@@ -72,7 +72,7 @@
 	// given a container and and offset returns the next legit caret position
 	CaretNavigator.prototype.forward = function(container, offset)
 	{
-		var c = container, o = offset, m, n, match, skipMatch, prev,
+		var c = container, o = offset, m, n, match, skipMatch, prev = [],
 			e = this.editor, cn;
 
 		// this is required or we will always be looking from first child regardless of offset
@@ -103,7 +103,7 @@
 		n = c;
 		
 		while(n && n != Polymer.dom(e).nextSibling) {
-			prev = n;
+			prev.push(n);
 			
 			if(!Symbols.CONT && Symbols.CONT(Polymer.dom(n.parentNode)))
 				return { container : Polymer.dom(n.parentNode), offset : Polymer.dom(n.parentNode).childNodes.length }
@@ -124,7 +124,7 @@
 				return {
 					container : n,
 					offset : 	(this.rulesets.inlineTextNeighbours(m, n) || this.rulesets.inlineTextNeighbours(m.previousSibling, m)) &&
-								utils.sameNonCustomContainer(prev,n)
+								utils.sameNonCustomContainer(c,n,this.editor) && Symbols.TEXT(c)
 								? 1 : 0 
 				}
 			
@@ -157,7 +157,7 @@
 	CaretNavigator.prototype.backward = function(container, offset)
 	{
 		var c = container, o = offset, m, n, match,
-			e = this.editor, cn, temp, res, k;
+			e = this.editor, cn, temp, res, k, prev = [];
 
 		if(Polymer.dom(c.firstChild).parentNode == e) // reset to component root
 			c = e;
@@ -190,6 +190,8 @@
 
 		n = c;
 		while(!res && n && n != e) {
+			prev.push(n);
+			
 			m = n;
 			n = utils.prevNode(n, this.editor);
 			if(n == this.editor)
@@ -200,11 +202,22 @@
 			
 			k = Polymer.dom(n).nextSibling || Polymer.dom(n).parentNode;
 			if(!res && n.nodeType == 3 && !this.rulesets.skipPoints(n, k))
-				res = { container : n, offset : n.textContent.length - (Symbols.INLINECONT(k) || Symbols.TEXT(k) ? 1 : 0) };
+				res = { container : n, offset : 
+							n.textContent.length - 
+								((Symbols.INLINECONT(k) || Symbols.TEXT(k)) 
+								&& utils.sameNonCustomContainer(k,c,this.editor) && Symbols.TEXT(c)
+								? 1 : 0) 
+							
+						};
 
 			if(!res && (m && m.nodeType == 3 || this.rulesets.stopPoints(null, m)) && !this.rulesets.skipPoints(null, m))
 			//if(m && m.nodeType == 3 && m.textContent && utils.isInLightDom(m, this.editor) && !this.rulesets.skipPoints(null, m))
-				res = { container : m, offset : m.textContent.length - (m && Polymer.dom(m).nextSibling == n && Symbols.INLINECONT(n) ? 1 : 0) };
+				res = 	{ 
+							container : m, 
+							offset : 	m.textContent.length - (m && Polymer.dom(m).nextSibling == n && Symbols.INLINECONT(n) &&
+											utils.sameNonCustomContainer(c,m,this.editor) && Symbols.TEXT(c)
+												? 1 : 0)
+						};
 			
 			// a stop
 			if(!res && (match = this.rulesets.stopPoints(m, n)))

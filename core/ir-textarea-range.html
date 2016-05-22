@@ -555,7 +555,7 @@
 				else
 				if(state.atStart)
 				{
-					paste.pasteHtmlAtPos(utils.newEmptyParagraph(), { container : splitTop, offset : 0 }, this.editor);
+					paste.pasteHtmlAtPos(newp = utils.newEmptyParagraph(), { container : splitTop, offset : 0 }, this.editor);
 				}
 				else
 				{
@@ -585,9 +585,11 @@
 				// update carets
 				if(!newp)
 				{
-					this.setAt({ container : splitTop, offset : 0 });
-					this.go('forward');
-					//this.go('backward');
+					this.setAt({ container : splitTop, offset : splitTop.nodeTyoe == 3 ? splitTop.textContent.length : 0 });
+					//this.go('forward');
+					//if(!SYMBOLS.CONT(splitTop))
+					if(splitTop.nodeTyoe != 3)
+						this.go('forward');
 				}
 				else
 				{
@@ -1094,7 +1096,7 @@
 				ars = this.$[activeRangeSide];
 				prs = this.$[passiveRangeSide];
 
-				this.hide();
+				//this.hide();
 				
 				if(dir && ([37,39].indexOf(keyCode) > -1))
 				{

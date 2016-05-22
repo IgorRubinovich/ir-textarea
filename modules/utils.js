@@ -1350,6 +1350,7 @@ window.ir.textarea.utils = (function() {
 				ret = { container : l.node, offset : l.node.textContent.length }
 				
 			}
+			
 		}
 		
 		if(utils.atText(ret, 'end'))
@@ -1386,8 +1387,8 @@ window.ir.textarea.utils = (function() {
 		return Polymer.dom(e1).parentNode == Polymer.dom(e2).parentNode
 	}
 	
-	utils.sameNonCustomContainer = function(el1, el2) {
-		return utils.getNonCustomContainer(el1) == utils.getNonCustomContainer(el2);
+	utils.sameNonCustomContainer = function(el1, el2, top, excludeTop) {
+		return utils.getNonCustomContainer(el1, top, excludeTop) == utils.getNonCustomContainer(el2, top, excludeTop);
 	}
 
 	utils.isContainer = function(el) {
