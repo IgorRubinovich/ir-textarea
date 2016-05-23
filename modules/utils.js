@@ -1208,7 +1208,7 @@ window.ir.textarea.utils = (function() {
 		
 		return res;
 	}
-	
+	  
 	utils.getDomPath = function(child, parent, top, criteria)
 	{
 		var path = getDomPath
