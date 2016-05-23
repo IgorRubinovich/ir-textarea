@@ -145,7 +145,15 @@
 				//this.editor.addEventListener('mousemove', this.mouseUpHandler.bind(this));
 				this.editor.addEventListener('mouseup', this.mouseUpHandler.bind(this));
 
-
+			
+				Polymer.dom(this.editor.$.editor).observeNodes(function(info) {
+					//this.processNewNodes(info.addedNodes);
+					//this.processRemovedNodes(info.removedNodes);
+					console.log(info.addedNodes);
+					console.log(info.removedNodes);
+				});	
+				
+				
 				caretNavOpts = { 
 						log : false, 
 						caretSpan : this,
@@ -332,7 +340,7 @@
 
 				this.lastClick = {};
 				
-				this.posStack = [];
+				this.posStack = [];	
 			},
 			
 			hide : function () {
@@ -351,44 +359,48 @@
 				if([16,17].indexOf(keyCode) > -1) // shift, ctrl, (alt)
 					return e.preventDefault();
 				
-				if(!this.justUpdated)
-				{
-					this.hide();
-					this.update();
-				}
-				if(this.preventNextDefault)
-					e.preventDefault();
+				Polymer.dom.flush();
 				
-				if(this.lastActive)
-				{
-					ars = this.$[this.lastActive];
-					prs = this.$[this.lastActive == "start" ? "end" : "start"];
-					
-					ap = ars.posPop();
-					pp = prs.posPop();
-					
-					if(ap && e.shiftKey && (keyCode == 38 || keyCode == 40))
+				setTimeout(function() {
+					if(!this.justUpdated)
 					{
-						atmidtext = utils.atText(ars.realPosition, 'middle')
-						if(keyCode == 38 && !atmidtext)
-							ars.go('backward');
-						else
-						if(keyCode == 40 && !atmidtext)
-							ars.go('forward');
-
-						prs.goAt(pp);
-					
-						noupdate = true;
+						this.hide();
+						this.update();
 					}
-				}
+					if(this.preventNextDefault)
+						e.preventDefault();
+					
+					if(this.lastActive)
+					{
+						ars = this.$[this.lastActive];
+						prs = this.$[this.lastActive == "start" ? "end" : "start"];
+						
+						ap = ars.posPop();
+						pp = prs.posPop();
+						
+						if(ap && e.shiftKey && (keyCode == 38 || keyCode == 40))
+						{
+							atmidtext = utils.atText(ars.realPosition, 'middle')
+							if(keyCode == 38 && !atmidtext)
+								ars.go('backward');
+							else
+							if(keyCode == 40 && !atmidtext)
+								ars.go('forward');
 
-				if(this.collapsed)
-					this.lastActive = null;
-				
-				//if(!noupdate)
-				this.updateFromCurrentRange();				
-				
-				this.preventNextDefault = this.justUpdated = false;
+							prs.goAt(pp);
+						
+							noupdate = true;
+						}
+					}
+
+					if(this.collapsed)
+						this.lastActive = null;
+					
+					//if(!noupdate)
+					this.updateFromCurrentRange();				
+					
+					this.preventNextDefault = this.justUpdated = false;
+				}.bind(this))
 			},
 			
 			keyDownHandler : function (e) {

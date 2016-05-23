@@ -946,6 +946,7 @@
 			else {
 				if(this.isCommandPossible(cmd, sdu, val)) {
 					document.execCommand(cmd, sdu, val);
+					Polymer.dom.flush();
 					this.selectionSave();
 					setTimeout(function(){
 						that.selectionRestore();

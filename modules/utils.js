@@ -223,6 +223,15 @@ window.ir.textarea.utils = (function() {
 		return child;
 	}
 	
+	utils.replaceNodeWith = function(node, newnode) {
+		var pn = utils.parentNode(node);
+		
+		pn.insertBefore(newnode, node);
+		pn.removeChild(node);
+	
+		return newnode;
+	}
+		
 	utils.posInSameContainer = function(p1, p2) {
 		var pd1, pd2;
 		
@@ -368,7 +377,7 @@ window.ir.textarea.utils = (function() {
 		if(node.is)
 			node = Polymer.dom(node);
 
-		if(!excludeChildren && node && (Polymer.dom(node).childNodes && Polymer.dom(node).childNodes.length)) {
+		if(!excludeChildren && node && (Poltemplate elementhildNodes && Polymer.dom(node).childNodes.length)) {
 			return node.firstChild;
 		} else {
 			while (node && node != top && !Polymer.dom(node).nextSibling) {
@@ -1182,8 +1191,34 @@ window.ir.textarea.utils = (function() {
 		return false
 	}
 	
+	utils.identity = function(o) { return o; }
+	
+	
+	utils.getDomPath = function(child, ancestor, top)
+	{
+		var p, res;
+		p = child;
+		res = [];
+		
+		while(p && p != top)
+		{
+			res.push(p);
+			p = utils.parentNode(p);
+		}
+		
+		return res;
+	}
+	
+	utils.getDomPath = function(child, parent, top, criteria)
+	{
+		var path = getDomPath
+		while(p = utils.parentNode(c))
+			if(criteria(p))
+				path.push(p)
+	}
+
 	utils.visitNodes = function(root, visitor, opts, meta) {
-		var n = root;
+		var n = root, cn;
 
 		meta = meta || {};
 		meta.numericPath = meta.numericPath || [];
@@ -1191,21 +1226,20 @@ window.ir.textarea.utils = (function() {
 		if(!opts) opts = {};
 
 		if(!opts.noRoot) visitor(n, meta)
-		if(!n.childNodes || !n.childNodes.length)
+		
+		cn = Polymer.dom(n).childNodes;
+		if(!cn || !cn.length)
 		  return;
 
 		opts.noRoot = false;
 
-
-		Array.prototype.forEach.call((n.is ? Polymer.dom(n) : n).childNodes, function(el, i) {
+		Array.prototype.forEach.call(cn, function(el, i) {
 			meta.numericPath.push(i);
 			utils.visitNodes(el, visitor, opts, meta)
 			meta.numericPath.pop(i);
 		});
 	}
-	
-	
-	
+
 	// prepare editor area replacing double spaces with ` &nbsp;`-s
 	utils.prepareWhitespace	= function(e)
 	{
@@ -1523,4 +1557,5 @@ window.ir.textarea.utils = (function() {
 
 	return utils;
 })();
+
 

@@ -31,9 +31,7 @@
 */
 
 (function() {
-	var 
-	
-		Symbols = ir.textarea.CaretRulesets.Symbols,
+	var Symbols = ir.textarea.CaretRulesets.Symbols,
 		utils = ir.textarea.utils,
 
 		// a bunch of rules that define where the caret should stop - see caretRules.js for details
