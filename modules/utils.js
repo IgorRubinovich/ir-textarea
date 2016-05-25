@@ -1086,7 +1086,7 @@ window.ir.textarea.utils = (function() {
 			if(pp == ancestor)
 				return true;
 			
-			pp = Polymer.dom(pp).parentNode;
+			pp = utils.parentNode(pp);
 		}
 		return false;
 	};

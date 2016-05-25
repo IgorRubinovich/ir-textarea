@@ -92,6 +92,8 @@
 			
 			_collapsed : function() {
 				this.$.marker.classList[this.collapsed ? "remove" : "add"]('uncollapsed');
+				if(this.collapsed)
+					this.observerConnect();
 			},
 			
 			ready : function() {
@@ -111,7 +113,7 @@
 
 				//if(this.bindToRange == 'end')
 				//	this.$.marker.style.background = 'lightgreen';
-
+				
 				this._activeHandlers = {};
 					
 				this.originalInnerHTML = '';			
@@ -192,7 +194,8 @@
 				else
 				if(h)
 				{
-					pos = p.container.hostMarker;
+					pos = h;
+					//pos = p.container.hostMarker;
 				}
 				else
 					pos = this.caretNavigator.goAt(p, this.bindToRange);
