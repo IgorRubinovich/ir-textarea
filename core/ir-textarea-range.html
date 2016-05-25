@@ -122,8 +122,8 @@
 				this.$.start.editor = this.editor;
 				this.$.end.editor = this.editor;
 
-				this.editor.addEventListener('keydown', this.keyDownHandler.bind(this));
-				this.editor.addEventListener('keyup', this.keyUpHandler.bind(this));
+				this.editor.$.editor.addEventListener('keydown', this.keyDownHandler.bind(this));
+				this.editor.$.editor.addEventListener('keyup', this.keyUpHandler.bind(this));
 				
 				this.editor.addEventListener('mousedown', function(e) { 
 					if(!e.altKey) 
