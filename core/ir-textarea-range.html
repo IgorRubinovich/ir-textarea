@@ -141,9 +141,9 @@
 					}, 300);
 				});
 
-				this.editor.addEventListener('mousedown', this.mouseDownHandler.bind(this));
+				this.editor.$.editor.addEventListener('mousedown', this.mouseDownHandler.bind(this));
 				//this.editor.addEventListener('mousemove', this.mouseUpHandler.bind(this));
-				this.editor.addEventListener('mouseup', this.mouseUpHandler.bind(this));
+				this.editor.$.editor.addEventListener('mouseup', this.mouseUpHandler.bind(this));
 
 			
 				Polymer.dom(this.editor.$.editor).observeNodes(function(info) {
