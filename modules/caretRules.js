@@ -232,11 +232,14 @@
 		// non-custom non-inline container block
 		NCCONTBLOCK: function(el) { return el && (!utils.isInlineElement(el) || utils.isParagraph(el)) && !el.is && utils.canHaveChildren(el) },
 		
+		WRAPCONTAINER: function(el) { return el && (Symbols.CONT(el) || Symbols.SUBTRANSITIONAL(el)) && !Symbols.INLINECONT(el)},
+		
 		// empty non-custom container
 		NCCONTEMPTY : function(el) { return !el.is && utils.canHaveChildren(el) && (!el.firstChild || el.firstChild.tagName == 'BR')},
 		INLINECONT: function(el) { return el && utils.isInlineElement(el) && utils.canHaveChildren(el) && !utils.isParagraph(el) },
 
 		TRANS : 	function(el) { return utils.isTransitionalElement(el) }, // add more
+		SUBTRANS : 	function(el) { return utils.isSubTransitionalElement(el) }, // add more
 		CONTED : 	function(el) { // also matches text node immediately under contenteditable
 			var ce;
 			if(!el)

@@ -340,6 +340,8 @@ window.ir.textarea.paste = (function() {
 			
 			if(typeof html == 'string')
 				d.innerHTML = html;
+			if(html instanceof DocumentFragment)
+				d = html;
 			else
 				d.appendChild(html);
 			

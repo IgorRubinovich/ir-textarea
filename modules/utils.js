@@ -11,7 +11,8 @@ window.ir.textarea.utils = (function() {
 	"font,b,big,i,u,small,tt,abbr,acronym,cite,code,dfn,em,kbd,strong,samp,time,var,a,bdo,br,img,map,object,q,script,span,sub,sup".split(/,/)
 		.forEach(function(tag) { INLINE_ELEMENTS[tag.toUpperCase()] = true });
 		
-	var TRANSITIONAL_ELEMENTS = ['UL', 'TABLE', 'TBODY', 'TH', 'TR'];
+	var TRANSITIONAL_ELEMENTS = ['UL', 'TABLE', 'TBODY', 'TH', 'TR'],
+		SUB3 = ['UL', 'TABLE', 'TBODY', 'TH', 'TR'];
 		
 	utils.recursiveInnerHTML = function(el, skipNodes) {
 		skipNodes = skipNodes || [];
@@ -271,6 +272,8 @@ window.ir.textarea.utils = (function() {
 	utils.getChildPathFromTop = function(child, top, skipCaret) {
 		var t = [], p = child;
 
+		top = top || document.body;
+		
 		while(p && p != top)
 		{
 			t.unshift(utils.getChildPositionInParent(p, skipCaret));
@@ -284,8 +287,12 @@ window.ir.textarea.utils = (function() {
 
 	utils.getChildFromPath = function(pathArr, top, skipCaret)
 	{
-		var res = top, i = 0, k, next, cn, coord, c = 0;
-		
+		var res, i = 0, k, next, cn, coord, c = 0;
+	
+		top = top || document.body;
+	
+		res = top;
+	
 		if(!pathArr || !pathArr.length)
 			return null;
 
@@ -717,9 +724,6 @@ window.ir.textarea.utils = (function() {
 			var h;
 			if(el.is)
 			{
-				//h = document.createDocmentFragment(); // other ways don't cause the element to get reinitialized - the whole element must be completely rewritten
-				//h.innerHTML = utils.recursiveOuterHTML(el);
-				//el.parentNode.insertBefore(h.firstChild, el);
 				clone = Polymer.dom(el).cloneNode(false);
 				clone.innerHTML = utils.recursiveInnerHTML(el);
 				Polymer.dom(Polymer.dom(el).parentNode).insertBefore(clone, el);
@@ -1017,7 +1021,7 @@ window.ir.textarea.utils = (function() {
 		return extract;
 	}
 
-	utils.commonContainer = function(sc, ec)
+	utils.commonContainer = function(sc, ec, top)
 	{
 		var p, res;
 
@@ -1208,7 +1212,7 @@ window.ir.textarea.utils = (function() {
 		
 		return res;
 	}
-	  
+
 	utils.getDomPath = function(child, parent, top, criteria)
 	{
 		var path = getDomPath
@@ -1251,6 +1255,10 @@ window.ir.textarea.utils = (function() {
 
 	utils.isTransitionalElement = function(el) {
 		return el && el.tagName && TRANSITIONAL_ELEMENTS.indexOf(el.tagName) > -1
+	}
+	
+	utils.isSubTransitionalElement = function(el) {
+		return el && el.tagName && SUBTRANSITIONAL_ELEMENTS.indexOf(el.tagName) > -1
 	}
 
 	utils.isSpecialElement = function(el) {

@@ -17,6 +17,8 @@ This code may only be used under the MIT license found at http://opensource.org/
   <link rel="import" href="../../ir-gallery/ir-gallery.html">
 
   <script src="../modules/utils.js"></script>
+  <script src="../modules/CaretRules.js"></script>
+  <script src="../modules/paste.js"></script>
   <script src="../modules/wrap.js"></script>
 
 
@@ -40,9 +42,20 @@ This code may only be used under the MIT license found at http://opensource.org/
 <body>
 	<button onclick="testWrap()">wrap</button>
 	<button onclick="testWrapChildrenOf()">wrap children</button>
+	<button onclick="testSplitNodeIntoWrapGroups()">split node into groups</button>
+	<div>
+		<button onclick="testWrapContents()">wrap contents with</button>
+		<button onclick="testWrapSelection()">wrap selection with</button>
+		<br>
+		<textarea type=text id="wrapper" rows=1>&lt;i&gt;&lt;/i&gt;</textarea>
+	</div>
 	<script>
-		
+		var editor, w = window.ir.textarea.wrap;
 
+		window.addEventListener('DOMContentLoaded', function () {
+			editor = document.getElementById('editor');
+		});
+		
 		function testWrap() {
 			var d;
 			
@@ -55,11 +68,66 @@ This code may only be used under the MIT license found at http://opensource.org/
 			console.log(wrapper);
 		}
 		function testWrapChildrenOf() {
-			var w = window.ir.textarea.wrap;
 			var utils = window.ir.textarea.utils;
 			
-			w.wrapChildrenOfWith(document.getElementById('editor'), "<h3>Wrapped!</h3><div class='testWrapper'><span id='insertionPoint'></span></div>");
+			w.wrapChildrenOfWith(editor, "<h3>Wrapped!</h3><div class='testWrapper'><span id='insertionPoint'></span></div>");
 		}
+		
+		function testWrapContents() {
+			w.wrapContents(editor, "<i><span id='insertionPoint'></span></i>", editor);
+		}
+		
+		function testSplitNodeIntoWrapGroups() {
+			var groups = w.splitNodeIntoWrapGroups(editor);
+			intToRandom.reset();
+			var visited = [];
+			groups.forEach(function(g, i) {
+				var c = intToRandom(i);
+				
+				if(visited.indexOf(g[0]) > -1)
+					throw new Error("visited: " + g[0].toString());
+
+				visited.push(g[0]);
+				
+				// intentionally slowed down
+				setTimeout(function() {
+					Polymer.dom(g[0]).parentNode.style.backgroundColor = c;
+				}, 50*i);
+			})
+		}
+
+		function testWrapSelection() {
+			var r = getSelection().getRangeAt(0),
+				posr = {
+					startPosition : {
+						container : r.startContainer,
+						offset : r.startOffset
+					},
+					endPosition : {
+						container : r.endContainer,
+						offset : r.endOffset
+					}
+				}
+			
+			w.wrapRange(posr, "<i><span id='insertionPoint'></span></i>");
+		}	
+		
+		var intToRandom = (function() {
+			var cache = {};
+			var random = function() { return Math.floor(Math.random()*255); }
+			var f = function(i) {
+				if(!cache[i])
+					cache[i] = "rgb(" + random() + "," + random() + ',' + random() + ")";
+			
+				return cache[i];
+			}
+			
+			f.reset = function() {
+				cache = {};
+			}
+			
+			return f;
+		})()
 		
 	</script>
 
