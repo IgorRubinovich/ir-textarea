@@ -17,9 +17,9 @@ This code may only be used under the MIT license found at http://opensource.org/
   <link rel="import" href="../../ir-gallery/ir-gallery.html">
 
   <script src="../modules/utils.js"></script>
-  <script src="../modules/CaretRules.js"></script>
-  <script src="../modules/paste.js"></script>
-  <script src="../modules/wrap.js"></script>
+  <script src="../modules/extract.js"></script>
+  <script src="../modules/caretRules.js"></script>
+  <script src="../modules/caretNavigator.js"></script>
 
 
   <style>
@@ -36,103 +36,41 @@ This code may only be used under the MIT license found at http://opensource.org/
 		word-wrap: break-word;       /* Internet Explorer 5.5+ */
 	}
 	#elclone { max-height : 100px; overflow : hidden; }
-	.testWrapper { border : 1px solid red; margin : 5px }
   </style>  
 </head>
+
+<script>  
+	var utils = ir.textarea.utils;
+	var extract = ir.textarea.extract;
+	var paste = window.ir.textarea.paste;
+
+	var editor; 
+	
+	window.addEventListener('DOMContentLoaded', function () {
+		editor = document.getElementById('editor');
+	});
+
+	function testHasContent(dir) {
+		var r = utils.getSelectionRange();
+		console.log(utils.posToContainerEdgeHasContent({ container : r.startContainer, offset : r.startOffset }, dir, editor))
+	}
+
+	function testExtract(del) {
+		var r = utils.getSelectionRange();
+		console.log(extract.extractContents({ container : r.sc, offset : r.so }, { container : r.ec, offset : r.eo }, { delete : del, splitRoot : editor } ))
+	}
+	
+	var logspace = document.querySelector('#logspace');
+
+
+</script>
+
+
 <body>
-	<button onclick="testWrap()">wrap</button>
-	<button onclick="testWrapChildrenOf()">wrap children</button>
-	<button onclick="testSplitNodeIntoWrapGroups()">split node into groups</button>
-	<div>
-		<button onclick="testWrapContents()">wrap contents with</button>
-		<button onclick="testWrapSelection('b')"><b>b</b></button>
-		<button onclick="testWrapSelection('i')"><i>i</i></button>
-		<button onclick="testWrapSelection('u')"><u>u</u></button>
-		<button onclick="testWrapSelection('s')"><s>s</s></button>
-		<br>
-		<textarea type=text id="wrapper" rows=1>&lt;i&gt;&lt;/i&gt;</textarea>
-	</div>
-	<script>
-		var editor, w = window.ir.textarea.wrap;
-
-		window.addEventListener('DOMContentLoaded', function () {
-			editor = document.getElementById('editor');
-		});
-		
-		function testWrap() {
-			var d;
-			
-			var w = window.ir.textarea.wrap;
-			var utils = window.ir.textarea.utils;
-			var wrapper = w.parseWrapper("<div><span id='insertionPoint'></span></div>")	
-			
-			wrapper.wrapAppend(document.body.firstChild);
-			
-			console.log(wrapper);
-		}
-		function testWrapChildrenOf() {
-			var utils = window.ir.textarea.utils;
-			
-			w.wrapChildrenOfWith(editor, "<h3>Wrapped!</h3><div class='testWrapper'><span id='insertionPoint'></span></div>");
-		}
-		
-		function testWrapContents() {
-			w.wrapContents(editor, "<i><span id='insertionPoint'></span></i>", editor);
-		}
-		
-		function testSplitNodeIntoWrapGroups() {
-			var groups = w.splitNodeIntoWrapGroups(editor);
-			intToRandom.reset();
-			var visited = [];
-			groups.forEach(function(g, i) {
-				var c = intToRandom(i);
-				
-				if(visited.indexOf(g[0]) > -1)
-					throw new Error("visited: " + g[0].toString());
-
-				visited.push(g[0]);
-				
-				// intentionally slowed down
-				setTimeout(function() {
-					Polymer.dom(g[0]).parentNode.style.backgroundColor = c;
-				}, 50*i);
-			})
-		}
-
-		function testWrapSelection(tag) {
-			var r = getSelection().getRangeAt(0),
-				posr = {
-					startPosition : {
-						container : r.startContainer,
-						offset : r.startOffset
-					},
-					endPosition : {
-						container : r.endContainer,
-						offset : r.endOffset
-					}
-				}
-			
-			w.wrapRange(posr, "<" + tag + "><span id='insertionPoint'></span></" + tag + ">", editor);
-		}	
-		
-		var intToRandom = (function() {
-			var cache = {};
-			var random = function() { return Math.floor(Math.random()*255); }
-			var f = function(i) {
-				if(!cache[i])
-					cache[i] = "rgb(" + random() + "," + random() + ',' + random() + ")";
-			
-				return cache[i];
-			}
-			
-			f.reset = function() {
-				cache = {};
-			}
-			
-			return f;
-		})()
-		
-	</script>
+	<button onclick="testHasContent('backward')">&lt;hascontent</button>
+	<button onclick="testHasContent('forward')">hascontent&gt;</button>
+	<button onclick="testExtract(true)">cut</button>
+	<button onclick="testExtract(false)">copy</button>
 
 	<div 
 		id="editor" 
@@ -167,5 +105,9 @@ This code may only be used under the MIT license found at http://opensource.org/
 	</span>
 
 	</div>
+
+	
 </body>
+
+  
 </html>

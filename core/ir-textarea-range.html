@@ -443,7 +443,8 @@
 				s = this.$.start;
 				e = this.$.end;
 				
-				extract = utils.extractContents(this.$.start, this.$.end);
+				extract = ir.textarea.extract.extractContents(this.$.start, this.$.end);
+				
 
 				if(extract.nodeType == 3)
 					console.log(extract);
@@ -468,7 +469,7 @@
 				
 				this.hide();
 				
-				extract = utils.extractContents(s, e, { delete : true });
+				extract = ir.textarea.extract.extractContents(s, e, { delete : true });
 				
 				if(Polymer.dom(this.editor).childNodes.length)
 				{
@@ -571,7 +572,7 @@
 				{
 					this.hide();
 					utils.setCaretAt(this.startContainer, this.startOffset);
-					splitTop = utils.splitNode(this.startContainer, this.startOffset, splitTop);
+					splitTop = ir.textarea.extract.splitNode(this.startContainer, this.startOffset, splitTop);
 				}
 				else
 				if(state.atStart)

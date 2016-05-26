@@ -223,6 +223,12 @@ window.ir.textarea.utils = (function() {
 		
 		return child;
 	}
+
+	utils.getOnlyNonCustomContainer = function(child, top, excludeTop) {
+		var ncc = utils.getNonCustomContainer(child, top, excludeTop);
+		
+		return ncc && utils.isNonCustomContainer(ncc) && ncc;
+	}
 	
 	utils.replaceNodeWith = function(node, newnode) {
 		var pn = utils.parentNode(node);
@@ -690,337 +696,65 @@ window.ir.textarea.utils = (function() {
 		else
 			return { container : node, offset : node.textContent.length }
 	};
-
-	/*
-		splits a node at offset
-
-		params:
-
-		node - the node to split
-		offset - in the splitted node,
-		limit - the root of the split.
-	*/
-	utils.splitNode = function(node, offset, limit) {
-		var parent = Polymer.dom(limit).parentNode,
-			parentOffset = utils.getChildPositionInParent(limit),
-			doc = node.ownerDocument,
-			left,
-			leftRange = doc.createRange(), clone;
-
-		//leftRange.setStart(parent, parentOffset);
-		//leftRange.setEnd(node, offset);
-		//left = leftRange.extractContents();
-		
-		left = utils.extractContents(
-			{ container : parent, offset : parentOffset }, 
-			{ container : node, offset : offset}, 
-			{ delete : true, splitRoot : limit }
-		);
-		Polymer.dom(parent).insertBefore(left, limit);
-
-		Polymer.dom.flush();
-		
-		utils.visitNodes(limit.previousSibling, function(el) {  // hard-reattach custom elements lest they lose their powers
-			var h;
-			if(el.is)
-			{
-				clone = Polymer.dom(el).cloneNode(false);
-				clone.innerHTML = utils.recursiveInnerHTML(el);
-				Polymer.dom(Polymer.dom(el).parentNode).insertBefore(clone, el);
-				Polymer.dom(Polymer.dom(el).parentNode).removeChild(el);
-				Polymer.dom.flush();
-			}
-		})
-
-		left.normalize();
-		limit.normalize();
-
-		return limit;
-	}
 	
 	utils.clonePos = function(pos) {
 		return { container : pos.container, offset : pos.offset };
 	}
 	
-	// helper to extract functions. top serves as split root.
-	utils.extractBoundaries = function(startPos, endPos, top) {
-		var sc, ec, so, eo, i, commonAncestor, extract, starts = [], ends = [], 
-			sfrag, efrag, starget, etarget, first, last;
-		
-		sc = startPos.container;
-		ec = endPos.container;
-		so = startPos.offset;
-		eo = endPos.offset;
-
-		//
-		// "normalize" start
-		//
-		if(utils.atText(startPos, "start"))
-		{
-			sc = Polymer.dom(sc).parentNode;
-			startPos = { container : sc, offset : 0 }
-		}
-		else
-		if(utils.atText(startPos, "end"))
-			first = { 
-						original : sc, 
-						remainder : ""
-					};
-		else
-		if(utils.atText(startPos, "middle"))
-			first = { 
-						original : sc, 
-						copy : document.createTextNode(sc.textContent.slice(so, sc.textContent.length)),
-						remainder : sc.textContent.slice(0, so)
-					};
-
-		//
-		// "normalize" end
-		//
-		if(utils.atText(endPos, "start"))
-			endPos = { container : ec = Polymer.dom(ec).parentNode, offset : eo = 0 }
-		else
-		if(utils.atText(endPos, "end"))
-		{
-			eo = utils.getChildPositionInParent(ec) + 1;
-			ec = Polymer.dom(ec).parentNode
-			startPos = { container : ec, offset : eo }
-
-			if(sc == ec)
-				first = last = 
-					{ 
-						original : ec, 
-						copy : document.createTextNode(ec.textContent.slice(ec, eo)), 
-						remainder : ec.textContent.slice(0, eo) 
-					};
-			else
-			if(ec.nodeType == 3)
-				last =  
-					{ 
-						original : ec, 
-						copy : document.createTextNode(ec.textContent.slice(0, eo)),
-						remainder : ec.textContent.slice(eo, ec.textContent.length)
-					};
-			else
-				last = {
-					original : ec
-				}
-		}
-		else
-		if(utils.atText(endPos, "middle"))
-		{
-			if(sc == ec)
-				first = last = 
-					{ 
-						original : sc, 
-						copy : document.createTextNode(sc.textContent.slice(so, eo)),
-						remainder : sc.textContent.slice(0, so) + sc.textContent.slice(eo, sc.textContent.length)
-					};
-			else
-				last = 
-					{ 
-						original : ec, 
-						copy : document.createTextNode(ec.textContent.slice(0, eo)),
-						remainder : ec.textContent.slice(eo, ec.textContent.length)
-					};
-		}
-		else
-		// ends with block
-		if(!utils.canHaveChildren(ec))
-			last = { original : ec };
-		else
-		// after last element in container
-		if(!ec.childNodes[eo])
-			last = { original : Polymer.dom(ec).childNodes[eo-1] };
-
-		if(first && !first.copy)
-			first.copy = Polymer.dom(first.original).cloneNode(true);
-		if(last && !last.copy)
-			last.copy = Polymer.dom(last.original).cloneNode(true);
-		
-		// collect parents
-		p = sc;
-		starts.push(p);
-		
-		if(p != top)
-			while(p && (p = utils.parentNode(p)))
-				starts.push(p);
-		
-		p = ec;
-		ends.push(p);
- 		while(p && (p = utils.parentNode(p)))
-			ends.push(p);
-
-		// reverse to align by tree top
-		starts.reverse();
-		ends.reverse();
-
-		if(top)
-		{
-			i = starts.indexOf(Polymer.dom(top).parentNode);
-			if(i > -1)
-				starts.splice(0, i + 1);
-			i = ends.indexOf(Polymer.dom(top).parentNode);
-			if(i > -1)
-				ends.splice(0, i + 1);
-			
-			if(!starts.length)
-				starts.push(top);
-			
-			if(!ends.length)
-				ends.push(top);			
-		}
-		
-		// pop first identical elements
-		while(starts.length && starts[0] == ends[0])
-		{
-			commonAncestor = starts.shift();
-			ends.shift();
-		}
-		
-		return 	{ 
-					starts : starts, 
-					ends : ends, 
-					first : first, 
-					last : last, 
-					commonAncestor : commonAncestor 
-				}
+	// a node has content if it is or contains a text node / a non-container block / a custom element
+	utils.nodeHasContent = function(node) {
+		return visitNodes(node, function(n, meta, prevRes) {
+			return prevRes || n.nodeType == 3 || !utils.canHaveChildren(n) || n.is;
+		});
 	}
 	
-	utils.extractContents = function(startPos, endPos, opts) {
-		var sc, ec, so, eo, i, commonContainer, extract, starts, ends, next,
-			sfrag, efrag, starget, etarget, first, last, boundaries, commonAncestor, n, del;
-
-		opts = opts || {};
-		del = opts.delete;
-			
-		boundaries = utils.extractBoundaries(startPos, endPos, opts.splitRoot);
+	utils.rangeHasContent = function(startPos, endPos, top) { 
+		var n = startPos.container, m = endPos.container;
 		
-		first = boundaries.first;
-		last = boundaries.last;
-		starts = boundaries.starts;
-		ends = boundaries.ends;
-		commonAncestor = boundaries.commonAncestor;
-		
-		extract = Polymer.dom(commonAncestor).cloneNode(false);
-
-		starget = etarget = extract;
-		
-		// we're left with the deepest common ancestor
-		while(starts.length || ends.length)
-		{
-			sc = starts.shift();
-			ec = ends.shift();
-			
-			sfrag = document.createDocumentFragment();
-			efrag = document.createDocumentFragment();
-
-			p = sc;
-			
-			// sc to end/ec
-			while(p && p != ec)
-			{
-				next = Polymer.dom(p).nextSibling;
-				if(!first || p != first.original)
-				{
-					n = Polymer.dom(p).cloneNode(!first || p != sc);
-					sfrag.appendChild(n);
-					
-					if(del)
-					{
-						Polymer.dom(Polymer.dom(p).parentNode).removeChild(p); // must remove explicitly or Polymer won't update
-						Polymer.dom.flush();
-					}
-				}
-				else
-				{
-					sfrag.appendChild(first.copy);
-					if(del)
-					{
-						n = Polymer.dom(Polymer.dom(first.original).parentNode);
-						if(first.remainder)
-							first.original.textContent = first.remainder;
-						else
-						{
-							Polymer.dom(Polymer.dom(first.original).parentNode).removeChild(first.original)
-							Polymer.dom.flush();
-						}
-					}
-				}
-				p = next;
-			}
-		
-			// start to ec
-			p = p == ec ? p : Polymer.dom(Polymer.dom(ec).parentNode).firstChild;
-			while(p && p != ec)
-			{
-				efrag.appendChild(Polymer.dom(p).cloneNode(p != sc));
-				n = p;
-				p = Polymer.dom(p).nextSibling;
-				if(del)
-				{
-					Polymer.dom(Polymer.dom(n).parentNode).removeChild(n);
-					Polymer.dom.flush();
-				}
-			}
-			
-			if(p && last && (p != last.original))
-			{
-				efrag.appendChild(Polymer.dom(p).cloneNode(false));
-				p = Polymer.dom(p).nextSibling;				
-			}
+		if(n.nodeType == 3)
+			// same text container check
+			if(n == m)
+				return startPos.offset - endPos.offset
 			else
-			if(p && p != ec && !last && del)
-				Polymer.dom(Polymer.dom(p).parentNode).removeChild(p);
-			
-			if(sfrag.childNodes.length)
-				Polymer.dom(starget).appendChild(sfrag);
-			if(efrag.childNodes.length)
-				Polymer.dom(etarget).appendChild(efrag);
-
-			if(sc) // move down only if needed otherwise freeze s/e-target
-				starget = Polymer.dom(starget).firstChild;
-			if(ends.length)
-				etarget = Polymer.dom(etarget).lastChild;
-		}
-
-		if(last)
-		{
-			if(first && last.original == first.original)
-			{
-				extract = last.copy;
-				if(del)
-					if(last.remainder)
-						last.original.textContent = last.remainder;
-					else
-					{
-						Polymer.dom(Polymer.dom(last.original).parentNode).removeChild(last.original)
-						Polymer.dom.flush();
-					}
-			}
+			// start is not at end of text
+			if(!utils.atText(startPos, 'end'))
+				return true;
 			else
-			{
-				//Polymer.dom(etarget == extract ? extract : Polymer.dom(etarget).parentNode).appendChild(last.copy);
-				Polymer.dom(etarget).appendChild(last.copy);
-				if(del)
-				{
-					if(last.remainder)
-						last.original.textContent = last.remainder;
-					else
-					{
-						Polymer.dom(Polymer.dom(last.original).parentNode).removeChild(last.original)
-						Polymer.dom.flush();
-					}
-				}
-			}
-		}
-
-		if(del)
-			Polymer.dom.flush()
+				n = utils.nextNode(n);
+		// end is not at start of text
+		if(m.nodeType == 3 && !utils.atText(endPos, 'start'))
+			return true;
 		
-		return extract;
+		while(n && n != m)
+			if(n.nodeType == 3 || !utils.canHaveChildren(n) || n.is)
+				return true;
+			else
+				n = utils.nextNode(n, top);
+			
+		return false;
 	}
-
+	
+	utils.nextNodeNonDescendant = function(n, top) {
+		var r;
+		top = top || document.body;
+		if(r = Polymer.dom(n).nextSibling)
+			return r;
+		
+		r = utils.parentNode(n);
+		while(!Polymer.dom(r).nextSibling && r != top)
+			r = utils.parentNode(r);
+		
+		return r == top ? top.nextSibling : r;
+	}
+	
+	utils.posToContainerEdgeHasContent = function(pos, dir, top) {
+		var cont = utils.getNonCustomContainer(pos.container, top);
+		if(dir == "backward")
+			return utils.rangeHasContent({container : cont, position : 0 }, pos); 
+		else
+			return utils.rangeHasContent(pos, {container : utils.nextNodeNonDescendant(cont), position : 0 }); 
+	}
+	
 	utils.commonContainer = function(sc, ec, top)
 	{
 		var p, res;
@@ -1221,27 +955,30 @@ window.ir.textarea.utils = (function() {
 				path.push(p)
 	}
 
-	utils.visitNodes = function(root, visitor, opts, meta) {
-		var n = root, cn;
+	utils.visitNodes = function(root, visitor, opts, meta, prevRes) {
+		var n = root, cn, r, prevRes;
 
 		meta = meta || {};
 		meta.numericPath = meta.numericPath || [];
 
 		if(!opts) opts = {};
 
-		if(!opts.noRoot) visitor(n, meta)
+		if(!opts.noRoot) r = visitor(n, meta, prevRes)
 		
 		cn = Polymer.dom(n).childNodes;
 		if(!cn || !cn.length)
-		  return;
+		  return r;
 
 		opts.noRoot = false;
 
 		Array.prototype.forEach.call(cn, function(el, i) {
 			meta.numericPath.push(i);
-			utils.visitNodes(el, visitor, opts, meta)
+			r = utils.visitNodes(el, visitor, opts, meta, prevRes)
 			meta.numericPath.pop(i);
+			prevRes = r;
 		});
+		
+		return r;
 	}
 
 	// prepare editor area replacing double spaces with ` &nbsp;`-s
@@ -1443,6 +1180,11 @@ window.ir.textarea.utils = (function() {
 	
 	utils.removeFromParent = function(c) 
 	{
+		var p = Polymer.dom(c).parentNode;
+		
+		if(!p)
+			return;
+
 		Polymer.dom(Polymer.dom(c).parentNode).removeChild(c);
 		Polymer.dom.flush();
 		return c;
