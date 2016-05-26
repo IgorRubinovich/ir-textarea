@@ -363,7 +363,7 @@ window.ir.textarea.utils = (function() {
 		if(currentrange &&
 			(currentrange.startContainer == range.startContainer && 
 			currentrange.startOffset == range.startOffset) && 
-			( currentRange.collapsed || (
+			( currentrange.collapsed || (
 				currentrange.endContainer == range.endContainer && 
 				currentrange.endOffet == range.endOffet
 				)
@@ -1177,7 +1177,7 @@ window.ir.textarea.utils = (function() {
 	}
 
 	utils.isTag = function(el, tag) {
-		return el && el.tag == tag;
+		return el && el.tagName == tag;
 	}
 	
 	utils.removeFromParent = function(c) 
