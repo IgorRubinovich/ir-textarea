@@ -408,7 +408,7 @@
 				
 				if([16,17].indexOf(keyCode) > -1) // shift, ctrl, (alt)
 					return e.preventDefault();
-
+				
 				"selectAll,copy,cut,direction,enter,shiftEnter,delete".split(',').forEach(function(handler) {
 					if(!handled)
 						handled = this[handler + "KeyHandler"].call(this, e);
@@ -709,6 +709,7 @@
 
 				var nextInDir = function(n) { return Polymer.dom(n)[dir == "forward" ? "nextSibling" : "previousSibling"] };
 				var nextInDirOrParent = function(n) { return nextInDir(n) || Polymer.dom(n).parentNode; };
+				var prevInDir = function(n) { return Polymer.dom(n)[dir == "forward" ? "previousSibling" : "nextSibling"] };
 				var mergeInDir = function(n1, n2) { return dir == "forward" ? utils.mergeNodes(bccont, accont) : utils.mergeNodes(accont, bccont); };
 				
 				pos = this.startPosition;
@@ -721,7 +722,7 @@
 				if(
 					atText == "middle" ||
 					(dir == 'forward' && atText == 'start') ||
-					(dir == 'backward' && atText == 'end')
+					(dir == 'backward' && atText == 'end' && pos.container.length > 1)
 				)
 					return true;
 
@@ -742,8 +743,16 @@
 				if(SYMBOLS.TEXT(pos.container))
 				{
 					// note! bc and ac are relative to dir
-					bc = pos.container;
-					ac = nextInDirOrParent(bc);
+					if(pos.container.length == 1)
+					{
+						ac = pos.container;
+						bc = prevInDir(ac);
+					}
+					else
+					{
+						bc = pos.container;
+						ac = nextInDirOrParent(bc);
+					}
 				}
 				else
 				{
@@ -807,7 +816,7 @@
 				}
 				
 				// 3. all simple delete cases - NCBLOCK,EMPTYCONT,IS
-				if(!done && SYMBOLS.NCBLOCK(ac) || SYMBOLS.EMPTYCONT(ac) || SYMBOLS.IS(ac))
+				if(!done && SYMBOLS.NCBLOCK(ac) || SYMBOLS.EMPTYCONT(ac) || SYMBOLS.IS(ac) || SYMBOLS.TEXT(ac))
 				{
 					t = Polymer.dom(pos.container).parentNode;
 					Polymer.dom(t).removeChild(ac);
