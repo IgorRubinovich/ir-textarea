@@ -50,6 +50,11 @@ This code may only be used under the MIT license found at http://opensource.org/
 		editor = document.getElementById('editor');
 	});
 
+	function testHasContent(dir) {
+		var r = utils.getSelectionRange();
+		console.log(utils.posToContainerEdgeHasContent({ container : r.startContainer, offset : r.startOffset }, dir, editor))
+	}
+
 	function testExtract(del) {
 		var r = utils.getSelectionRange();
 		console.log(extract.extractContents({ container : r.sc, offset : r.so }, { container : r.ec, offset : r.eo }, { delete : del, splitRoot : editor } ))
@@ -62,6 +67,8 @@ This code may only be used under the MIT license found at http://opensource.org/
 
 
 <body>
+	<button onclick="testHasContent('backward')">&lt;hascontent</button>
+	<button onclick="testHasContent('forward')">hascontent&gt;</button>
 	<button onclick="testExtract(true)">cut</button>
 	<button onclick="testExtract(false)">copy</button>
 

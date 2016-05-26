@@ -734,6 +734,27 @@ window.ir.textarea.utils = (function() {
 		return false;
 	}
 	
+	utils.nextNodeNonDescendant = function(n, top) {
+		var r;
+		top = top || document.body;
+		if(r = Polymer.dom(n).nextSibling)
+			return r;
+		
+		r = utils.parentNode(n);
+		while(!Polymer.dom(r).nextSibling && r != top)
+			r = utils.parentNode(r);
+		
+		return r == top ? top.nextSibling : r;
+	}
+	
+	utils.posToContainerEdgeHasContent = function(pos, dir, top) {
+		var cont = utils.getNonCustomContainer(pos.container, top);
+		if(dir == "backward")
+			return utils.rangeHasContent({container : cont, position : 0 }, pos); 
+		else
+			return utils.rangeHasContent(pos, {container : utils.nextNodeNonDescendant(cont), position : 0 }); 
+	}
+	
 	utils.commonContainer = function(sc, ec, top)
 	{
 		var p, res;
