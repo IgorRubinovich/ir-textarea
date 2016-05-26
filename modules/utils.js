@@ -755,6 +755,8 @@ window.ir.textarea.utils = (function() {
 			return utils.rangeHasContent(pos, {container : utils.nextNodeNonDescendant(cont), position : 0 }); 
 	}
 	
+		
+	
 	utils.commonContainer = function(sc, ec, top)
 	{
 		var p, res;
@@ -1188,6 +1190,24 @@ window.ir.textarea.utils = (function() {
 		Polymer.dom(Polymer.dom(c).parentNode).removeChild(c);
 		Polymer.dom.flush();
 		return c;
+	}
+	
+	
+	utils.replaceWithOwnChildren = function(el)
+	{
+		var cn, op, p, next, i, pel, first;
+		
+		p = Polymer.dom(utils.parentNode(el));
+		cn = Polymer.dom(el).childNodes;
+		pel = Polymer.dom(el);
+		
+		first = pel.firstChild;
+		while(f = pel.firstChild)
+			p.insertBefore(f, el);
+		
+		utils.removeFromParent(el);
+	
+		return first;
 	}
 	
 	utils.numerify = function(x) {

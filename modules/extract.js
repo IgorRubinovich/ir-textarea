@@ -203,14 +203,15 @@ window.ir.textarea.extract =
 	extract.extractContents = function(_startPos, _endPos, opts) {
 		var sc, ec, so, eo, i, commonContainer, extractRes, starts, ends, next,
 			sfrag, efrag, starget, etarget, first, last, boundaries, commonAncestor, n, del,
-			startPos = _startPos, endPos = _endPos, clone,
-			startContainerBlock, endContainerBlock, hasContent;
+			startPos = _startPos, endPos = _endPos, clone, top,
+			startContainerBlock, endContainerBlock, hasContent, hasContentBefore, hasContentAfter, shouldMerge;
 
 		opts = opts || {};
 		del = opts.delete;
+		top = opts.top || top;
 		
 		commonAncestor = utils.commonContainer(startPos.container, endPos.container); 
-			
+
 		boundaries = extract.extractBoundaries(startPos, endPos, opts.splitRoot);
 		
 		first = boundaries.first;
@@ -219,14 +220,20 @@ window.ir.textarea.extract =
 		ends = boundaries.ends;
 		commonAncestor = boundaries.commonAncestor;
 		
-		startContainerBlock = utils.getOnlyNonCustomContainer(startPos.container, commonAncestor);
-		endContainerBlock = utils.getOnlyNonCustomContainer(endPos.container, commonAncestor);
+		startContainerBlock = utils.getOnlyNonCustomContainer(startPos.container, top, true);
+		endContainerBlock = utils.getOnlyNonCustomContainer(endPos.container, top, true);
 
 		extractRes = Polymer.dom(commonAncestor).cloneNode(false);
 
 		clone = Polymer.dom(commonAncestor).cloneNode(true);
 		
 		starget = etarget = extractRes;
+		
+		hasContentBefore = utils.posToContainerEdgeHasContent(startPos, "backward", top);
+		hasContentAfter = utils.posToContainerEdgeHasContent(endPos, "forward", top);
+
+		// merge the leftovers unless it crosses a WHOLE container
+		shouldMerge = (Polymer.dom(startContainerBlock).nextSibling == endContainerBlock && hasContentBefore && hasContentAfter);
 		
 		// we're left with the deepest common ancestor
 		while(starts.length || ends.length)
@@ -248,7 +255,7 @@ window.ir.textarea.extract =
 					n = Polymer.dom(p).cloneNode(!first || p != sc);
 					sfrag.appendChild(n);
 					
-					if(del)
+					if(del && (p != sc || !hasContentBefore))
 					{
 						Polymer.dom(Polymer.dom(p).parentNode).removeChild(p); // must remove explicitly or Polymer won't update
 						Polymer.dom.flush();
@@ -338,31 +345,56 @@ window.ir.textarea.extract =
 		}
 
 		if(del)
-			Polymer.dom.flush()
+			Polymer.dom.flush();
 
+		if(utils.isNonCustomContainer(startContainerBlock) && utils.isNonCustomContainer(endContainerBlock)
+			&& Polymer.dom(startContainerBlock).nextSibling == endContainerBlock)
+			utils.mergeNodes(startContainerBlock, endContainerBlock);
+
+		// merge the leftovers unless it crosses a WHOLE container
+		if(del && shouldMerge)
+		{
+			utils.mergeNodes(extractRes.firstChild, extractRes.lastChild); // we knew it from the beginning
+			utils.replaceWithOwnChildren(extractRes.firstChild);
+		}
+		// or delete/strip start/end accordingly
+		else
+		{
+			if(startContainerBlock != endContainerBlock && endContainerBlock)
+			{
+				// strip last container of extract
+				if(hasContentAfter && utils.isNonCustomContainer(extractRes.lastChild))
+					utils.replaceWithOwnChildren(extractRes.lastChild);
+
+				// delete/strip complementary container after selection
+				if(del)
+					if(!hasContentAfter)
+						utils.removeFromParent(endContainerBlock);
+					else
+					if(utils.isNonCustomContainer(endContainerBlock))
+						utils.replaceWithOwnChildren(endContainerBlock);
+			}
+			
+			
+			if(startContainerBlock)
+			{
+				// strip first container of extract
+				if(del && !hasContentBefore)
+					utils.removeFromParent(startContainerBlock);
+
+				// delete/strip complementary container before selection
+				if(del)
+					if(!hasContentBefore)
+						utils.removeFromParent(startContainerBlock);
+					else
+					if(utils.isNonCustomContainer(endContainerBlock))
+						utils.replaceWithOwnChildren(endContainerBlock);
+			}
+		}
 		
-		if(startContainerBlock != endContainerBlock && endContainerBlock)
-		{
-			// end pos to its container (rest of container after range)
-			hasContent = utils.rangeHasContent(endPos, { container : endContainerBlock.nextSibling, offset : 0});
-			
-			// update complementary container
-			if(del && !hasContent)
-				utils.removeFromParent(endContainerBlock);
-
-		}
-		if(startContainerBlock)
-		{
-			// start pos container to start pos (rest of container before range)
-			hasContent = utils.rangeHasContent({ container : startContainerBlock, offset : 0}, startPos, commonAncestor);
-			
-			// update complementary container
-			if(del && !hasContent)
-				utils.removeFromParent(endContainerBlock);
-		}
-	
 		return extractRes;
 	}
+
 	
 	return extract;
 	

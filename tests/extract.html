@@ -57,7 +57,7 @@ This code may only be used under the MIT license found at http://opensource.org/
 
 	function testExtract(del) {
 		var r = utils.getSelectionRange();
-		console.log(extract.extractContents({ container : r.sc, offset : r.so }, { container : r.ec, offset : r.eo }, { delete : del, splitRoot : editor } ))
+		console.log(extract.extractContents({ container : r.sc, offset : r.so }, { container : r.ec, offset : r.eo }, { top : editor, delete : del, splitRoot : editor } ))
 	}
 	
 	var logspace = document.querySelector('#logspace');
