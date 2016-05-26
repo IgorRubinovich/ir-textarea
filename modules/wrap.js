@@ -69,14 +69,17 @@ window.ir.textarea.wrap = (function() {
 
 	// split node contents into wrap groups
 	// by criteria foo, criteria defaults to Symbols.WRAPCONTAINER
-	wrap.splitNodeIntoWrapGroups = function(node, top, criteria) {
+	wrap.splitNodeIntoWrapGroups = function(node, top, boundaryCriteria) {
 		var cn, 
 			childGroups,
 			groups = [[]], 
 			gid = 0, 
 			n, i;
 		
-		criteria = criteria || Symbols.WRAPCONTAINER;
+		if(!top)
+			top = node;
+		
+		boundaryCriteria = boundaryCriteria || Symbols.WRAPCONTAINER;
 		
 		cn = Polymer.dom(node).childNodes;
 		
@@ -88,10 +91,14 @@ window.ir.textarea.wrap = (function() {
 			else
 			if(!Symbols.NCBLOCK(n) && utils.isInLightDom(n, top))
 			{
+				// recursively find groups
 				childGroups = wrap.splitNodeIntoWrapGroups(n, top);
-				if(childGroups.length == 1 && !criteria(n))
+				
+				// if there's only one group and n is not boundary - append to current group
+				if(childGroups.length == 1 && !boundaryCriteria(n))
 					groups[gid].push(n);
 				else
+				// if there are more than 1 groups or n is a boundary, they are all new groups to be wrapped separately
 				if(childGroups.length > 0)
 				{
 					if(!groups[gid].length)
@@ -125,8 +132,8 @@ window.ir.textarea.wrap = (function() {
 	
 	}
 	
-	wrap.wrapRange = function(range, wrapper) {
-		var frag, startPath, endPath, splitRoot, extract, dummyparagraph;
+	wrap.wrapRange = function(range, wrapper, top) {
+		var frag, startPath, endPath, splitRoot, extract, dummyparagraph, src;
 		
 		// save path as coordinates
 		startPath = utils.posToCoorinatesPos(range.startPosition);
@@ -141,12 +148,19 @@ window.ir.textarea.wrap = (function() {
 		// create a detached dummy paragraph
 		dummyparagraph = utils.newEmptyParagraph(true);
 		
+		if(splitRoot != top)
+			dummyparagraph.appendChild(extract);
+		else
+			while(extract.firstChild)
+				dummyparagraph.appendChild(extract.firstChild);
+		
 		// remember path of startPos
-		dummyparagraph.appendChild(extract);
+		//dummyparagraph.appendChild(extract);
 		wrap.wrapContents(dummyparagraph, wrapper);
 
 		// put them all in a fragment
 		frag = document.createDocumentFragment();
+		
 		while(dummyparagraph.firstChild)
 			frag.appendChild(dummyparagraph.firstChild)
 		
