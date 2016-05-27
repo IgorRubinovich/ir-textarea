@@ -78,7 +78,89 @@ window.ir.textarea.paste = (function() {
 			e.preventDefault();
 			return false;
 		},	
-	
+
+		pasteHtmlAtPosWithParagraphs : function(html, pos, opts) {
+			var div = document.createElement('div'),
+				hasContainers, hasContentBefore, hasContentAfter, 
+				posCont, startCont, endCont, left, right,
+				hangingStart, hangingEnd, main, finalPos;
+			
+			if(!html)
+				return;
+
+			if(typeof html == 'string')
+				div.innerHTML = html;
+			else
+			if(html instanceof Node)
+				div = html;
+			else
+				throw new Error('Bad html parameter to pasteHtmlAtPosWithParagraphs: must be a string or a node.')
+			
+
+			// paste what:
+			// 
+			// div
+			//		1. hanging start
+			// 		2. nonCustomContainer
+			//			stuff
+			//		3. ... more containers ...
+			//		4. hanging end
+			//
+			// paste where:
+			//
+			//		a. hanging start 		
+			//		b. nonCustomContainer
+			// 		c. 		(contentBeforePos) (pos) (contentAfterPos)
+			// 		d. hanging end
+			// 
+			
+			
+			posCont = utils.getNonCustomContainer(pos.container, opts.top);
+			
+			hasContentBefore = utils.posToContainerEdgeHasContent(pos, "backward");
+			hasContentAfter = utils.posToContainerEdgeHasContent(pos, "forward");
+			
+			if(!utils.hasContainers(div) || !posCont)
+				return paste.pasteHtmlAtPos(html, pos);
+			
+			// *** we are pasting into nonCustomContainer ***
+			
+			// paste hanging start before splitting
+			hangingStart = document.createDocumentFragment();
+			while((t = Polymer.dom(div).firstChild) && !utils.isNonCustomContainer(t))
+				hangingStart.appendChild(t);
+			
+			if(hangingStart.childNodes.length)
+				pos = paste.pasteHtmlAtPos(hangingStart, pos);
+			
+			// split target
+			right = extract.splitNode(pos.container, pos.offset, posCont, opts.top)
+			left = hasContentBefore && Polymer.dom(right).previousSibling;
+			
+			
+			// paste hanging end before splitting
+			hangingEnd = document.createDocumentFragment();
+			while((t = Polymer.dom(div).lastChild) && !utils.isNonCustomContainer(t))
+				hangingEnd.appendChild(t);
+
+			if(hangingEnd.childNodes.length)
+				finalPos = pos = paste.pasteHtmlAtPos(hangingStart, { container : right.firstChild, offset : 0 });
+
+			main =  document.createDocumentFragment();
+			while((t = Polymer.dom(div).firstChild))
+				main.appendChild(t);
+			
+			// paste the rest before last
+			pos = paste.pasteHtmlAtPos(main, right ? 
+												{ container : right, offset : 0 } : 
+												{ container : utils.parentNode(left), offset : utils.getChildPositionInParent(left) + 1 })
+
+			if(!finalPos)
+				finalPos = pos;
+			
+			return finalPos;
+		},
+		
 		pasteHtmlWithParagraphs : function (html, opts) // html is either a string or an element that will be inserted as is
 		{
 			var div, paragraph, r, sp, caretAt = {}, firstIsEmptyParagraph,
@@ -334,8 +416,8 @@ window.ir.textarea.paste = (function() {
 		pasteHtmlAtPos : function(html, pos, top) {
 			var c = pos.container, 
 				o = pos.offset, 
-				parent, last, lastPos,
-				d = document.createElement('div'), index, len,
+				parent, first, last, lastPos,
+				d = document.createElement('div'), index, len, t,
 				state = { html : {}, pos : {} }; // see states below
 			
 			if(typeof html == 'string')
@@ -396,9 +478,9 @@ window.ir.textarea.paste = (function() {
 			// first determine the state according to the table
 			
 			// identify html states 1-4
-			state.html = 				1 && d.firstChild.nodeType == 3 && d.lastChild.nodeType == 3;
-			state.html = state.html || 	2 && d.firstChild.nodeType == 3 && d.lastChild.nodeType == 1;
-			state.html = state.html || 	3 && d.firstChild.nodeType == 1 && d.lastChild.nodeType == 3;
+			state.html = 				1 && d.firstChild.nodeType == 3 && d.lastChild.nodeType == 3 && 1;
+			state.html = state.html || 	2 && d.firstChild.nodeType == 3 && d.lastChild.nodeType == 1 && 2;
+			state.html = state.html || 	3 && d.firstChild.nodeType == 1 && d.lastChild.nodeType == 3 && 3;
 			state.html = state.html || 	4;
 
 			// identify pos states e-f
@@ -447,10 +529,13 @@ window.ir.textarea.paste = (function() {
 				pos.container.textContent = pos.container.textContent.slice(pos.offset, pos.container.textContent.length);
 			}
 			
+			first = last = d.firstChild;
 			// append
 			if(state.pos.lastChildText)
 				while(d.firstChild)
+				{
 					Polymer.dom(parent).appendChild(last = d.firstChild);
+				}
 			else
 			if(state.pos.lastChildBlock)
 				while(d.firstChild)
@@ -461,12 +546,28 @@ window.ir.textarea.paste = (function() {
 					Polymer.dom(parent).insertBefore(last = d.firstChild, pos.container);
 
 			Polymer.dom.flush();
+				
+			len = 0;
+			if(first && first.nodeType == 3 && Polymer.dom(first).previousSibling && Polymer.dom(first).previousSibling.nodeType == 3)
+			{
+				len = Polymer.dom(first).previousSibling.textContent.length;
+				utils.mergeNodes(t = Polymer.dom(first).previousSibling, first);
+				if(first == last)
+					last = t;
+			}			
+			if(last && last.nodeType == 3 && Polymer.dom(last).nextSibling && Polymer.dom(last).nextSibling.nodeType == 3)
+			{
+				len = last.textContent.length;
+				last = utils.mergeNodes(last, Polymer.dom(last).nextSibling).container;
+			}
+
+			Polymer.dom.flush();
 
 			// infere new position
 			if(state.html == 1 || state.html == 3)
 			{
 				index = utils.getChildPositionInParent(last);
-				len = last.textContent.length;
+				//len = last.textContent.length;
 				
 				parent.normalize();
 				

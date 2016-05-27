@@ -474,7 +474,7 @@ window.ir.textarea.utils = (function() {
 	utils.atText = function(pos, where){
 		var r;
 		
-		if(!pos.container)
+		if(!pos || !pos.container)
 			return false;
 		
 		if(pos.container.nodeType != 3)
@@ -767,7 +767,7 @@ window.ir.textarea.utils = (function() {
 			p.__painted = true;
 		
 		p = sc;
-		while(!p.__painted)
+		while(p && !p.__painted)
 			p = utils.parentNode(p);
 		
 		res = p;
@@ -957,6 +957,13 @@ window.ir.textarea.utils = (function() {
 				path.push(p)
 	}
 
+	utils.hasContainers = function(node) {
+		return utils.visitNodes(node, function(n, meta, prev) { 
+			return prev || ir.textarea.utils.isNonCustomContainer(n) 
+		})
+	}
+	
+	// visitor takes: n, meta, prevRes
 	utils.visitNodes = function(root, visitor, opts, meta, prevRes) {
 		var n = root, cn, r, prevRes;
 
@@ -973,14 +980,14 @@ window.ir.textarea.utils = (function() {
 
 		opts.noRoot = false;
 
+		//r = prevRes;
 		Array.prototype.forEach.call(cn, function(el, i) {
 			meta.numericPath.push(i);
-			r = utils.visitNodes(el, visitor, opts, meta, prevRes)
+			r = utils.visitNodes(el, visitor, opts, meta, r)
 			meta.numericPath.pop(i);
-			prevRes = r;
 		});
 		
-		return r;
+		return prevRes || r;
 	}
 
 	// prepare editor area replacing double spaces with ` &nbsp;`-s

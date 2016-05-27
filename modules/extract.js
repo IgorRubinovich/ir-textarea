@@ -14,7 +14,7 @@ window.ir.textarea.extract =
 		offset - in the splitted node,
 		limit - the root of the split.
 	*/
-	extract.splitNode = function(node, offset, limit) {
+	extract.splitNode = function(node, offset, limit, top) {
 		var parent = Polymer.dom(limit).parentNode,
 			parentOffset = utils.getChildPositionInParent(limit),
 			doc = node.ownerDocument,
@@ -28,7 +28,7 @@ window.ir.textarea.extract =
 		left = extract.extractContents(
 			{ container : parent, offset : parentOffset }, 
 			{ container : node, offset : offset}, 
-			{ delete : true, splitRoot : limit }
+			{ delete : true, splitRoot : limit, top : top }
 		);
 		Polymer.dom(parent).insertBefore(left, limit);
 
@@ -347,7 +347,7 @@ window.ir.textarea.extract =
 		if(del)
 			Polymer.dom.flush();
 
-		if(utils.isNonCustomContainer(startContainerBlock) && utils.isNonCustomContainer(endContainerBlock)
+		if(del && utils.isNonCustomContainer(startContainerBlock) && utils.isNonCustomContainer(endContainerBlock)
 			&& Polymer.dom(startContainerBlock).nextSibling == endContainerBlock)
 			utils.mergeNodes(startContainerBlock, endContainerBlock);
 
@@ -367,28 +367,20 @@ window.ir.textarea.extract =
 					utils.replaceWithOwnChildren(extractRes.lastChild);
 
 				// delete/strip complementary container after selection
-				if(del)
-					if(!hasContentAfter)
+				if(del && !hasContentAfter && endContainerBlock != top)
 						utils.removeFromParent(endContainerBlock);
-					else
-					if(utils.isNonCustomContainer(endContainerBlock))
-						utils.replaceWithOwnChildren(endContainerBlock);
 			}
 			
 			
 			if(startContainerBlock)
 			{
 				// strip first container of extract
-				if(del && !hasContentBefore)
-					utils.removeFromParent(startContainerBlock);
+				if(hasContentBefore && utils.isNonCustomContainer(extractRes.firstChild))
+					utils.replaceWithOwnChildren(extractRes.firstChild);
 
 				// delete/strip complementary container before selection
-				if(del)
-					if(!hasContentBefore)
-						utils.removeFromParent(startContainerBlock);
-					else
-					if(utils.isNonCustomContainer(endContainerBlock))
-						utils.replaceWithOwnChildren(endContainerBlock);
+				if(del && !hasContentBefore && startContainerBlock != top)
+					utils.removeFromParent(startContainerBlock);
 			}
 		}
 		
