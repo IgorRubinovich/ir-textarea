@@ -211,6 +211,13 @@ window.ir.textarea.utils = (function() {
 		return !el.is && utils.canHaveChildren(el) && (!utils.isInlineElement(el) || utils.isParagraph(el));
 	}
 	
+	utils.getLastAncestorBeforeTop = function(el, top) {
+		while(el && (n = utils.parentNode(el)) != top)
+			el = n;
+		
+		return el;
+	}
+	
 	utils.getNonCustomContainer = function(child, top, excludeTop) {
 		var c = child, ncc;
 		
@@ -697,6 +704,9 @@ window.ir.textarea.utils = (function() {
 			return { container : node, offset : node.textContent.length }
 	};
 	
+	utils.samePos = function(p1, p2) {
+		return p1.container == p2.container && p1.offset == p2.offset;
+	}
 	utils.clonePos = function(pos) {
 		return { container : pos.container, offset : pos.offset };
 	}
@@ -752,7 +762,7 @@ window.ir.textarea.utils = (function() {
 		if(dir == "backward")
 			return utils.rangeHasContent({container : cont, position : 0 }, pos); 
 		else
-			return utils.rangeHasContent(pos, {container : utils.nextNodeNonDescendant(cont), position : 0 }); 
+			return utils.rangeHasContent(pos, {container : utils.nextNodeNonDescendant(cont, top), position : 0 }); 
 	}
 	
 		

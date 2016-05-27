@@ -117,12 +117,19 @@ window.ir.textarea.paste = (function() {
 			
 			posCont = utils.getNonCustomContainer(pos.container, opts.top);
 			
-			hasContentBefore = utils.posToContainerEdgeHasContent(pos, "backward");
-			hasContentAfter = utils.posToContainerEdgeHasContent(pos, "forward");
+			hasContentBefore = utils.posToContainerEdgeHasContent(pos, "backward", top);
+			hasContentAfter = utils.posToContainerEdgeHasContent(pos, "forward", top);
 			
+			// if div has no containers paste as is
 			if(!utils.hasContainers(div) || !posCont)
 				return paste.pasteHtmlAtPos(html, pos);
 			
+			// if posCont is top, split as high as possible under top and paste as is
+			if(opts.top == posCont)
+			{
+				right = extract.splitNode(pos.container, pos.offset, utils.getLastAncestorBeforeTop(pos.container, opts.top), opts.top)
+				return paste.pasteHtmlAtPos(html, { container : right, offset : 0 });
+			}
 			// *** we are pasting into nonCustomContainer ***
 			
 			// paste hanging start before splitting
@@ -137,14 +144,13 @@ window.ir.textarea.paste = (function() {
 			right = extract.splitNode(pos.container, pos.offset, posCont, opts.top)
 			left = hasContentBefore && Polymer.dom(right).previousSibling;
 			
-			
 			// paste hanging end before splitting
 			hangingEnd = document.createDocumentFragment();
 			while((t = Polymer.dom(div).lastChild) && !utils.isNonCustomContainer(t))
 				hangingEnd.appendChild(t);
 
 			if(hangingEnd.childNodes.length)
-				finalPos = pos = paste.pasteHtmlAtPos(hangingStart, { container : right.firstChild, offset : 0 });
+				finalPos = pos = paste.pasteHtmlAtPos(hangingEnd, { container : right.firstChild, offset : 0 });
 
 			main =  document.createDocumentFragment();
 			while((t = Polymer.dom(div).firstChild))
@@ -422,6 +428,7 @@ window.ir.textarea.paste = (function() {
 			
 			if(typeof html == 'string')
 				d.innerHTML = html;
+			else
 			if(html instanceof DocumentFragment)
 				d = html;
 			else

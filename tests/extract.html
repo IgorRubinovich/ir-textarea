@@ -67,6 +67,63 @@ This code may only be used under the MIT license found at http://opensource.org/
 		log(extractres.nodeType == 3 ? extractres.textContent : Polymer.dom(extractres).innerHTML)
 	}
 	
+	function testLoop(html) {
+		// run over all symmetrically unique pairs of startPosition, endPosition for all text nodes in editor
+		// then cut and paste for each selection (tens of thousands of points!)
+		// the test is successful if the document remains intact
+		
+		var positions, positionsPairs;
+
+		positions = 
+		utils
+		.visitNodes(editor, function(n, meta, prevRes) {
+			if(n.nodeType == 3 && utils.isInLightDom(n, editor))
+				prevRes.push(n);
+				
+			return prevRes;
+
+		}, {}, {}, [])
+		.reduce(function(prev, curr) {
+			var i, pos;
+			for(i = 0; i < curr.length; i++)
+			{
+				pos = utils.posToCoorinatesPos({ container : curr, offset : i}, editor);
+				pos.originalContainer = curr;
+				prev.push(pos);
+			}				
+			return prev;
+		}, []);
+		
+		positionsPairs = 
+		positions
+		.reduce(function(coll, left, i) {
+			positions
+			.slice(i + 1, positions.length)
+			.reduce(function(coll, right) {
+				coll.push({ startPosition : left, endPosition : right});
+				return coll;
+			}, coll);
+			return coll;
+		}, []);
+		
+		// do it!
+		positionsPairs.forEach(function(pair, i) {
+			var s = utils.coordinatesPosToPos(pair.startPosition), 
+				e = utils.coordinatesPosToPos(pair.endPosition);
+		
+			var extractRes = extract.extractContents(s, e, { top : editor, delete : true, splitRoot : editor } )
+		
+			paste.pasteHtmlAtPosWithParagraphs(extractRes, s, { top : editor });
+			
+			//consolelog(i)
+			if(!(i % Math.floor(positionsPairs.length/100)))
+				log(i + "% complete")
+		})
+		
+		
+		console.log(positionsPairs)
+	}
+	
 	function testPaste(html) {
 		var r = utils.getSelectionRange();
 		
@@ -88,9 +145,10 @@ This code may only be used under the MIT license found at http://opensource.org/
 	<button onclick="testExtract(false)">copy</button>
 	<button onclick="testExtractAndPaste(false)">cut + paste</button>
 	<br><br>
-	<button onclick="testPaste('hanging<span class=\'paragraph\'>hello</span>')">paste (hanging start)</button>
-	<button onclick="testPaste('<span class=\'paragraph\'>hello</span>hanging')">paste (no hanging)</button>
-	<button onclick="testPaste('<span class=\'paragraph>no hanging</span><span class=\'paragraph>just paragraphs</span>')">paste (hanging end)</button>
+	<button onclick="testPaste('hanging<span class=\'paragraph\'>- hello paste -</span>')">paste (hanging start)</button>
+	<button onclick="testPaste('<span class=\'paragraph\'>- paste - no hanging</span><span class=\'paragraph\'>just paragraphs -</span>')">paste (no hanging)</button>
+	<button onclick="testPaste('<span class=\'paragraph\'>- hello paste -</span>hanging')">paste (hanging end)</button>
+	<button onclick="testLoop()">cut-paste loop full test</button>
 	<textarea id="log"></textarea>
 	<div 
 		id="editor" 

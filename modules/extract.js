@@ -46,8 +46,8 @@ window.ir.textarea.extract =
 			}
 		})
 
-		left.normalize();
-		limit.normalize();
+		//left.normalize();
+		//limit.normalize();
 
 		return limit;
 	}
@@ -57,7 +57,7 @@ window.ir.textarea.extract =
 	extract.extractBoundaries = function(startPos, endPos, top) {
 		var sc, ec, so, eo, i, commonAncestor, extract, starts = [], ends = [], 
 			sfrag, efrag, starget, etarget, first, last, sAtText, eAtText;
-		
+			
 		sc = startPos.container;
 		ec = endPos.container;
 		so = startPos.offset;
@@ -206,6 +206,9 @@ window.ir.textarea.extract =
 			startPos = _startPos, endPos = _endPos, clone, top,
 			startContainerBlock, endContainerBlock, hasContent, hasContentBefore, hasContentAfter, shouldMerge;
 
+		if(utils.samePos(startPos, endPos))
+			return '';
+
 		opts = opts || {};
 		del = opts.delete;
 		top = opts.top || top;
@@ -235,83 +238,92 @@ window.ir.textarea.extract =
 		// merge the leftovers unless it crosses a WHOLE container
 		shouldMerge = (Polymer.dom(startContainerBlock).nextSibling == endContainerBlock && hasContentBefore && hasContentAfter);
 		
-		// we're left with the deepest common ancestor
-		while(starts.length || ends.length)
+		if(commonAncestor.nodeType == 3)
 		{
-			sc = starts.shift();
-			ec = ends.shift();
+			if(del)
+				commonAncestor.textContent = last.remainder
 			
-			sfrag = document.createDocumentFragment();
-			efrag = document.createDocumentFragment();
+			return last.copy;
+		}
 
-			p = sc;
-			
-			// sc to end/ec
-			while(p && p != ec)
+		if(commonAncestor.nodeType == 1)
+			// we're left with the deepest common ancestor
+			while(starts.length || ends.length)
 			{
-				next = Polymer.dom(p).nextSibling;
-				if(!first || p != first.original)
+				sc = starts.shift();
+				ec = ends.shift();
+				
+				sfrag = document.createDocumentFragment();
+				efrag = document.createDocumentFragment();
+
+				p = sc;
+				
+				// sc to end/ec
+				while(p && p != ec)
 				{
-					n = Polymer.dom(p).cloneNode(!first || p != sc);
-					sfrag.appendChild(n);
-					
-					if(del && (p != sc || !hasContentBefore))
+					next = Polymer.dom(p).nextSibling;
+					if(!first || p != first.original)
 					{
-						Polymer.dom(Polymer.dom(p).parentNode).removeChild(p); // must remove explicitly or Polymer won't update
-						Polymer.dom.flush();
-					}
-				}
-				else
-				{
-					sfrag.appendChild(first.copy);
-					if(del)
-					{
-						n = Polymer.dom(Polymer.dom(first.original).parentNode);
-						if(first.remainder)
-							first.original.textContent = first.remainder;
-						else
+						n = Polymer.dom(p).cloneNode(!first || p != sc);
+						sfrag.appendChild(n);
+						
+						if(del && (p != sc || !hasContentBefore))
 						{
-							Polymer.dom(Polymer.dom(first.original).parentNode).removeChild(first.original)
+							Polymer.dom(Polymer.dom(p).parentNode).removeChild(p); // must remove explicitly or Polymer won't update
 							Polymer.dom.flush();
 						}
 					}
+					else
+					{
+						sfrag.appendChild(first.copy);
+						if(del)
+						{
+							n = Polymer.dom(Polymer.dom(first.original).parentNode);
+							if(first.remainder)
+								first.original.textContent = first.remainder;
+							else
+							{
+								Polymer.dom(Polymer.dom(first.original).parentNode).removeChild(first.original)
+								Polymer.dom.flush();
+							}
+						}
+					}
+					p = next;
 				}
-				p = next;
-			}
-		
-			// start to ec
-			p = p == ec ? p : Polymer.dom(Polymer.dom(ec).parentNode).firstChild;
-			while(p && p != ec)
-			{
-				efrag.appendChild(Polymer.dom(p).cloneNode(p != sc));
-				n = p;
-				p = Polymer.dom(p).nextSibling;
-				if(del)
+			
+				// start to ec
+				p = p == ec ? p : Polymer.dom(Polymer.dom(ec).parentNode).firstChild;
+				while(p && p != ec)
 				{
-					Polymer.dom(Polymer.dom(n).parentNode).removeChild(n);
-					Polymer.dom.flush();
+					efrag.appendChild(Polymer.dom(p).cloneNode(p != sc));
+					n = p;
+					p = Polymer.dom(p).nextSibling;
+					if(del)
+					{
+						Polymer.dom(Polymer.dom(n).parentNode).removeChild(n);
+						Polymer.dom.flush();
+					}
 				}
-			}
-			
-			if(p && last && (p != last.original))
-			{
-				efrag.appendChild(Polymer.dom(p).cloneNode(false));
-				p = Polymer.dom(p).nextSibling;				
-			}
-			else
-			if(p && p != ec && !last && del)
-				Polymer.dom(Polymer.dom(p).parentNode).removeChild(p);
-			
-			if(sfrag.childNodes.length)
-				Polymer.dom(starget).appendChild(sfrag);
-			if(efrag.childNodes.length)
-				Polymer.dom(etarget).appendChild(efrag);
+				
+				if(p && last && (p != last.original))
+				{
+					efrag.appendChild(Polymer.dom(p).cloneNode(false));
+					p = Polymer.dom(p).nextSibling;				
+				}
+				else
+				if(p && p != ec && !last && del)
+					Polymer.dom(Polymer.dom(p).parentNode).removeChild(p);
+				
+				if(sfrag.childNodes.length)
+					Polymer.dom(starget).appendChild(sfrag);
+				if(efrag.childNodes.length)
+					Polymer.dom(etarget).appendChild(efrag);
 
-			if(sc) // move down only if needed otherwise freeze s/e-target
-				starget = Polymer.dom(starget).firstChild;
-			if(ends.length)
-				etarget = Polymer.dom(etarget).lastChild;
-		}
+				if(sc) // move down only if needed otherwise freeze s/e-target
+					starget = Polymer.dom(starget).firstChild;
+				if(ends.length)
+					etarget = Polymer.dom(etarget).lastChild;
+			}
 
 		if(last)
 		{
