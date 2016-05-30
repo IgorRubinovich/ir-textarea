@@ -144,7 +144,6 @@
 				this.editor.$.editor.addEventListener('mousedown', this.mouseDownHandler.bind(this));
 				//this.editor.addEventListener('mousemove', this.mouseUpHandler.bind(this));
 				this.editor.$.editor.addEventListener('mouseup', this.mouseUpHandler.bind(this));
-
 			
 				Polymer.dom(this.editor.$.editor).observeNodes(function(info) {
 					//this.processNewNodes(info.addedNodes);
@@ -689,7 +688,7 @@
 					return this.setAt(el, el.textContent.length);
 			
 				this.setAt(el, 0);
-				if(dir != "backward")
+				if(dir != "backward" && el != this.editor)
 					this.go("forward");
 			},
 			
