@@ -1,27 +1,154 @@
-<!doctype html>
 <!--
 @license
-Copyright (c) 2015 Igor Rubinovich <igor.rubinovich@gmail.com>. All rights reserved.
-This code may only be used under the MIT license found at http://opensource.org/licenses/MIT
+Copyright (c) 2015 The Polymer Project Authors. All rights reserved.
+This code may only be used under the BSD style license found at http://polymer.github.io/LICENSE.txt
+The complete set of authors may be found at http://polymer.github.io/AUTHORS.txt
+The complete set of contributors may be found at http://polymer.github.io/CONTRIBUTORS.txt
+Code distributed by Google as part of the polymer project is also
+subject to an additional IP rights grant found at http://polymer.github.io/PATENTS.txt
 -->
-<html>
+
+<!doctype html>
+<html lang="">
+
 <head>
+  <meta charset="utf-8">
+  <meta name="description" content="">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="generator" content="Polymer Starter Kit" />
+  <title>Polymer Starter Kit</title>
+  <!-- Place favicon.ico and apple-touch-icon.png in the root directory -->
 
-  <title>iron-image</title>
-  <script src="../bower_components/webcomponentsjs/webcomponents-lite.js"></script>
-  <link rel="import" href="../bower_components/polymer/polymer.html">
-  <link rel="import" href="../ir-textarea.html">
+  <!-- Chrome for Android theme color -->
+  <meta name="theme-color" content="#303F9F">
 
+  <!-- Web Application Manifest -->
+  <link rel="manifest" href="manifest.json">
+
+  <!-- Tile color for Win8 -->
+  <meta name="msapplication-TileColor" content="#3372DF">
+
+  <!-- Add to homescreen for Chrome on Android -->
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="application-name" content="Polymer Starter Kit">
+  <link rel="icon" sizes="192x192" href="images/touch/chrome-touch-icon-192x192.png">
+
+  <!-- Add to homescreen for Safari on iOS -->
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black">
+  <meta name="apple-mobile-web-app-title" content="Polymer Starter Kit">
+  <link rel="apple-touch-icon" href="images/touch/apple-touch-icon.png">
+
+  <!-- Tile icon for Win8 (144x144) -->
+  <meta name="msapplication-TileImage" content="images/touch/ms-touch-icon-144x144-precomposed.png">
+
+  <!-- build:css styles/main.css -->
+  <link rel="stylesheet" href="styles/main.css">
+  <!-- endbuild-->
+
+  <!-- build:js bower_components/webcomponentsjs/webcomponents-lite.min.js -->
+  <script src="bower_components/webcomponentsjs/webcomponents-lite.js"></script>
+  <!-- endbuild -->
+
+  <!-- will be replaced with elements/elements.vulcanized.html -->
+  <link rel="import" href="bower_components/iron-flex-layout/classes/iron-flex-layout.html">
+  <link rel="import" href="bower_components/paper-material/paper-material.html">
+  <link rel="import" href="bower_components/paper-styles/paper-styles-classes.html">
+
+  <link rel="import" href="bower_components/ir-gallery/ir-gallery.html">
+
+  <link rel="import" href="bower_components/ir-textarea/ir-textarea.html">
+  
+  <!-- endreplace-->
+  
+  <style>
+	span.paragraph{ border : 1px solid blue; display : block; margin : 5px 0; }
+	.captionWrapper{ display : inline-block }
+	.caption { display : block; text-align : center; background-color : pink }
+	ir-gallery  { margin-left : 2px; margin-right : 2px; }
+	.ir-textarea-action { border : 2px dashed green; }
+  </style>
 </head>
-<body>
-	<template is="dom-bind">
-		<section>
-			<ir-textarea>
-				some test content for ir-textarea
-			</ir-textarea>
-			
-		</section>
 
-	</template>
+<body unresolved class="fullbleed layout vertical">
+	<div id="fb-root"></div>
+	<script>
+		(function(d, s, id) {
+			var js, fjs = d.getElementsByTagName(s)[0];
+			if (d.getElementById(id)) return;
+			js = d.createElement(s); js.id = id;
+			js.src = "//connect.facebook.net/en_US/sdk.js#xfbml=1&version=v2.5&appId=532523020097542";
+			fjs.parentNode.insertBefore(js, fjs);
+		}(document, 'script', 'facebook-jssdk'));
+	</script>
+
+  <span id="browser-sync-binding"></span>
+  <template is="dom-bind" id="app">
+
+              <paper-material elevation="1" style="height : auto">
+				<ir-textarea>Some text<br><br><br><br><br><br><br><br><br>without paragraph ending with br<br><ir-gallery contenteditable="false" theme="blackfriday" style="display: inline-block;"><div class="caption-wrapper"><img src="https://storage17.tunefiles.com/files/thumbs/2014/07/26/1406397346ad30f-original-1.jpg" style="display: inline-block; position: relative; width: 218px; height: 166.313px; transform: translate(0px, 0px);" width="218" height="166.3125"><div class="caption" contenteditable="true">hi caption</div></div></ir-gallery><ir-gallery contenteditable="false"><img src="http://i00.i.aliimg.com/wsphoto/v0/1855197662_1/2015-%D7%A0%D7%99%D7%95-%D7%97%D7%99%D7%95%D7%AA-%D7%9E%D7%97%D7%9E%D7%93-%D7%9B%D7%9C%D7%91-%D7%A6%D7%A2%D7%A6%D7%95%D7%A2-%D7%9B%D7%93%D7%95%D7%A8-jin-mao-%D7%91%D7%99%D7%9E%D7%91%D7%95-%D7%93%D7%95%D7%91%D7%95%D7%9F-%D7%A1%D7%9E%D7%95%D7%99%D7%93-%D7%9E%D7%95%D7%A6%D7%A8%D7%99%D7%9D-%D7%9C%D7%9B%D7%9C%D7%91%D7%99%D7%9D-%D7%92%D7%95%D7%A8-%D7%A7%D7%98%D7%9F.jpg" style="display: inline-block; position: relative; width: 247px; height: 186.859px; transform: translate(0px, 0px);" width="247" height="186.859375"></ir-gallery><span class="paragraph">a short paragraph a short paragraph a short paragraph a short paragraph a short paragraph a short paragraph a short paragraph a short paragraph a short paragraph a short paragraph a short paragraph a short paragraph a short paragraph a short paragraph a short paragraph a short paragraph </span></ir-textarea>
+				<!--
+					<blockquote class="twitter-tweet" data-lang="ru"><p lang="ru" dir="ltr">А. Леонов, А. Соколов "И на Марсе будут яблони цвести" <a href="https://t.co/vpwF8CeTjq">pic.twitter.com/vpwF8CeTjq</a></p>— Б. М (@m_borisp) <a href="https://twitter.com/m_borisp/status/712472706516652034">23 марта 2016 г.</a></blockquote> <script async="" src="http://platform.twitter.com/widgets.js" charset="utf-8"></script>
+					<embedded-media width="220" height="521" style="width: 220px; height: 521px; position: relative; transform: translate(0px, 0px);" id="">
+						<embedded-media>
+							<div id="fb-root"></div><script>(function(d, s, id) {  var js, fjs = d.getElementsByTagName(s)[0];  if (d.getElementById(id)) return;  js = d.createElement(s); js.id = id;  js.src = "//connect.facebook.net/en_US/sdk.js#xfbml=1&version=v2.3";  fjs.parentNode.insertBefore(js, fjs);}(document, 'script', 'facebook-jssdk'));</script><div class="fb-post" data-href="https://www.facebook.com/vinegret.cz/posts/968852613193167:0" data-width="500"><div class="fb-xfbml-parse-ignore"><blockquote cite="https://www.facebook.com/vinegret.cz/posts/968852613193167:0"><p>&#x41f;&#x440;&#x430;&#x436;&#x441;&#x43a;&#x430;&#x44f; &#x43a;&#x43e;&#x43d;&#x434;&#x438;&#x442;&#x435;&#x440;&#x441;&#x43a;&#x430;&#x44f; Erhartova Cukr&#xe1;rna &quot;&#x43e;&#x442;&#x43c;&#x435;&#x442;&#x438;&#x43b;&#x430;&quot; &#x432;&#x438;&#x437;&#x438;&#x442; &#x43f;&#x440;&#x435;&#x434;&#x441;&#x435;&#x434;&#x430;&#x442;&#x435;&#x43b;&#x44f; &#x41a;&#x438;&#x442;&#x430;&#x44f;, &#x432;&#x44b;&#x43f;&#x443;&#x441;&#x442;&#x438;&#x432; &#x442;&#x43e;&#x440;&#x442; &#x441; &#x444;&#x43b;&#x430;&#x433;&#x43e;&#x43c; &#x422;&#x438;&#x431;&#x435;&#x442;&#x430;.</p>Posted by <a href="https://www.facebook.com/vinegret.cz/">Vinegret.cz</a> on&nbsp;<a href="https://www.facebook.com/vinegret.cz/posts/968852613193167:0">Tuesday, March 29, 2016</a></blockquote></div></div>
+							<blockquote class="twitter-tweet" data-lang="ru"><p lang="ru" dir="ltr">А. Леонов, А. Соколов "И на Марсе будут яблони цвести" <a href="https://t.co/vpwF8CeTjq">pic.twitter.com/vpwF8CeTjq</a></p>— Б. М (@m_borisp) <a href="https://twitter.com/m_borisp/status/712472706516652034">23 марта 2016 г.</a></blockquote> <script async="" src="http://platform.twitter.com/widgets.js" charset="utf-8"></script>
+					</embedded-media>
+					<embedded-media>
+						<iframe width=630 height=403 src="http://video.idnes.cz/embed.aspx?idvideo=V151221_094157_hobby_aki" frameborder=0 allowfullscreen></iframe>
+					</embedded-media>
+					<ir-gallery contenteditable="false" theme="blackfriday" style="display: inline-block;"><div class="captionWrapper"><img src="https://storage17.tunefiles.com/files/thumbs/2014/07/26/1406397346ad30f-original-1.jpg" style="display: inline-block; position: relative; width: 218px; height: 166.313px; transform: translate(0px, 0px);" width="218" height="166.3125"><div class="caption" contenteditable="true">hi caption</div></div></ir-gallery><ir-gallery contenteditable="false"><img src="http://i00.i.aliimg.com/wsphoto/v0/1855197662_1/2015-%D7%A0%D7%99%D7%95-%D7%97%D7%99%D7%95%D7%AA-%D7%9E%D7%97%D7%9E%D7%93-%D7%9B%D7%9C%D7%91-%D7%A6%D7%A2%D7%A6%D7%95%D7%A2-%D7%9B%D7%93%D7%95%D7%A8-jin-mao-%D7%91%D7%99%D7%9E%D7%91%D7%95-%D7%93%D7%95%D7%91%D7%95%D7%9F-%D7%A1%D7%9E%D7%95%D7%99%D7%93-%D7%9E%D7%95%D7%A6%D7%A8%D7%99%D7%9D-%D7%9C%D7%9B%D7%9C%D7%91%D7%99%D7%9D-%D7%92%D7%95%D7%A8-%D7%A7%D7%98%D7%9F.jpg" style="display: inline-block; position: relative; width: 247px; height: 186.859px; transform: translate(0px, 0px);" width="247" height="186.859375"></ir-gallery>
+				-->
+				<!--embedded-media>
+						<blockquote class="twitter-tweet" data-lang="ru"><p lang="ru" dir="ltr">А. Леонов, А. Соколов "И на Марсе будут яблони цвести" <a href="https://t.co/vpwF8CeTjq">pic.twitter.com/vpwF8CeTjq</a></p>— Б. М (@m_borisp) <a href="https://twitter.com/m_borisp/status/712472706516652034">23 марта 2016 г.</a></blockquote> <script async="" src="http://platform.twitter.com/widgets.js" charset="utf-8"></script>
+				</embedded-media-->
+              </paper-material>
+              <paper-material hidden elevation="1">
+                <ir-recursive max-depth="1">
+					<template class='item'>  
+						<style>
+							.wrapper { display: inline-block; box-shadow : 0px 0px 10px lightblue; margin-top : 10px; }
+							[children-toolbar] { background : lightblue; padding : 3px 0 3px 5px }
+							.content { display : block; padding : 10px 0 10px 10px; } 
+							.lm { padding-left : 10px; margin-bottom : 10px; }
+							paper-icon-button { width : 20px; font-size : 10px; } 
+							.xxxcontent { padding : 10px }
+						</style>
+						<div class="wrapper">
+							<div class="xxxcontent">
+								<input type="checkBox" value="[[ data.content ]]">
+								<b>{{ data.title }}</b>
+								<input value="[[ data.content ]]">
+								<div children-toolbar>
+									<paper-icon-button icon="expand-more" expand></paper-icon-button>
+									<paper-icon-button icon="expand-less" collapse></paper-icon-button>
+								</div>
+							</div>
+							<div class="lm children"></div>
+						</div>
+
+					</template>
+					
+				
+				</ir-recursive>
+              </paper-material>
+
+    <paper-toast id="caching-complete"
+                 duration="6000"
+                 text="Caching complete! This app will work offline.">
+    </paper-toast>
+
+    <platinum-sw-register auto-register
+                          clients-claim
+                          skip-waiting
+                          on-service-worker-installed="displayInstalledToast">
+	<platinum-sw-cache default-cache-strategy="networkFirst"
+                         precache-file="precache.json">
+      </platinum-sw-cache>
+    </platinum-sw-register>
+
+  </template>
+
 </body>
+
 </html>
