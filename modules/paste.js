@@ -141,13 +141,16 @@ window.ir.textarea.paste = (function() {
 				pos = paste.pasteHtmlAtPos(hangingStart, pos);
 			
 			// split target
-			right = extract.splitNode(pos.container, pos.offset, posCont, opts.top)
+			right = hasContentBefore ? extract.splitNode(pos.container, pos.offset, posCont, opts.top) : Polymer.dom(pos.container).nextSibling;
 			left = hasContentBefore && Polymer.dom(right).previousSibling;
 			
 			// paste hanging end before splitting
 			hangingEnd = document.createDocumentFragment();
 			while((t = Polymer.dom(div).lastChild) && !utils.isNonCustomContainer(t))
-				hangingEnd.appendChild(t);
+				if(!hangingEnd.childNodes.length)
+					hangingEnd.appendChild(t);
+				else
+					hangingEnd.insertBefore(t, hangingEnd.firstChild);
 
 			if(hangingEnd.childNodes.length)
 				finalPos = pos = paste.pasteHtmlAtPos(hangingEnd, { container : right.firstChild, offset : 0 });
@@ -498,7 +501,7 @@ window.ir.textarea.paste = (function() {
 			
 			state.pos.lastChildBlock = 	pos.container.nodeType == 1 && 
 										utils.canHaveChildren(pos.container) &&
-										pos.container.childNodes.length == pos.offset &&
+										pos.container.childNodes.length  && pos.container.childNodes.length == pos.offset &&
 										(state.pos.code = 'f');
 										
 			state.pos.lastChild = state.pos.code;

@@ -246,6 +246,10 @@ window.ir.textarea.utils = (function() {
 		return newnode;
 	}
 		
+	utils.nodesInSameNonCustomContainer = function(c1, c2) {
+		return getNonCustomContainer(c1) == getNonCustomContainer(c2)
+	}
+	
 	utils.posInSameContainer = function(p1, p2) {
 		var pd1, pd2;
 		
@@ -282,6 +286,24 @@ window.ir.textarea.utils = (function() {
 		return { container : utils.getChildFromPath(coordinatePos.container, top, skipCaret), offset : coordinatePos.offset };
 	}
 
+	// return element path from top, includes top by default
+	utils.getElementPathFromTop = function(child, top, excludeTop) {
+		var path = [];
+		while(child && child != top)
+		{
+			path.unshift(child)
+			child = utils.parentNode(child);
+		}
+		if(child == top && !excludeTop)
+			path.unshift(child);
+		
+		if(child == top)
+			return path;
+		
+		return null;		
+	}
+	
+	// misnamed. returns element's numeric path from top
 	utils.getChildPathFromTop = function(child, top, skipCaret) {
 		var t = [], p = child;
 
@@ -393,23 +415,56 @@ window.ir.textarea.utils = (function() {
 		return range;
 	};
 
-	/*utils.nextNode = function(node, excludeChildren) {
-		if(node.is)
-			node = Polymer.dom(node);
+	
+	utils.prevPos = function(pos, top) {
+		var n, p, ncc;
+		
+		if(!pos)
+			return;
 
-		if(!excludeChildren && node && (Poltemplate elementhildNodes && Polymer.dom(node).childNodes.length)) {
-			return node.firstChild;
-		} else {
-			while (node && node != top && !Polymer.dom(node).nextSibling) {
-				node = Polymer.dom(node).parentNode;
-			}
-			if (!node) {
-				return null;
-			}
-			return Polymer.dom(node).nextSibling;
+		if(utils.atText(pos) != 'start')
+			return { container : pos.container, offset : offset - 1 }
+		
+		if(utils.posToContainerEdgeHasContent(pos, "backward"))
+		{
+			p = utils.prevNode(pos.container, top);
+			return { container : p, offset : p.nodeType == 3 ? p.textContent.length : 0 };
 		}
-	}*/
 
+		// no more content in container
+		ncc = utils.getNonCustomContainer(pos.container, top);
+		
+		// was at first pos in container
+		if(pos.container == Polymer.dom(ncc).firstChild && pos.offset == 0)
+			return { container : utils.prevNode(pos.container, top), offset : p.nodeType == 3 ? p.textContent.length : 0 }
+		
+		// return first pos in container
+		return { container : Polymer.dom(ncc).firstChild, offset : 0 }
+	}
+	
+	utils.nextPos = function(pos, top) {
+		var n, ncc;
+		
+		if(!pos)
+			return;
+
+		if(utils.atText(pos) != 'end')
+			return { container : pos.container, offset : offset + 1 }
+		
+		if(utils.posToContainerEdgeHasContent(pos, "forward"))
+			return { container : utils.nextNode(pos.container, top), offset : 0 };
+		
+		// no more content in container
+		ncc = utils.getNonCustomContainer(pos.container, top);
+		
+		// was at last pos in container
+		if(pos.container == ncc && pos.offset == Polymer.dom(ncc).childNodes.length)
+			return { container : utils.nextNode(pos.container, top), offset : 0 }
+		
+		// return last pos in container
+		return { container : ncc, offset : Polymer.dom(ncc).childNodes.length }
+	}
+	
 	utils.nextNode = function(node, top) {
 		var next, done;
 		
@@ -711,6 +766,14 @@ window.ir.textarea.utils = (function() {
 		return { container : pos.container, offset : pos.offset };
 	}
 	
+	utils.maybeSlidePosDown = function(pos) {
+		if(utils.isNonCustomContainer(pos.container) && Polymer.dom(pos.container).childNodes[pos.offset])
+			return { container : Polymer.dom(pos.container).childNodes[pos.offset], offset : 0 }
+	
+		else 
+			return pos;
+	}
+	
 	// a node has content if it is or contains a text node / a non-container block / a custom element
 	utils.nodeHasContent = function(node) {
 		return visitNodes(node, function(n, meta, prevRes) {
@@ -751,18 +814,33 @@ window.ir.textarea.utils = (function() {
 			return r;
 		
 		r = utils.parentNode(n);
-		while(!Polymer.dom(r).nextSibling && r != top)
+		while(r && !Polymer.dom(r).nextSibling && r != top)
 			r = utils.parentNode(r);
 		
-		return r == top ? top.nextSibling : r;
+		return !r || r == top ? top.nextSibling : r;
 	}
 	
 	utils.posToContainerEdgeHasContent = function(pos, dir, top) {
-		var cont = utils.getNonCustomContainer(pos.container, top);
-		if(dir == "backward")
-			return utils.rangeHasContent({container : cont, position : 0 }, pos); 
+		var cont = utils.getNonCustomContainer(pos.container, top), n, pos, otherpos;
+		
+		// when cont is top, walk in dir until we meet a container
+		if(cont == top)
+		{
+			n = utils.getLastAncestorBeforeTop(pos.container, top) || pos.container;
+			while(n && !utils.isNonCustomContainer(n))
+			{
+				cont = n;
+				n = Polymer.dom(n)[dir == "backward"  ? "previousSibling" : "nextSibling"];
+			}
+			otherpos = dir == "backward" ? { container : cont, offset : 0 } : { container : n, offset : 0 };
+		}
 		else
-			return utils.rangeHasContent(pos, {container : utils.nextNodeNonDescendant(cont, top), position : 0 }); 
+		if(dir == "backward")
+			otherpos = { container : cont, position : 0 };
+		else
+			otherpos = { container : utils.nextNodeNonDescendant(cont, top), position : 0 }; 
+
+		return utils.rangeHasContent(otherpos, pos); 
 	}
 	
 		
@@ -916,34 +994,8 @@ window.ir.textarea.utils = (function() {
 		}
 	})()
 	
-	utils.caretIsAtContainerEnd = function() {
-		var r = getSelectionRange(),
-			maxOffset = (r.startContainer.length || (r.startContainer.childNodes && r.startContainer.childNodes.length))
-			i;
-
-		if(r.startOffset >= maxOffset) return true;
-
-		if(r.startContainer.nodeType == 3)
-			return /^\s*$/.test(r.startContainer.textContent.substr(r.startOffset, maxOffset));
-
-		return false
-	}
-
-	utils.caretIsAtContainerStart = function() {
-		var r = getSelectionRange(),
-			i;
-
-		if(r.startOffset == 0) return true;
-
-		if(r.startContainer.nodeType == 3)
-			return /^\s*$/.test(r.startContainer.textContent.substr(0, r.startOffset));
-
-		return false
-	}
-	
 	utils.identity = function(o) { return o; }
-	
-	
+		
 	utils.getDomPath = function(child, ancestor, top)
 	{
 		var p, res;
@@ -1207,6 +1259,25 @@ window.ir.textarea.utils = (function() {
 		Polymer.dom(Polymer.dom(c).parentNode).removeChild(c);
 		Polymer.dom.flush();
 		return c;
+	}
+	
+	utils.moveChildrenToFragment = function(el)
+	{
+		var f = document.createDocumentFragment();
+		while(Polymer.dom(el).firstChild)
+			f.appendChild(Polymer.dom(el).removeChild(Polymer.dom(el).firstChild));
+		
+		Polymer.dom.flush();
+		return f;
+	}
+
+	utils.copyChildrenToFragment = function(el, del)
+	{
+		var f = document.createDocumentFragment(), i, cn;
+		cn = Polymer.dom(el).childNodes;
+		for(i = 0; i < cn.length; i++)
+			f.appendChild(Polymer.dom(cn[i]).cloneNode(true));
+		return f;
 	}
 	
 	

@@ -24,10 +24,14 @@ This code may only be used under the MIT license found at http://opensource.org/
 
 
   <style>
-	body { background-color : #eaeaea; padding : 25px }
+	body { background-color : #eaeaea; padding : 25px; font-family : sans-serif; padding : 5px; }
+	div { border : 1px solid lightblue; margin-top : 10px; margin-bottom : 10px; padding : 5px; box-shadow : 2px 2px 2px lightgrey; }
 	button { border-radius : 3px; min-width : 60px; height : 30px; font-size : 12px }
 	.caret { display : inline-block; height : 1em; border : #fafafa 1px solid; padding : 4px; background : red; color : white; font-family : Arial; font-size : 10px }
-	span.paragraph { display : block; border : blue 1px solid }
+	span.paragraph { min-height : 5px;display : block; border : blue 1px solid }
+	#aux1, #aux2 { font-size : .8em; font-family : Arial}
+	#log { width : 100%; font-size : .8em; font-family : Arial}
+	button { margin : 5px; }
 	#editor { 
 		box-shadow : 0 0 3px lightblue; margin : 0 0 25px 0; padding : 25px; background-color : white 
 		white-space: pre-wrap;       /* css-3 */
@@ -46,9 +50,13 @@ This code may only be used under the MIT license found at http://opensource.org/
 	var paste = ir.textarea.paste;
 
 	var editor; 
-	
+	var original, aux1, aux2, startAtPair;
+
 	window.addEventListener('DOMContentLoaded', function () {
 		editor = document.getElementById('editor');
+		aux1 = document.getElementById('aux1');
+		aux2 = document.getElementById('aux2');
+		startAtPair = document.getElementById('startAtPair');
 	});
 
 	function log(stuff)
@@ -58,16 +66,26 @@ This code may only be used under the MIT license found at http://opensource.org/
 	
 	function testHasContent(dir) {
 		var r = utils.getSelectionRange();
-		console.log(utils.posToContainerEdgeHasContent({ container : r.startContainer, offset : r.startOffset }, dir, editor))
+		log("posToContainerEdgeHasContent: " + utils.posToContainerEdgeHasContent({ container : r.startContainer, offset : r.startOffset }, dir, editor))
 	}
 
 	function testExtract(del) {
 		var r = utils.getSelectionRange();
 		var extractres = extract.extractContents({ container : r.sc, offset : r.so }, { container : r.ec, offset : r.eo }, { top : editor, delete : del, splitRoot : editor } )
-		log(extractres.nodeType == 3 ? extractres.textContent : Polymer.dom(extractres).innerHTML)
+		log(innerHTML(extractres))
 	}
 	
-	function testLoop(html) {
+	
+
+	function resetLoop() {
+		if(original)
+			editor.innerHTML = original
+			
+		aux1.innerHTML = ""
+		aux2.innerHTML = ""
+	}
+	
+	function testLoop(sync) {
 		// run over all symmetrically unique pairs of startPosition, endPosition for all text nodes in editor
 		// then cut and paste for each selection (tens of thousands of points!)
 		// the test is successful if the document remains intact
@@ -77,15 +95,22 @@ This code may only be used under the MIT license found at http://opensource.org/
 		positions = 
 		utils
 		.visitNodes(editor, function(n, meta, prevRes) {
-			if(n.nodeType == 3 && utils.isInLightDom(n, editor))
+			if((n.nodeType == 3  || !utils.canHaveChildren(n)) && utils.isInLightDom(n, editor))
 				prevRes.push(n);
 				
 			return prevRes;
 
-		}, {}, {}, [])
+		}, { skipRoot : true }, {}, [])
 		.reduce(function(prev, curr) {
 			var i, pos;
-			for(i = 0; i < curr.length; i++)
+			if(curr.nodeType == 1)
+			{
+				pos = utils.posToCoorinatesPos({ container : curr, offset : 0}, editor);
+				pos.originalContainer = curr;
+				prev.push(pos);
+			}
+			else
+			for(i = 0; i < curr.textContent.length; i++)
 			{
 				pos = utils.posToCoorinatesPos({ container : curr, offset : i}, editor);
 				pos.originalContainer = curr;
@@ -106,22 +131,101 @@ This code may only be used under the MIT license found at http://opensource.org/
 			return coll;
 		}, []);
 		
+		_testLoop(positionsPairs, sync);
+	}
+	
+	function _testLoop (positionsPairs, sync) {
 		// do it!
-		positionsPairs.forEach(function(pair, i) {
-			var s = utils.coordinatesPosToPos(pair.startPosition), 
-				e = utils.coordinatesPosToPos(pair.endPosition);
 		
-			var extractRes = extract.extractContents(s, e, { top : editor, delete : true, splitRoot : editor } )
+		var i = startAtPair.value || 0;
 		
-			paste.pasteHtmlAtPosWithParagraphs(extractRes, s, { top : editor });
-			
-			//consolelog(i)
-			if(!(i % Math.floor(positionsPairs.length/100)))
-				log(i + "% complete")
-		})
+		original = Polymer.dom(editor).innerHTML; //innerHTML(editor);
 		
+		var goAsync = function(positionsPairs, i) {
+			requestAnimationFrame(function(positionsPairs, i) { 
+				if(i < positionsPairs.length)
+				{
+					i++;
+					go(positionsPairs, i);
+					goAsync(positionsPairs, i);
+				}
+			}.bind(null, positionsPairs, i));
+		}
+
+		var go = function(positionsPairs, i, sync) {	
+				var err;
+
+				log(i + " of " + positionsPairs.length + "\n" + Math.floor(10000* i/positionsPairs.length)/100 + "% complete")
+				startAtPair.value = i;
+				
+				try {
+					_testLoopPair(positionsPairs[i], i);
+				}
+				catch(e)
+				{
+					err = e;
+				}			
+				if(err)
+				{
+					console.error("failed at pair " + i, positionsPairs[i])
+					console.error(i, positionsPairs[i])
+					console.error("err", err);
+					console.error(err.stack)
+					throw err;
+				}
+				
+				// list of specific exceptionally allowed mismatch pairs - due to impossibility to detect end of hanging section
+				//if([225].indexOf(i) > -1)
+				if(original != Polymer.dom(editor).innerHTML)
+				{
+					editor.innerHTML = original;
+					console.warn('mismatch, reset at pair ', i)
+				}
+				//else
+				//if(original != Polymer.dom(editor).innerHTML)
+				//{
+				//	console.error("documents don't match at ", i, positionsPairs[i])
+				//	throw new Error("documents don't match")
+				//}				
+		};
 		
-		console.log(positionsPairs)
+		function showDiff(a, b) { var i; for(i=0;i<a.length && a[i] == b[i]; i++) ; if(a[i]!=b[i]) console.log(a.slice(i - 10, i + 10, b.slice(i-10, i+10)))}
+	
+		if(sync)
+			while(i < positionsPairs.length)
+				go(positionsPairs, i++, true);
+		else
+			goAsync(positionsPairs, i);
+	}
+	
+	function _testLoopPair(pair, i) {
+		var s = utils.coordinatesPosToPos(pair.startPosition, editor), 
+			e = utils.coordinatesPosToPos(pair.endPosition, editor);
+	
+		var extractRes = extract.extractContents(s, e, { top : editor, delete : true, splitRoot : editor } )
+	
+		s = utils.coordinatesPosToPos(pair.startPosition, editor)
+
+		aux2.innerHTML = aux1.innerHTML
+		aux1.innerHTML = innerHTML(extractRes)
+		
+		paste.pasteHtmlAtPosWithParagraphs(extractRes, s, { top : editor });
+	}
+	
+	
+	function innerHTML(el, noescape) {
+		var r = "";
+		if(el instanceof DocumentFragment)
+			for(var i = 0; i < el.childNodes.length; i++)
+				r += el.childNodes[i].nodeType == 3 ? el.childNodes[i].textContent : utils.recursiveOuterHTML(el.childNodes[i]);
+		else
+			r =  utils.recursiveOuterHTML(el);
+		
+		if(!noescape)
+			r = r.replace(/\</g, '&lt;').replace(/\>/g, '&gt;')
+		
+		return r;
+		
 	}
 	
 	function testPaste(html) {
@@ -139,28 +243,47 @@ This code may only be used under the MIT license found at http://opensource.org/
 
 
 <body>
-	<button onclick="testHasContent('backward')">&lt;hascontent</button>
-	<button onclick="testHasContent('forward')">hascontent&gt;</button>
-	<button onclick="testExtract(true)">cut</button>
-	<button onclick="testExtract(false)">copy</button>
-	<button onclick="testExtractAndPaste(false)">cut + paste</button>
-	<br><br>
-	<button onclick="testPaste('hanging<span class=\'paragraph\'>- hello paste -</span>')">paste (hanging start)</button>
-	<button onclick="testPaste('<span class=\'paragraph\'>- paste - no hanging</span><span class=\'paragraph\'>just paragraphs -</span>')">paste (no hanging)</button>
-	<button onclick="testPaste('<span class=\'paragraph\'>- hello paste -</span>hanging')">paste (hanging end)</button>
-	<button onclick="testLoop()">cut-paste loop full test</button>
-	<textarea id="log"></textarea>
+	<div>
+		Hascontent:
+		<button onclick="testHasContent('backward')">&lt;hascontent</button>
+		<button onclick="testHasContent('forward')">hascontent&gt;</button>
+	</div>
+	<div>
+		Basic:
+		<button onclick="testExtract(true)">cut</button>
+		<button onclick="testExtract(false)">copy</button>
+		<button disabled onclick="testExtractAndPaste(false)">cut + paste</button>
+	</div>
+	<div>
+		Hanging paste:
+		<button onclick="testPaste('hanging<span class=\'paragraph\'>- hello paste -</span>')">paste (hanging start)</button>
+		<button onclick="testPaste('<span class=\'paragraph\'>- paste - no hanging</span><span class=\'paragraph\'>just paragraphs -</span>')">paste (no hanging)</button>
+		<button onclick="testPaste('<span class=\'paragraph\'>- hello paste -</span>hanging')">paste (hanging end)</button>
+	</div>
+	<div>
+		Copy/paste full loop:
+		<button onclick="testLoop(true)">sync</button>
+		<button onclick="testLoop()">async</button>
+		<button onclick="resetLoop()">reset</button>
+		<button onclick="copySingle()">copy pair</button>
+		start at pair: <input id="startAtPair" value="" size=4>
+	</div>
+	<div>
+		log <textarea id="log"></textarea>
+	</div>
+	aux1 <div id="aux1"></div>
+	aux2 <div id="aux2"></div>
 	<div 
 		id="editor" 
 		contenteditable
 	>01 02 03 04 05 06 07 08 09 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30
-a couple empty paragraphs<span class="paragraph"></span><span class="paragraph"></span><span class="paragraph">two consecutive</span><span class="paragraph">hello<br><br><br><br><br><br><br><br><br></span><span class="paragraph">paragraphs with empty paragraph between</span><span class="paragraph">two consecutive</span><span class="paragraph">paragraphs</span>
-	<ir-gallery contenteditable="false"><img src="http://i00.i.aliimg.com/wsphoto/v0/1855197662_1/2015-%D7%A0%D7%99%D7%95-%D7%97%D7%99%D7%95%D7%AA-%D7%9E%D7%97%D7%9E%D7%93-%D7%9B%D7%9C%D7%91-%D7%A6%D7%A2%D7%A6%D7%95%D7%A2-%D7%9B%D7%93%D7%95%D7%A8-jin-mao-%D7%91%D7%99%D7%9E%D7%91%D7%95-%D7%93%D7%95%D7%91%D7%95%D7%9F-%D7%A1%D7%9E%D7%95%D7%99%D7%93-%D7%9E%D7%95%D7%A6%D7%A8%D7%99%D7%9D-%D7%9C%D7%9B%D7%9C%D7%91%D7%99%D7%9D-%D7%92%D7%95%D7%A8-%D7%A7%D7%98%D7%9F.jpg" style="display: inline-block; position: relative; width: 247px; height: 186.859px; transform: translate(0px, 0px);" width="247" height="186.859375"></ir-gallery><span class="paragraph">a paragraph with a CE just before it no space between</span>
+a couple empty paragraphs<span class="paragraph"></span><span class="paragraph"></span><span class="paragraph">1. two consecutive</span><span class="paragraph">2. hello<br><br><br><br><br><br><br><br><br></span><span class="paragraph">3. paragraphs with empty paragraph between</span><span class="paragraph">4. two consecutive</span><span class="paragraph">5. paragraphs</span>
+	<ir-gallery id="1" contenteditable="false"><img src="http://i00.i.aliimg.com/wsphoto/v0/1855197662_1/2015-%D7%A0%D7%99%D7%95-%D7%97%D7%99%D7%95%D7%AA-%D7%9E%D7%97%D7%9E%D7%93-%D7%9B%D7%9C%D7%91-%D7%A6%D7%A2%D7%A6%D7%95%D7%A2-%D7%9B%D7%93%D7%95%D7%A8-jin-mao-%D7%91%D7%99%D7%9E%D7%91%D7%95-%D7%93%D7%95%D7%91%D7%95%D7%9F-%D7%A1%D7%9E%D7%95%D7%99%D7%93-%D7%9E%D7%95%D7%A6%D7%A8%D7%99%D7%9D-%D7%9C%D7%9B%D7%9C%D7%91%D7%99%D7%9D-%D7%92%D7%95%D7%A8-%D7%A7%D7%98%D7%9F.jpg" style="display: inline-block; position: relative; width: 247px; height: 186.859px; transform: translate(0px, 0px);" width="247" height="186.859375"></ir-gallery><span class="paragraph">a paragraph with a CE just before it no space between</span>
 
 	
 	<span class="paragraph">01 02 03 04 05 06 07 08 09 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30</span>
-	<ir-gallery contenteditable="false"><img src="http://i00.i.aliimg.com/wsphoto/v0/1855197662_1/2015-%D7%A0%D7%99%D7%95-%D7%97%D7%99%D7%95%D7%AA-%D7%9E%D7%97%D7%9E%D7%93-%D7%9B%D7%9C%D7%91-%D7%A6%D7%A2%D7%A6%D7%95%D7%A2-%D7%9B%D7%93%D7%95%D7%A8-jin-mao-%D7%91%D7%99%D7%9E%D7%91%D7%95-%D7%93%D7%95%D7%91%D7%95%D7%9F-%D7%A1%D7%9E%D7%95%D7%99%D7%93-%D7%9E%D7%95%D7%A6%D7%A8%D7%99%D7%9D-%D7%9C%D7%9B%D7%9C%D7%91%D7%99%D7%9D-%D7%92%D7%95%D7%A8-%D7%A7%D7%98%D7%9F.jpg" style="display: inline-block; position: relative; width: 247px; height: 186.859px; transform: translate(0px, 0px);" width="247" height="186.859375"></ir-gallery>
-		Some text <b><i>italic in bold</i>some bold</b> without paragraph ending with two brs<br><br><ir-gallery contenteditable="false" theme="blackfriday" style="display: inline-block;"><div class="caption-wrapper"><img src="https://storage17.tunefiles.com/files/thumbs/2014/07/26/1406397346ad30f-original-1.jpg" style="display: inline-block; position: relative; width: 218px; height: 166.313px; transform: translate(0px, 0px);" width="218" height="166.3125"><div class="caption" contenteditable="true">hi caption</div></div></ir-gallery><ir-gallery contenteditable="false"><img src="http://i00.i.aliimg.com/wsphoto/v0/1855197662_1/2015-%D7%A0%D7%99%D7%95-%D7%97%D7%99%D7%95%D7%AA-%D7%9E%D7%97%D7%9E%D7%93-%D7%9B%D7%9C%D7%91-%D7%A6%D7%A2%D7%A6%D7%95%D7%A2-%D7%9B%D7%93%D7%95%D7%A8-jin-mao-%D7%91%D7%99%D7%9E%D7%91%D7%95-%D7%93%D7%95%D7%91%D7%95%D7%9F-%D7%A1%D7%9E%D7%95%D7%99%D7%93-%D7%9E%D7%95%D7%A6%D7%A8%D7%99%D7%9D-%D7%9C%D7%9B%D7%9C%D7%91%D7%99%D7%9D-%D7%92%D7%95%D7%A8-%D7%A7%D7%98%D7%9F.jpg" style="display: inline-block; position: relative; width: 247px; height: 186.859px; transform: translate(0px, 0px);" width="247" height="186.859375"></ir-gallery>
+	<ir-gallery id="2" contenteditable="false"><img src="http://i00.i.aliimg.com/wsphoto/v0/1855197662_1/2015-%D7%A0%D7%99%D7%95-%D7%97%D7%99%D7%95%D7%AA-%D7%9E%D7%97%D7%9E%D7%93-%D7%9B%D7%9C%D7%91-%D7%A6%D7%A2%D7%A6%D7%95%D7%A2-%D7%9B%D7%93%D7%95%D7%A8-jin-mao-%D7%91%D7%99%D7%9E%D7%91%D7%95-%D7%93%D7%95%D7%91%D7%95%D7%9F-%D7%A1%D7%9E%D7%95%D7%99%D7%93-%D7%9E%D7%95%D7%A6%D7%A8%D7%99%D7%9D-%D7%9C%D7%9B%D7%9C%D7%91%D7%99%D7%9D-%D7%92%D7%95%D7%A8-%D7%A7%D7%98%D7%9F.jpg" style="display: inline-block; position: relative; width: 247px; height: 186.859px; transform: translate(0px, 0px);" width="247" height="186.859375"></ir-gallery>
+		Some text <b><i>italic in bold</i>some bold</b> without paragraph ending with two brs<br><br><ir-gallery id="3" contenteditable="false" theme="blackfriday" style="display: inline-block;"><div class="caption-wrapper"><img src="https://storage17.tunefiles.com/files/thumbs/2014/07/26/1406397346ad30f-original-1.jpg" style="display: inline-block; position: relative; width: 218px; height: 166.313px; transform: translate(0px, 0px);" width="218" height="166.3125"><div class="caption" contenteditable="true">hi caption</div></div></ir-gallery><ir-gallery id="4" contenteditable="false"><img src="http://i00.i.aliimg.com/wsphoto/v0/1855197662_1/2015-%D7%A0%D7%99%D7%95-%D7%97%D7%99%D7%95%D7%AA-%D7%9E%D7%97%D7%9E%D7%93-%D7%9B%D7%9C%D7%91-%D7%A6%D7%A2%D7%A6%D7%95%D7%A2-%D7%9B%D7%93%D7%95%D7%A8-jin-mao-%D7%91%D7%99%D7%9E%D7%91%D7%95-%D7%93%D7%95%D7%91%D7%95%D7%9F-%D7%A1%D7%9E%D7%95%D7%99%D7%93-%D7%9E%D7%95%D7%A6%D7%A8%D7%99%D7%9D-%D7%9C%D7%9B%D7%9C%D7%91%D7%99%D7%9D-%D7%92%D7%95%D7%A8-%D7%A7%D7%98%D7%9F.jpg" style="display: inline-block; position: relative; width: 247px; height: 186.859px; transform: translate(0px, 0px);" width="247" height="186.859375"></ir-gallery>
 		<span class="paragraph">a short paragraph a short paragraph a short paragraph <b>some bold in a short paragraph <i> some italic in bold in a short paragraph </i></b>a short paragraph a short paragraph a short paragraph a short paragraph a short paragraph a short paragraph a short paragraph a short paragraph a short paragraph a short paragraph a short paragraph </span>
 		<span class="paragraph"><ir-gallery contenteditable="false"><img src="http://i00.i.aliimg.com/wsphoto/v0/1855197662_1/2015-%D7%A0%D7%99%D7%95-%D7%97%D7%99%D7%95%D7%AA-%D7%9E%D7%97%D7%9E%D7%93-%D7%9B%D7%9C%D7%91-%D7%A6%D7%A2%D7%A6%D7%95%D7%A2-%D7%9B%D7%93%D7%95%D7%A8-jin-mao-%D7%91%D7%99%D7%9E%D7%91%D7%95-%D7%93%D7%95%D7%91%D7%95%D7%9F-%D7%A1%D7%9E%D7%95%D7%99%D7%93-%D7%9E%D7%95%D7%A6%D7%A8%D7%99%D7%9D-%D7%9C%D7%9B%D7%9C%D7%91%D7%99%D7%9D-%D7%92%D7%95%D7%A8-%D7%A7%D7%98%D7%9F.jpg" style="display: inline-block; position: relative; width: 247px; height: 186.859px; transform: translate(0px, 0px);" width="247" height="186.859375"></ir-gallery> a gallery immediately under a paragraph</span>
 
