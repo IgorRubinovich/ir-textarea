@@ -173,6 +173,9 @@
 			goAt : function(pos, bindToRange) {
 				var p, h;
 				
+				if(!pos.container)
+					return;
+				
 				if(pos.container == Polymer.dom(this).parentNode)
 				{
 					if(this.containerElementOffset < pos.offset)
