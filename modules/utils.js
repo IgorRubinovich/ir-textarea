@@ -821,7 +821,15 @@ window.ir.textarea.utils = (function() {
 	}
 	
 	utils.posToContainerEdgeHasContent = function(pos, dir, top) {
-		var cont = utils.getNonCustomContainer(pos.container, top), n, pos, otherpos;
+		var atText, cont = utils.getNonCustomContainer(pos.container, top), n, pos, otherpos;
+		
+		atText = utils.atText(pos);
+		
+		if(dir == "backward" && atText && atText != 'start')
+			return true
+		else
+		if(dir == "forward" && atText && atText != 'end')
+			return true;
 		
 		// when cont is top, walk in dir until we meet a container
 		if(cont == top)
@@ -832,6 +840,10 @@ window.ir.textarea.utils = (function() {
 				cont = n;
 				n = Polymer.dom(n)[dir == "backward"  ? "previousSibling" : "nextSibling"];
 			}
+			
+			if(!n)
+				n = cont;
+			
 			otherpos = dir == "backward" ? { container : cont, offset : 0 } : { container : n, offset : 0 };
 		}
 		else
@@ -1218,6 +1230,9 @@ window.ir.textarea.utils = (function() {
 			utils.removeFromParent(right);
 			ret = { container : left, offset : offset };
 		}
+		else
+		if(!ret)
+			ret = { container : right, offset : 0 }
 
 		if(setCaretAtMergePoint)
 			utils.setCaretAt(ret.container, ret.offset);

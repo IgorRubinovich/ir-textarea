@@ -19,12 +19,9 @@ window.ir.textarea.extract =
 			parentOffset = utils.getChildPositionInParent(limit),
 			doc = node.ownerDocument,
 			left,
-			leftRange = doc.createRange(), clone;
+			leftRange = doc.createRange(), clone,
+			op = "insertBefore";
 
-		//leftRange.setStart(parent, parentOffset);
-		//leftRange.setEnd(node, offset);
-		//left = leftRange.extractContents();
-		
 		left = extract.extractContents(
 			{ container : parent, offset : parentOffset }, 
 			{ container : node, offset : offset}, 
@@ -33,8 +30,13 @@ window.ir.textarea.extract =
 		
 		if(!left)
 			return node;
-	
-		Polymer.dom(parent).insertBefore(left, limit);
+		
+		if(!Polymer.dom(limit).parentNode) 							// limit may be removed if e.g. we're splitting at end of text node
+			limit = Polymer.dom(parent).childNodes[parentOffset]; 	// try same position
+		if(!limit) 													// or if still not there
+			op = "appendChild" 										// append instead of inserting parent
+		
+		Polymer.dom(parent)[op](left, limit);
 
 		Polymer.dom.flush();
 		
@@ -66,10 +68,12 @@ window.ir.textarea.extract =
 			sTarget, eTarget,
 			commonAncestor, 
 			extractRes, 
-			b, n, p, deletes = [];
+			t, b, n, p, deletes = [], hasContent;
 	
-		startPos = utils.maybeSlidePosDown(startPos);
-		endPos = utils.maybeSlidePosDown(endPos);
+		if(startPos.container == opts.top)
+			startPos = utils.maybeSlidePosDown(startPos);
+		if(endPos.container == opts.top)
+			endPos = endPos.container == opts.top && utils.maybeSlidePosDown(endPos);
 			
 		if(utils.samePos(startPos, endPos))
 			return '';
@@ -78,7 +82,7 @@ window.ir.textarea.extract =
 		del = opts.delete;
 		top = opts.top || top;
 		
-		commonAncestor = utils.commonContainer(startPos.container, endPos.container); 
+		commonAncestor = utils.commonContainer(startPos.container, endPos.container, opts.top);
 
 		b = extract.extractBoundaries(startPos, endPos, opts.top);
 
@@ -86,14 +90,20 @@ window.ir.textarea.extract =
 		if(b.commonAncestor.nodeType == 3)
 		{
 			if(del)
-				b.last.original.textContent = b.last.remainder;
-		
+			{
+				if(b.last.remainder)
+					b.last.original.textContent = b.last.remainder;
+				else
+					utils.removeFromParent(b.last.original)
+				
+			}
+			
 			return b.last.copy;
 		}
 		
 		extractRes = document.createDocumentFragment();
 		
-		sSource = eSource = Polymer.dom(commonAncestor);
+		sSource = eSource = Polymer.dom(b.commonAncestor);
 		sTarget = eTarget = extractRes = sSource.cloneNode(false);
 
 		takeFirst = utils.posToContainerEdgeHasContent(startPos, "forward", opts.top);
@@ -132,7 +142,8 @@ window.ir.textarea.extract =
 			// eFrom --> eTo
 			if(eFrom)
 			{
-				for(n = eFrom; n && n != b.last.original && (n != eTo || takeLast); n = n && Polymer.dom(n).nextSibling)
+				hasContent = utils.posToContainerEdgeHasContent(endPos, "backward", eTo)
+				for(n = eFrom; n && n != b.last.original && (n != eTo || hasContent); n = n && Polymer.dom(n).nextSibling)
 				{
 					eTarget.appendChild(Polymer.dom(n).cloneNode(n != eTo));
 					del && (n != eTo || !hangingLast) && deletes.push(n);
@@ -140,8 +151,9 @@ window.ir.textarea.extract =
 						n = null;
 				}
 				eSource = Polymer.dom(eTo);
-				if(eTo != b.last.original)
-					eTarget = Polymer.dom(sTarget).lastChild; // Polymer.dom(eTarget).lastChild;
+				t = Polymer.dom(eTarget).lastChild;
+				if(eTo != b.last.original && t && t.nodeType != 3)
+					eTarget = t; // Polymer.dom(eTarget).lastChild;
 			}
 		}
 
@@ -154,7 +166,7 @@ window.ir.textarea.extract =
 		sCont = utils.getNonCustomContainer(startPos.container, opts.top);
 		eCont = utils.getNonCustomContainer(endPos.container, opts.top);
 		
-		if(commonAncestor != b.last.original)
+		if(b.commonAncestor != b.last.original)
 			extractRes = utils.moveChildrenToFragment(extractRes, true);
 		
 		if(hangingFirst && utils.isNonCustomContainer(Polymer.dom(extractRes).firstChild))
@@ -177,17 +189,15 @@ window.ir.textarea.extract =
 				if(b.last.original.nodeType == 3)
 					b.last.original.textContent = b.last.remainder;
 				if(b.last.copy && !b.last.remainder)
-					deletest.push(b.last.original);
+					deletes	.push(b.last.original);
 			}
 			deletes.reverse();
 			deletes.forEach(utils.removeFromParent);
+
+			// merge if in neighbouring containers
+			if(utils.parentNode(sCont) && utils.parentNode(eCont) && Polymer.dom(sCont).nextSibling == eCont)
+				utils.mergeNodes(sCont, eCont);
 		}
-		
-			
-		// merge if in neighbouring containers
-		if(utils.parentNode(sCont) && utils.parentNode(eCont) && Polymer.dom(sCont).nextSibling == eCont)
-			utils.mergeNodes(sCont, eCont);
-				
 		
 		return extractRes;
 	}

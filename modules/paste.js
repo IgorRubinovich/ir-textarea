@@ -152,13 +152,24 @@ window.ir.textarea.paste = (function() {
 				else
 					hangingEnd.insertBefore(t, hangingEnd.firstChild);
 
-			if(hangingEnd.childNodes.length)
-				finalPos = pos = paste.pasteHtmlAtPos(hangingEnd, { container : right.firstChild, offset : 0 });
-
 			main =  document.createDocumentFragment();
 			while((t = Polymer.dom(div).firstChild))
 				main.appendChild(t);
+				
+
+			if(hangingEnd.childNodes.length)
+			{
+				if(right.nodeType == 3)   // paste will merge them and position will change. we simply need to paste
+					while(hangingEnd.childNodes.length)			// hangingEnd as part of main fragment
+						main.appendChild(hangingEnd.firstChild);
+				else
+					finalPos = pos = paste.pasteHtmlAtPos(hangingEnd, { 
+																		container : Polymer.dom(right).firstChild ? Polymer.dom(right).firstChild : right, 
+																		offset : 0 
+																	});
 			
+			}
+						
 			// paste the rest before last
 			pos = paste.pasteHtmlAtPos(main, right ? 
 												{ container : right, offset : 0 } : 
@@ -436,6 +447,8 @@ window.ir.textarea.paste = (function() {
 				d = html;
 			else
 				d.appendChild(html);
+			
+			d.normalize();
 			
 			parent = utils.parentNode(pos.container, top);
 
