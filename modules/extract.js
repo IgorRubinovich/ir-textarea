@@ -127,16 +127,18 @@ window.ir.textarea.extract =
 			if(sFrom && b.first.copy)
 			{
 				n = sFrom;
-				if(!b.first.copy || n == b.first.original)  	// if first node is not included (as in end of text), skip first's ancestor containers
+				if(!b.first.copy || n == b.first.original)  	// if first node is not included (as at end of text), skip first's ancestor containers
 					n = Polymer.dom(sFrom).nextSibling;			// also skip if we're copying the first element itself - it's done below
-				for(; n && n != sTo; n = Polymer.dom(n).nextSibling)
+				for(; n && (n != sTo || sTo != eFrom); n = Polymer.dom(n).nextSibling)
 				{
-					sTarget.appendChild(Polymer.dom(n).cloneNode(n != sFrom));
+					Polymer.dom(sTarget).appendChild(Polymer.dom(n).cloneNode(n != sFrom));
+					Polymer.dom.flush();
 					del && (n != sFrom || !b.first.remainder) && deletes.push(n); // delete all middle containers and first only if there's no remainder
 				}
 				sSource = Polymer.dom(sFrom);
-				if(sFrom != b.first.original)
-					sTarget = Polymer.dom(sTarget).firstChild;
+				t = Polymer.dom(sTarget).firstChild;
+				if(sFrom != b.first.original && t && t.nodeType != 3)
+					sTarget = t;
 			}
 
 			// eFrom --> eTo
@@ -145,7 +147,8 @@ window.ir.textarea.extract =
 				hasContent = utils.posToContainerEdgeHasContent(endPos, "backward", eTo)
 				for(n = eFrom; n && n != b.last.original && (n != eTo || hasContent); n = n && Polymer.dom(n).nextSibling)
 				{
-					eTarget.appendChild(Polymer.dom(n).cloneNode(n != eTo));
+					Polymer.dom(eTarget).appendChild(Polymer.dom(n).cloneNode(n != eTo));
+					Polymer.dom.flush();
 					del && (n != eTo || !hangingLast) && deletes.push(n);
 					if(n == eTo)
 						n = null;
@@ -158,15 +161,15 @@ window.ir.textarea.extract =
 		}
 
 		// first and last containers
-		if(b.first.original && b.first.copy)
-			sTarget[Polymer.dom(sTarget).firstChild ? 'insertBefore' : 'appendChild'](b.first.copy, Polymer.dom(sTarget).firstChild);
-		if(b.last.original && b.last.copy)
-			eTarget.appendChild(b.last.copy);
+		if(b.first.original && b.first.copy && b.commonAncestor != b.first.original)
+			Polymer.dom(sTarget)[Polymer.dom(sTarget).firstChild ? 'insertBefore' : 'appendChild'](b.first.copy, Polymer.dom(sTarget).firstChild);
+		if(b.last.original && b.last.copy && b.commonAncestor != b.last.original)
+			Polymer.dom(eTarget).appendChild(b.last.copy);
 		
 		sCont = utils.getNonCustomContainer(startPos.container, opts.top);
 		eCont = utils.getNonCustomContainer(endPos.container, opts.top);
 		
-		if(b.commonAncestor != b.last.original)
+		if(b.commonAncestor != b.last.original && !extractRes.is)
 			extractRes = utils.moveChildrenToFragment(extractRes, true);
 		
 		if(hangingFirst && utils.isNonCustomContainer(Polymer.dom(extractRes).firstChild))

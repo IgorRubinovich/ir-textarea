@@ -11,9 +11,9 @@ window.ir.textarea.utils = (function() {
 	"font,b,big,i,u,small,tt,abbr,acronym,cite,code,dfn,em,kbd,strong,samp,time,var,a,bdo,br,img,map,object,q,script,span,sub,sup".split(/,/)
 		.forEach(function(tag) { INLINE_ELEMENTS[tag.toUpperCase()] = true });
 		
-	var TRANSITIONAL_ELEMENTS = ['UL', 'TABLE', 'TBODY', 'TH', 'TR'],
-		SUB3 = ['UL', 'TABLE', 'TBODY', 'TH', 'TR'];
-		
+	var TRANSITIONAL_ELEMENTS = ['UL', 'TABLE', 'TBODY', 'THEAD', 'TH', 'TR'],
+		SUBTRANSITIONAL_ELEMENTS = ['LI', 'TD'];
+
 	utils.recursiveInnerHTML = function(el, skipNodes) {
 		skipNodes = skipNodes || [];
 
@@ -208,7 +208,7 @@ window.ir.textarea.utils = (function() {
 	}
 	
 	utils.isNonCustomContainer = function(el) {
-		return !el.is && utils.canHaveChildren(el) && (!utils.isInlineElement(el) || utils.isParagraph(el));
+		return el && !el.is && utils.canHaveChildren(el) && (!utils.isInlineElement(el) || utils.isParagraph(el)) && !utils.isTransitionalElement(el);
 	}
 	
 	utils.getLastAncestorBeforeTop = function(el, top) {

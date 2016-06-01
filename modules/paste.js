@@ -127,6 +127,7 @@ window.ir.textarea.paste = (function() {
 			// if posCont is top, split as high as possible under top and paste as is
 			if(opts.top == posCont)
 			{
+				//if(!pos.container.nodeType == 3 && pos.offset == pos.container.length)
 				right = extract.splitNode(pos.container, pos.offset, utils.getLastAncestorBeforeTop(pos.container, opts.top), opts.top)
 				return paste.pasteHtmlAtPos(html, { container : right, offset : 0 });
 			}
@@ -169,11 +170,11 @@ window.ir.textarea.paste = (function() {
 																	});
 			
 			}
-						
+			
+			pos = right ? { container : right, offset : 0 } : { container : utils.parentNode(left), offset : utils.getChildPositionInParent(left) + 1 };
 			// paste the rest before last
-			pos = paste.pasteHtmlAtPos(main, right ? 
-												{ container : right, offset : 0 } : 
-												{ container : utils.parentNode(left), offset : utils.getChildPositionInParent(left) + 1 })
+			if(main.childNodes.length)
+				pos = paste.pasteHtmlAtPos(main, pos);
 
 			if(!finalPos)
 				finalPos = pos;
@@ -575,6 +576,9 @@ window.ir.textarea.paste = (function() {
 			{
 				len = Polymer.dom(first).previousSibling.textContent.length;
 				utils.mergeNodes(t = Polymer.dom(first).previousSibling, first);
+				
+				//first = 
+				
 				if(first == last)
 					last = t;
 			}			

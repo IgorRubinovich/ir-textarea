@@ -172,7 +172,7 @@ This code may only be used under the MIT license found at http://opensource.org/
 		
 		var goAsync = function(positionsPairs, i) {
 			requestAnimationFrame(function(positionsPairs, i) { 
-				if(i < positionsPairs.length)
+				if(i < positionsPairs.length - 1)
 				{
 					i++;
 					go(positionsPairs, i);
@@ -184,7 +184,7 @@ This code may only be used under the MIT license found at http://opensource.org/
 		var go = function(positionsPairs, i, sync) {	
 				var err;
 
-				log(i + " of " + positionsPairs.length + "\n" + Math.floor(10000* i/positionsPairs.length)/100 + "% complete")
+				log((i+1) + " of " + positionsPairs.length + "\n" + Math.floor(10000* (i+1)/positionsPairs.length)/100 + "% complete")
 				startAtPair.value = i;
 				
 				try {
@@ -218,7 +218,7 @@ This code may only be used under the MIT license found at http://opensource.org/
 			return go(positionsPairs, i);
 	
 		if(sync)
-			while(i < positionsPairs.length)
+			while(i < positionsPairs.length - 1)
 				go(positionsPairs, i++, true);
 		else
 			goAsync(positionsPairs, i);
