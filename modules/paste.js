@@ -2,7 +2,9 @@ if(!window.ir) window.ir = {};
 if(!window.ir.textarea) window.ir.textarea = {};
 
 window.ir.textarea.paste = (function() {
-	var paste, utils = window.ir.textarea.utils;
+	var paste, 
+		utils = window.ir.textarea.utils,
+		extract = window.ir.textarea.extract;
 	
 	paste = {
 		pasteHandler : function(e) {
@@ -80,7 +82,7 @@ window.ir.textarea.paste = (function() {
 		},	
 
 		pasteHtmlAtPosWithParagraphs : function(html, pos, opts) {
-			var div = document.createElement('div'),
+			var _div, div = document.createDocumentFragment(), //document.createElement('div'),
 				hasContainers, hasContentBefore, hasContentAfter, 
 				posCont, startCont, endCont, left, right,
 				hangingStart, hangingEnd, main, finalPos;
@@ -89,7 +91,12 @@ window.ir.textarea.paste = (function() {
 				return;
 
 			if(typeof html == 'string')
-				div.innerHTML = html;
+			{
+				_div = document.createElement('div')
+				_div.innerHTML = html;
+				div = utils.copyChildrenToFragment(_div);
+				
+			}
 			else
 			if(html instanceof Node)
 				div = html;

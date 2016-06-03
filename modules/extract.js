@@ -169,7 +169,7 @@ window.ir.textarea.extract =
 		sCont = utils.getNonCustomContainer(startPos.container, opts.top);
 		eCont = utils.getNonCustomContainer(endPos.container, opts.top);
 		
-		if(b.commonAncestor != b.last.original && !extractRes.is)
+		if(b.commonAncestor != b.last.original && (!extractRes || b.commonAncestor == opts.top))
 			extractRes = utils.moveChildrenToFragment(extractRes, true);
 		
 		if(hangingFirst && utils.isNonCustomContainer(Polymer.dom(extractRes).firstChild))
@@ -184,7 +184,7 @@ window.ir.textarea.extract =
 			{				
 				if(b.first.original.nodeType == 3)
 					b.first.original.textContent = b.first.remainder;		
-				if(!b.first.remainder)
+				if(!b.first.remainder && (!b.last.original || (utils.getNonCustomContainer(b.first.original) != utils.getNonCustomContainer(b.last.original))))
 					deletes.push(b.first.original);
 			}
 			if(b.last.original)
@@ -252,7 +252,7 @@ window.ir.textarea.extract =
 		}
 		
 		commonAncestor = top;
-		while(starts.length && starts[0] == ends[0])
+		while(starts.length && starts[0] == ends[0]) // && !(starts[0] == sc && utils.canHaveChildren(sc) && so == 0))
 		{
 			starts.shift();
 			ends.shift();

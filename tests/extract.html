@@ -74,8 +74,9 @@ This code may only be used under the MIT license found at http://opensource.org/
 
 	function testExtract(del) {
 		var r = utils.getSelectionRange();
-		var extractres = extract.extractContents({ container : r.sc, offset : r.so }, { container : r.ec, offset : r.eo }, { top : editor, delete : del, splitRoot : editor } )
-		log(innerHTML(extractres))
+		html = extract.extractContents({ container : r.sc, offset : r.so }, { container : r.ec, offset : r.eo }, { top : editor, delete : del, splitRoot : editor } )
+		html = innerHTML(html, true)
+		log(html)
 	}
 	
 	
@@ -263,14 +264,24 @@ This code may only be used under the MIT license found at http://opensource.org/
 		
 	}
 	
-	function testPaste(html) {
+	function testPaste(_html) {
 		var r = utils.getSelectionRange();
-		
-		paste.pasteHtmlAtPosWithParagraphs(html, { container : r.sc, offset : r.so }, { top : editor });
+		if(!_html)
+			_html = html;
+			
+		paste.pasteHtmlAtPosWithParagraphs(_html, { container : r.sc, offset : r.so }, { top : editor });
 		
 		//console.log(extract.extractContents({ container : r.sc, offset : r.so }, { container : r.ec, offset : r.eo }, { top : editor, delete : del, splitRoot : editor } ))
 	}
 	
+	function testCutAndPaste() {
+		r = utils.getSelectionRange();
+		testExtract(true);
+		utils.setCaretAt(r.endContainer, r.endOffset);
+		testPaste();
+		
+	}
+
 	var logspace = document.querySelector('#logspace');
 
 
@@ -287,7 +298,8 @@ This code may only be used under the MIT license found at http://opensource.org/
 		Basic:
 		<button onclick="testExtract(true)">cut</button>
 		<button onclick="testExtract(false)">copy</button>
-		<button disabled onclick="testExtractAndPaste(false)">cut + paste</button>
+		<button onclick="testPaste()">paste</button>
+		<button onclick="testCutAndPaste(false)">cut + paste</button>
 	</div>
 	<div>
 		Hanging paste:
@@ -314,7 +326,7 @@ This code may only be used under the MIT license found at http://opensource.org/
 	<div 
 		id="editor" 
 		contenteditable
-	>01 02 03 <i>04 05 06</i> 07 08 09 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30
+	><span class="paragraph">paragraph 01 a b c d e f g</span><span class="paragraph">paragraph 02 a b c d e f g</span><span class="paragraph">paragraph 03 a b c d e f g</span><span class="paragraph">paragraph 04 a b c d e f g</span><span class="paragraph">paragraph 05 a b c d e f g</span>01 02 03 <i>04 05 06</i> 07 08 09 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30
 a couple empty paragraphs<span class="paragraph"></span><span class="paragraph"></span><span class="paragraph">1. two consecutive</span><span class="paragraph">2. hello<br><br><br><br><br><br><br><br><br></span><span class="paragraph">3. paragraphs with empty paragraph between</span><span class="paragraph">4. two consecutive</span><span class="paragraph">5. paragraphs</span>
 	<ir-gallery id="1" contenteditable="false"><img src="http://i00.i.aliimg.com/wsphoto/v0/1855197662_1/2015-%D7%A0%D7%99%D7%95-%D7%97%D7%99%D7%95%D7%AA-%D7%9E%D7%97%D7%9E%D7%93-%D7%9B%D7%9C%D7%91-%D7%A6%D7%A2%D7%A6%D7%95%D7%A2-%D7%9B%D7%93%D7%95%D7%A8-jin-mao-%D7%91%D7%99%D7%9E%D7%91%D7%95-%D7%93%D7%95%D7%91%D7%95%D7%9F-%D7%A1%D7%9E%D7%95%D7%99%D7%93-%D7%9E%D7%95%D7%A6%D7%A8%D7%99%D7%9D-%D7%9C%D7%9B%D7%9C%D7%91%D7%99%D7%9D-%D7%92%D7%95%D7%A8-%D7%A7%D7%98%D7%9F.jpg" style="display: inline-block; position: relative; width: 247px; height: 186.859px; transform: translate(0px, 0px);" width="247" height="186.859375"></ir-gallery><span class="paragraph">a paragraph with a CE just before it no space between</span>
 

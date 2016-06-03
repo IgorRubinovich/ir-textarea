@@ -821,7 +821,7 @@ window.ir.textarea.utils = (function() {
 	}
 	
 	utils.posToContainerEdgeHasContent = function(pos, dir, top) {
-		var atText, cont = utils.getNonCustomContainer(pos.container, top), n, pos, otherpos;
+		var atText, cont = utils.getNonCustomContainer(pos.container, top), n, pos, otherpos, t;
 		
 		atText = utils.atText(pos);
 		
@@ -850,8 +850,10 @@ window.ir.textarea.utils = (function() {
 		if(dir == "backward")
 			otherpos = { container : cont, position : 0 };
 		else
-			otherpos = { container : utils.nextNodeNonDescendant(cont, top), position : 0 }; 
-
+		{
+			otherpos = pos;
+			pos = { container : utils.nextNodeNonDescendant(cont, top), position : 0 };
+		}
 		return utils.rangeHasContent(otherpos, pos); 
 	}
 	
@@ -1237,7 +1239,7 @@ window.ir.textarea.utils = (function() {
 		if(setCaretAtMergePoint)
 			utils.setCaretAt(ret.container, ret.offset);
 		
-		ret.container.normalize();
+		//ret.container.normalize();
 		Polymer.dom.flush();
 		
 		return ret;

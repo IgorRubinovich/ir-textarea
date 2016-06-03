@@ -11,6 +11,8 @@ window.ir.textarea.wrap = (function() {
 	// subsequent calls to .wrapAppend append to the same location after the last added node
 	var wrap = {},
 		utils = ir.textarea.utils,
+		paste = ir.textarea.paste,
+		extract = ir.textarea.extract,		
 		Symbols = ir.textarea.CaretRulesets.Symbols;
 	
 	wrap.parseWrapper = function(str, selector) {
@@ -124,16 +126,16 @@ window.ir.textarea.wrap = (function() {
 	}
 	
 	wrap.splitRangeIntoWrapGroups = function(range, wrapper) {
-		var extract = utils.extractContents(range.startPosition, range.endPosition, { delete : true });
+		var extractRes = extract.extractContents(range.startPosition, range.endPosition, { delete : true });
 		
 		if(Symbol.WRAPCONTAINER(extract))
-			extract.splitIntoWrapGroups(node).forEach(function(g) { wrap.wrapNodes(g, wrapper); });
+			extractRes.splitIntoWrapGroups(node).forEach(function(g) { wrap.wrapNodes(g, wrapper); });
 		
 	
 	}
 	
 	wrap.wrapRange = function(range, wrapper, top) {
-		var frag, startPath, endPath, splitRoot, extract, dummyparagraph, src;
+		var frag, startPath, endPath, splitRoot, dummyparagraph, src, extractRes;
 		
 		// save path as coordinates
 		startPath = utils.posToCoorinatesPos(range.startPosition);
@@ -143,16 +145,16 @@ window.ir.textarea.wrap = (function() {
 		splitRoot = utils.commonContainer(range.startPosition.container, range.endPosition.container);
 		
 		// hard-extract selection up to splitRoot
-		extract = utils.extractContents(range.startPosition, range.endPosition, { delete : true, splitRoot : splitRoot });
+		extractRes = extract.extractContents(range.startPosition, range.endPosition, { delete : true, splitRoot : splitRoot });
 		
 		// create a detached dummy paragraph
 		dummyparagraph = utils.newEmptyParagraph(true);
 		
 		if(splitRoot != top)
-			dummyparagraph.appendChild(extract);
+			dummyparagraph.appendChild(extractRes);
 		else
-			while(extract.firstChild)
-				dummyparagraph.appendChild(extract.firstChild);
+			while(extractRes.firstChild)
+				dummyparagraph.appendChild(extractRes.firstChild);
 		
 		// remember path of startPos
 		//dummyparagraph.appendChild(extract);
@@ -165,7 +167,7 @@ window.ir.textarea.wrap = (function() {
 			frag.appendChild(dummyparagraph.firstChild)
 		
 		// and paste at startPosition
-		ir.textarea.paste.pasteHtmlAtPos(frag, utils.coordinatesPosToPos(startPath));
+		ir.textarea.paste.pasteHtmlAtPosWithParagraphs(frag, utils.coordinatesPosToPos(startPath), { top : top });
 	}
 	
 	unwrapRange = function(range, wrapper)
