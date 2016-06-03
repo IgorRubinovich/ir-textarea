@@ -138,7 +138,8 @@ window.ir.textarea.paste = (function() {
 				right = extract.splitNode(pos.container, pos.offset, utils.getLastAncestorBeforeTop(pos.container, opts.top), opts.top)
 				return paste.pasteHtmlAtPos(html, { container : right, offset : 0 });
 			}
-			// *** we are pasting into nonCustomContainer ***
+
+			// *** we are pasting into a nonCustomContainer ***
 			
 			// paste hanging start before splitting
 			hangingStart = document.createDocumentFragment();
@@ -148,8 +149,13 @@ window.ir.textarea.paste = (function() {
 			if(hangingStart.childNodes.length)
 				pos = paste.pasteHtmlAtPos(hangingStart, pos);
 			
-			// split target
-			right = hasContentBefore ? extract.splitNode(pos.container, pos.offset, posCont, opts.top) : Polymer.dom(pos.container).nextSibling;
+			// split target if not at container edge
+			if(hasContentBefore && hasContentAfter)
+				right = extract.splitNode(pos.container, pos.offset, posCont, opts.top);
+			else
+			if(hasContentAfter)
+				right = utils.nextNode(pos.container);
+				//Polymer.dom(pos.container).nextSibling;
 			left = hasContentBefore && Polymer.dom(right).previousSibling;
 			
 			// paste hanging end before splitting
@@ -579,11 +585,12 @@ window.ir.textarea.paste = (function() {
 			Polymer.dom.flush();
 				
 			len = 0;
+			// if first node and its previous sibling are text merge them 
 			if(first && first.nodeType == 3 && Polymer.dom(first).previousSibling && Polymer.dom(first).previousSibling.nodeType == 3)
 			{
-				len = Polymer.dom(first).previousSibling.textContent.length;
+				//len = Polymer.dom(first).previousSibling.textContent.length;
 				utils.mergeNodes(t = Polymer.dom(first).previousSibling, first);
-				
+				len = t.length
 				//first = 
 				
 				if(first == last)
@@ -603,7 +610,7 @@ window.ir.textarea.paste = (function() {
 				index = utils.getChildPositionInParent(last);
 				//len = last.textContent.length;
 				
-				parent.normalize();
+				//parent.normalize();
 				
 				lastPos = { container : last, offset : len }
 			}
