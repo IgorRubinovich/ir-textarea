@@ -153,7 +153,9 @@ window.ir.textarea.paste = (function() {
 			if(hasContentBefore && hasContentAfter)
 				right = extract.splitNode(pos.container, pos.offset, posCont, opts.top);
 			else
-			if(hasContentAfter)
+			if(!hasContentBefore)
+				right = utils.getNonCustomContainer(pos.container);
+			else
 				right = utils.nextNode(pos.container);
 				//Polymer.dom(pos.container).nextSibling;
 			left = hasContentBefore && Polymer.dom(right).previousSibling;

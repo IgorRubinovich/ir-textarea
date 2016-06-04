@@ -776,7 +776,7 @@ window.ir.textarea.utils = (function() {
 	
 	// a node has content if it is or contains a text node / a non-container block / a custom element
 	utils.nodeHasContent = function(node) {
-		return visitNodes(node, function(n, meta, prevRes) {
+		return utils.visitNodes(node, function(n, meta, prevRes) {
 			return prevRes || n.nodeType == 3 || !utils.canHaveChildren(n) || n.is;
 		});
 	}
