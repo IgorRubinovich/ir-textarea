@@ -105,19 +105,32 @@ window.ir.textarea.extract =
 
 		b = extract.extractBoundaries(startPos, endPos, opts.top);
 
+
+		takeFirst = utils.posToContainerEdgeHasContent(startPos, "forward", opts.top);
+		takeLast = utils.posToContainerEdgeHasContent(endPos, "backward", opts.top);
+		hangingFirst = utils.posToContainerEdgeHasContent(startPos, "backward", opts.top);
+		hangingLast = takeLast && utils.posToContainerEdgeHasContent(endPos, "forward", opts.top);
+		
 		// 1. both positions are in commonAncestor that is a text node
 		if(b.commonAncestor.nodeType == 3)
 		{
-			if(del)
-			{
-				if(b.last.remainder)
-					b.last.original.textContent = b.last.remainder;
-				else
-					utils.removeFromParent(b.last.original)
-				
+			if(hangingFirst || hangingLast) {
+				if(del)
+				{
+					if(b.last.remainder)
+						b.last.original.textContent = b.last.remainder;
+					else
+						utils.removeFromParent(b.last.original)
+				}
+
+				return b.last.copy;
 			}
-			
-			return b.last.copy;
+			else
+			{
+				sCont = utils.getNonCustomContainer(startPos.container, opts.top);
+				utils.removeFromParent(sCont);
+				return sCont;
+			}
 		}
 		
 		extractRes = document.createDocumentFragment();
@@ -125,11 +138,6 @@ window.ir.textarea.extract =
 		sSource = eSource = Polymer.dom(b.commonAncestor);
 		sTarget = eTarget = extractRes = sSource.cloneNode(false);
 
-		takeFirst = utils.posToContainerEdgeHasContent(startPos, "forward", opts.top);
-		takeLast = utils.posToContainerEdgeHasContent(endPos, "backward", opts.top);
-		hangingFirst = utils.posToContainerEdgeHasContent(startPos, "backward", opts.top);
-		hangingLast = takeLast && utils.posToContainerEdgeHasContent(endPos, "forward", opts.top);
-		
 		// run over starts[0] -> last sibling / eFrom
 		while(b.starts.length || b.ends.length)
 		{
@@ -161,7 +169,7 @@ window.ir.textarea.extract =
 			}
 
 			// eFrom --> eTo
-			if(eFrom)
+			if(eTo)
 			{
 				hasContent = utils.posToContainerEdgeHasContent(endPos, "backward", eTo)
 				for(n = eFrom; n && n != b.last.original && (n != eTo || hasContent); n = n && Polymer.dom(n).nextSibling)
@@ -193,9 +201,14 @@ window.ir.textarea.extract =
 		
 		if(hangingFirst && utils.isNonCustomContainer(Polymer.dom(extractRes).firstChild))
 			utils.replaceWithOwnChildren(extractRes.firstChild)
-		if(hangingLast && utils.isNonCustomContainer(Polymer.dom(extractRes).lastChild))
-			utils.replaceWithOwnChildren(extractRes.lastChild)
-
+		if(hangingLast)
+		{
+			if(extractRes instanceof DocumentFragment && utils.isNonCustomContainer(Polymer.dom(extractRes).lastChild))
+				utils.replaceWithOwnChildren(extractRes.lastChild)
+			else
+			if(utils.isNonCustomContainer(extractRes))
+				extractRes = utils.childrenToFragment(extractRes);
+		}
 		// up to here the original dom remained intact
 		if(del)
 		{
@@ -224,7 +237,7 @@ window.ir.textarea.extract =
 
 			//
 			// merge if start and end are in neighbouring containers and none of the containers was deleted
-			if(utils.parentNode(sCont) && utils.parentNode(eCont) && Polymer.dom(sCont).nextSibling == eCont)
+			if(utils.parentNode(sCont) && utils.parentNode(eCont) && Polymer.dom(sCont).nextSibling == eCont && hangingFirst && hangingLast)
 				utils.mergeNodes(sCont, eCont);
 
 				

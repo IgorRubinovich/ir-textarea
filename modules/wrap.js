@@ -134,21 +134,24 @@ window.ir.textarea.wrap = (function() {
 	
 	}
 	
-	wrap.wrapRange = function(range, wrapper, top) {
+	wrap.wrapRangeSegment = function(range, wrapper, top) {
 		var frag, startPath, endPath, splitRoot, dummyparagraph, src, extractRes;
 		
 		// save path as coordinates
-		startPath = utils.posToCoorinatesPos(range.startPosition);
-		endPath = utils.posToCoorinatesPos(range.startPosition);
+		startPath = utils.posToCoorinatesPos(range.startPosition, top);
+		endPath = utils.posToCoorinatesPos(range.startPosition, top);
 		
 		// find split root
-		splitRoot = utils.commonContainer(range.startPosition.container, range.endPosition.container);
+		splitRoot = utils.commonContainer(range.startPosition.container, range.endPosition.container, top);
 		
 		// hard-extract selection up to splitRoot
-		extractRes = extract.extractContents(range.startPosition, range.endPosition, { delete : true, splitRoot : splitRoot });
-		
+		extractRes = extract.extractContents(range.startPosition, range.endPosition, { delete : true, splitRoot : splitRoot, top : top });
+		console.log(extractRes)
 		// create a detached dummy paragraph
 		dummyparagraph = utils.newEmptyParagraph(true);
+		
+		if(!extractRes)
+			return;
 		
 		if(splitRoot != top)
 			dummyparagraph.appendChild(extractRes);
@@ -165,9 +168,52 @@ window.ir.textarea.wrap = (function() {
 		
 		while(dummyparagraph.firstChild)
 			frag.appendChild(dummyparagraph.firstChild)
-		
+
 		// and paste at startPosition
-		ir.textarea.paste.pasteHtmlAtPosWithParagraphs(frag, utils.coordinatesPosToPos(startPath), { top : top });
+		ir.textarea.paste.pasteHtmlAtPosWithParagraphs(frag, utils.coordinatesPosToPos(startPath, top, true, true)	, { top : top });
+	}
+	
+	wrap.wrapRange = function(range, wrapper, top) {
+		var first, last, main, 
+			sHanging, eHanging, 
+			sContainer, eContainer,
+			sMainPos, eMainPos, sMainPath, eMainPath;
+		
+		sContainer = utils.getNonCustomContainer(range.startPosition.container, top, true);
+		eContainer = utils.getNonCustomContainer(range.endPosition.container, top, true);
+			
+		if(sContainer == eContainer)
+			return wrap.wrapRangeSegment(range, wrapper, top);
+
+		sHanging = 	utils.posToContainerEdgeHasContent(range.startPosition, "forward", top) && 
+					utils.posToContainerEdgeHasContent(range.startPosition, "backward", top);
+		eHanging = 	utils.posToContainerEdgeHasContent(range.endPosition, "forward", top) && 
+					utils.posToContainerEdgeHasContent(range.endPosition, "backward", top);
+
+		sMainPos =  utils.maybeSlidePosDown(range.startPosition);
+		if(sHanging)
+		{
+			sMainPos = utils.maybeSlidePosDown({ container : utils.nextNodeNonDescendant(sContainer), offset : 0});
+			sMainPath = utils.posToCoorinatesPos(sMainPos);
+			
+			wrap.wrapRangeSegment({ startPosition : range.startPosition, endPosition : sMainPos }, wrapper, top)
+			
+			sMainPos = utils.coordinatesPosToPos(sMainPath);
+		}
+		
+		eMainPos =  utils.maybeSlidePosDown(range.endPosition);
+		if(eHanging)
+		{
+			eMainPos = utils.maybeSlidePosDown({ container : eContainer, offset : 0 });
+			eMainPath = utils.posToCoorinatesPos(eMainPos);
+			
+			wrap.wrapRangeSegment({ startPosition : eMainPos, endPosition : range.endPosition }, wrapper, top)
+			
+			eMainPos = utils.coordinatesPosToPos(eMainPath);
+		}
+		//if(Polymer.dom(sContainer).nextSibling != eContainer)
+		if(!(sHanging && eHanging && Polymer.dom(sContainer).nextSibling == eContainer))
+			wrap.wrapRangeSegment({ startPosition : sMainPos, endPosition : eMainPos}, wrapper, top)
 	}
 	
 	unwrapRange = function(range, wrapper)

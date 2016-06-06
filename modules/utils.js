@@ -279,11 +279,11 @@ window.ir.textarea.utils = (function() {
 		return { container : utils.getChildPathFromTop(pos.container, top, skipCaret), offset : pos.offset };
 	}
 
-	utils.coordinatesPosToPos = function(coordinatePos, top, skipCaret) {
+	utils.coordinatesPosToPos = function(coordinatePos, top, skipCaret, approximate) {
 		if(!coordinatePos)
 			return null;
 		
-		return { container : utils.getChildFromPath(coordinatePos.container, top, skipCaret), offset : coordinatePos.offset };
+		return { container : utils.getChildFromPath(coordinatePos.container, top, skipCaret, approximate), offset : coordinatePos.offset };
 	}
 
 	// return element path from top, includes top by default
@@ -320,7 +320,7 @@ window.ir.textarea.utils = (function() {
 		return t;
 	}
 
-	utils.getChildFromPath = function(pathArr, top, skipCaret)
+	utils.getChildFromPath = function(pathArr, top, skipCaret, approximate)
 	{
 		var res, i = 0, k, next, cn, coord, c = 0;
 	
@@ -344,13 +344,21 @@ window.ir.textarea.utils = (function() {
 				next = cn[coord];
 
 			if(!next)
-				return null; // res;
+				if(approximate)
+				{
+					pathArr.pop();
+					return utils.getChildFromPath(pathArr, top, skipCaret, true);
+				}
+				else
+					return null;
 
 			res = next;
 			
 			i++;
 		};
-
+		
+		// if there's no element at path approximate to closest meaningful result
+		
 		return res;
 	}
 
@@ -1297,18 +1305,26 @@ window.ir.textarea.utils = (function() {
 		return f;
 	}
 	
+	utils.childrenToFragment = function(el) {
+		var pel = Polymer.dom(el), frag;
+	
+		frag = document.createDocumentFragment();
+		while(pel.firstChild)
+			frag.appendChild(pel.firstChild);
+		
+		return frag;
+	}
 	
 	utils.replaceWithOwnChildren = function(el)
 	{
-		var cn, op, p, next, i, pel, first;
+		var cn, op, p, next, i, pel, first, frag;
 		
 		p = Polymer.dom(utils.parentNode(el));
-		cn = Polymer.dom(el).childNodes;
-		pel = Polymer.dom(el);
 		
-		first = pel.firstChild;
-		while(f = pel.firstChild)
-			p.insertBefore(f, el);
+		frag = utils.childrenToFragment(el);
+		first = frag.firstChild;
+		
+		p.insertBefore(frag, el);
 		
 		utils.removeFromParent(el);
 	
