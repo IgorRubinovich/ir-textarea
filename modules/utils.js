@@ -802,13 +802,17 @@ window.ir.textarea.utils = (function() {
 				return true;
 			else
 				n = utils.nextNode(n);
+
 		// end is not at start of text
-		if(m.nodeType == 3 && !utils.atText(endPos, 'start'))
-			return true;
+		if(!utils.posInSameContainer(startPos, { container : m, offset : 0 }))
+			return false;
 		
 		while(n && n != m)
 			if(n.nodeType == 3 || !utils.canHaveChildren(n) || n.is)
 				return true;
+			else
+			if(utils.isNonCustomContainer(n) && n.childNodes.length == startPos.offset)
+				n = utils.nextNodeNonDescendant(n, top);
 			else
 				n = utils.nextNode(n, top);
 			

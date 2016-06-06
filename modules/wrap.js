@@ -170,7 +170,7 @@ window.ir.textarea.wrap = (function() {
 			frag.appendChild(dummyparagraph.firstChild)
 
 		// and paste at startPosition
-		ir.textarea.paste.pasteHtmlAtPosWithParagraphs(frag, utils.coordinatesPosToPos(startPath, top, true, true)	, { top : top });
+		return ir.textarea.paste.pasteHtmlAtPosWithParagraphs(frag, utils.coordinatesPosToPos(startPath, top, true, true)	, { top : top });
 	}
 	
 	wrap.wrapRange = function(range, wrapper, top) {
@@ -196,9 +196,7 @@ window.ir.textarea.wrap = (function() {
 			sMainPos = utils.maybeSlidePosDown({ container : utils.nextNodeNonDescendant(sContainer), offset : 0});
 			sMainPath = utils.posToCoorinatesPos(sMainPos);
 			
-			wrap.wrapRangeSegment({ startPosition : range.startPosition, endPosition : sMainPos }, wrapper, top)
-			
-			sMainPos = utils.coordinatesPosToPos(sMainPath);
+			sMainPos = wrap.wrapRangeSegment({ startPosition : range.startPosition, endPosition : sMainPos }, wrapper, top)
 		}
 		
 		eMainPos =  utils.maybeSlidePosDown(range.endPosition);
