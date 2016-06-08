@@ -135,11 +135,11 @@ window.ir.textarea.wrap = (function() {
 	}
 	
 	wrap.wrapRangeSegment = function(range, wrapper, top) {
-		var frag, startPath, endPath, splitRoot, dummyparagraph, src, extractRes;
+		var frag, startPath, endPath, splitRoot, dummyparagraph, src, extractRes, pos;
 		
 		// save path as coordinates
 		startPath = utils.posToCoorinatesPos(range.startPosition, top);
-		endPath = utils.posToCoorinatesPos(range.startPosition, top);
+		endPath = utils.posToCoorinatesPos(range.endPosition, top);
 		
 		// find split root
 		splitRoot = utils.commonContainer(range.startPosition.container, range.endPosition.container, top);
@@ -169,8 +169,13 @@ window.ir.textarea.wrap = (function() {
 		while(dummyparagraph.firstChild)
 			frag.appendChild(dummyparagraph.firstChild)
 
+		// if wrapping bare nodes we don't want them to be merged as hanging
+		pos = utils.coordinatesPosToPos(startPath, top, true, true);
+		if(!utils.isNonCustomContainer(frag.firstChild) && utils.isNonCustomContainer(pos.container) && pos.offset == Polymer.dom(pos.container).childNodes.length)
+			pos = { container : utils.nextNodeNonDescendant(pos.container, top, true), offset : 0 };
+		
 		// and paste at startPosition
-		return ir.textarea.paste.pasteHtmlAtPosWithParagraphs(frag, utils.coordinatesPosToPos(startPath, top, true, true)	, { top : top });
+		return ir.textarea.paste.pasteHtmlAtPosWithParagraphs(frag, pos, { top : top });
 	}
 	
 	wrap.wrapRange = function(range, wrapper, top) {

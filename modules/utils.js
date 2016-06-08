@@ -64,7 +64,21 @@ window.ir.textarea.utils = (function() {
 		n.innerHTML = recursiveInnerHTML(el);
 		return n;
 	}
-
+	
+	utils.reattachCustomElements = function(root) {
+		utils.visitNodes(root, function(el) {  // hard-reattach custom elements lest they lose their powers
+			var h;
+			if(el.is)
+			{
+				clone = Polymer.dom(el).cloneNode(false);
+				clone.innerHTML = utils.recursiveInnerHTML(el);
+				Polymer.dom(Polymer.dom(el).parentNode).insertBefore(clone, el);
+				Polymer.dom(Polymer.dom(el).parentNode).removeChild(el);
+				Polymer.dom.flush();
+			}
+		})
+	}
+	
 	// effectively outerHTML - innerHTML
 	utils.tagOutline = function(el) {
 		var d = document.createElement('div'),
@@ -107,6 +121,23 @@ window.ir.textarea.utils = (function() {
 		return res;
 	}
 
+	// outerHTML that works with any nodes including DocumentFragment
+	utils.outerHTML = function(el, escape) {
+		var r = "";
+		if(el instanceof DocumentFragment)
+			for(var i = 0; i < el.childNodes.length; i++)
+				r += el.childNodes[i].nodeType == 3 ? el.childNodes[i].textContent : utils.recursiveOuterHTML(el.childNodes[i]);
+		else
+			r =  utils.recursiveOuterHTML(el);
+		
+		if(escape)
+			r = r.replace(/\</g, '&lt;').replace(/\>/g, '&gt;')
+		
+		return r;
+		
+	}
+
+	
 	utils.recursiveOuterHTML = function(node, skipNodes){
 		var outerHTML, innerHTML, childNodes, res;
 
@@ -208,10 +239,15 @@ window.ir.textarea.utils = (function() {
 	}
 	
 	utils.isNonCustomContainer = function(el) {
-		return el && !el.is && utils.canHaveChildren(el) && (!utils.isInlineElement(el) || utils.isParagraph(el)) && !utils.isTransitionalElement(el);
+		return el && !el.is && 
+				utils.canHaveChildren(el) && 
+				(!utils.isInlineElement(el) || utils.isParagraph(el)) && !utils.isTransitionalElement(el);
 	}
 	
 	utils.getLastAncestorBeforeTop = function(el, top) {
+		if(el == top)
+			return el;
+		
 		while(el && (n = utils.parentNode(el)) != top)
 			el = n;
 		
@@ -220,7 +256,7 @@ window.ir.textarea.utils = (function() {
 	
 	utils.getNonCustomContainer = function(child, top, excludeTop) {
 		var c = child, ncc;
-		
+
 		ncc = utils.getTopCustomElementAncestor(child, top);
 		if(ncc)
 			child = ncc;
@@ -790,7 +826,16 @@ window.ir.textarea.utils = (function() {
 	}
 	
 	utils.rangeHasContent = function(startPos, endPos, top) { 
-		var n = startPos.container, m = endPos.container;
+		var n, m;
+		
+		startPos = utils.maybeSlidePosDown(startPos);
+		endPos = utils.maybeSlidePosDown(endPos);
+
+		n = startPos.container;
+		m = endPos.container;
+
+		if(utils.canHaveChildren(m) && Polymer.dom(m).childNodes.length == endPos.offset)
+			m = utils.nextNodeNonDescendant(m);
 		
 		if(n.nodeType == 3)
 			// same text container check
@@ -801,14 +846,22 @@ window.ir.textarea.utils = (function() {
 			if(!utils.atText(startPos, 'end'))
 				return true;
 			else
+			{
 				n = utils.nextNode(n);
-
+				if(utils.isTag(n, 'br'))
+					n = utils.nextNode(n);
+			}
+		
 		// end is not at start of text
-		if(!utils.posInSameContainer(startPos, { container : m, offset : 0 }))
+		
+		//if(!utils.posInSameContainer(startPos, { container : m, offset : 0 }))
+		//	return false;
+		
+		if(n == m)
 			return false;
 		
 		while(n && n != m)
-			if(n.nodeType == 3 || !utils.canHaveChildren(n) || n.is)
+			if(!utils.isTransitionalElement(n) && n.nodeType == 3 || !utils.canHaveChildren(n) || n.is)
 				return true;
 			else
 			if(utils.isNonCustomContainer(n) && n.childNodes.length == startPos.offset)
@@ -819,7 +872,7 @@ window.ir.textarea.utils = (function() {
 		return false;
 	}
 	
-	utils.nextNodeNonDescendant = function(n, top) {
+	utils.nextNodeNonDescendant = function(n, top, skipAncestors) {
 		var r;
 		top = top || document.body;
 		if(r = Polymer.dom(n).nextSibling)
@@ -829,6 +882,9 @@ window.ir.textarea.utils = (function() {
 		while(r && !Polymer.dom(r).nextSibling && r != top)
 			r = utils.parentNode(r);
 		
+		if(skipAncestors)
+			r = Polymer.dom(r).nextSibling
+	
 		return !r || r == top ? top.nextSibling : r;
 	}
 	

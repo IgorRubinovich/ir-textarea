@@ -40,17 +40,7 @@ window.ir.textarea.extract =
 
 		Polymer.dom.flush();
 		
-		utils.visitNodes(limit.previousSibling, function(el) {  // hard-reattach custom elements lest they lose their powers
-			var h;
-			if(el.is)
-			{
-				clone = Polymer.dom(el).cloneNode(false);
-				clone.innerHTML = utils.recursiveInnerHTML(el);
-				Polymer.dom(Polymer.dom(el).parentNode).insertBefore(clone, el);
-				Polymer.dom(Polymer.dom(el).parentNode).removeChild(el);
-				Polymer.dom.flush();
-			}
-		})
+		utils.reattachCustomElements(limit.previousSibling);
 
 		//left.normalize();
 		//limit.normalize();
@@ -59,13 +49,13 @@ window.ir.textarea.extract =
 	}
 	
 	// extracts contents from startPos to endPos
-	// startPos, endPos - range-like position objects { container : <element>, offset : <offset> }
+	// startPos, endPos - range-like position objects { container : <Node>, offset : <Number> }
 	// opts object properties: 
 	// 		top : absolute top of extracted area (never go higher)
 	// 		splitRoot : the root of the split - i.e. the highest ancestor that will be split
 	//		delete : remove the contents between startPos and endPos from the source element
 	//
-	// return value: a copy of the content between startPos and endPos
+	// return value: a copy of the content (tree segment) between startPos and endPos
 	//
 	// The function considers hanging start and end. A hanging fragment forms when the selection contains only a part 
 	// of a paragraph (or other block-level element), see an example in the diagram:
@@ -89,10 +79,10 @@ window.ir.textarea.extract =
 			extractRes, 
 			t, b, n, p, deletes = [], hasContent;
 	
-		if(startPos.container == opts.top)
+		//if(startPos.container == opts.top)
 			startPos = utils.maybeSlidePosDown(startPos);
-		if(endPos.container == opts.top)
-			endPos = endPos.container == opts.top && utils.maybeSlidePosDown(endPos);
+		//if(endPos.container == opts.top)
+			endPos = utils.maybeSlidePosDown(endPos);
 			
 		if(utils.samePos(startPos, endPos))
 			return '';
@@ -108,7 +98,7 @@ window.ir.textarea.extract =
 
 		takeFirst = utils.posToContainerEdgeHasContent(startPos, "forward", opts.top);
 		takeLast = utils.posToContainerEdgeHasContent(endPos, "backward", opts.top);
-		hangingFirst = utils.posToContainerEdgeHasContent(startPos, "backward", opts.top);
+		hangingFirst = takeFirst && utils.posToContainerEdgeHasContent(startPos, "backward", opts.top);
 		hangingLast = takeLast && utils.posToContainerEdgeHasContent(endPos, "forward", opts.top);
 		
 		// 1. both positions are in commonAncestor that is a text node
@@ -128,8 +118,9 @@ window.ir.textarea.extract =
 			else
 			{
 				sCont = utils.getNonCustomContainer(startPos.container, opts.top);
-				utils.removeFromParent(sCont);
-				return sCont;
+				if(del)
+					utils.removeFromParent(sCont);
+				return Polymer.dom(sCont).cloneNode(true);
 			}
 		}
 		
@@ -154,14 +145,19 @@ window.ir.textarea.extract =
 			if(sFrom && b.first.copy)
 			{
 				n = sFrom;
-				if(!b.first.copy || n == b.first.original)  	// if first node is not included (as at end of text), skip first's ancestor containers
-					n = Polymer.dom(sFrom).nextSibling;			// also skip if we're copying the first element itself - it's done below
+				//if(!b.first.copy || n == b.first.original)  	// if first node is not included (as at end of text), skip first's ancestor containers
+				//	n = Polymer.dom(sFrom).nextSibling;			// also skip if we're copying the first element itself - it's done below
+				
+				if(!takeFirst || n == b.first.original)
+					n = Polymer.dom(sFrom).nextSibling;
+
 				for(; n && (n != sTo || sTo != eFrom); n = Polymer.dom(n).nextSibling)
 				{
 					Polymer.dom(sTarget).appendChild(Polymer.dom(n).cloneNode(n != sFrom));
 					Polymer.dom.flush();
 					del && (n != sFrom || !b.first.remainder) && deletes.push(n); // delete all middle containers and first only if there's no remainder
 				}
+				
 				sSource = Polymer.dom(sFrom);
 				t = Polymer.dom(sTarget).firstChild;
 				if(sFrom != b.first.original && t && t.nodeType != 3)
@@ -188,15 +184,15 @@ window.ir.textarea.extract =
 		}
 
 		// first and last containers
-		if(b.first.original && b.first.copy && b.commonAncestor != b.first.original)
+		if(takeFirst && b.first.original && b.first.copy && b.commonAncestor != b.first.original)
 			Polymer.dom(sTarget)[Polymer.dom(sTarget).firstChild ? 'insertBefore' : 'appendChild'](b.first.copy, Polymer.dom(sTarget).firstChild);
-		if(b.last.original && b.last.copy && b.commonAncestor != b.last.original)
+		if(takeLast && b.last.original && b.last.copy && b.commonAncestor != b.last.original)
 			Polymer.dom(eTarget).appendChild(b.last.copy);
 		
 		sCont = utils.getNonCustomContainer(startPos.container, opts.top);
 		eCont = utils.getNonCustomContainer(endPos.container, opts.top);
 		
-		if(b.commonAncestor != b.last.original && (!extractRes || b.commonAncestor == opts.top))
+		if(b.commonAncestor != b.last.original && (!extractRes || b.commonAncestor == opts.top || sCont == eCont || utils.isSubTransitionalElement(b.commonAncestor)))
 			extractRes = utils.moveChildrenToFragment(extractRes, true);
 		
 		if(hangingFirst && utils.isNonCustomContainer(Polymer.dom(extractRes).firstChild))
@@ -216,7 +212,7 @@ window.ir.textarea.extract =
 			{				
 				if(b.first.original.nodeType == 3)
 					b.first.original.textContent = b.first.remainder;		
-				if(!b.first.remainder && (!b.last.original || (utils.getNonCustomContainer(b.first.original) != utils.getNonCustomContainer(b.last.original))))
+				if(takeFirst && !b.first.remainder && (!b.last.original || (utils.getNonCustomContainer(b.first.original) != utils.getNonCustomContainer(b.last.original))))
 					deletes.push(b.first.original);
 			}
 			if(b.last.original)
@@ -274,7 +270,7 @@ window.ir.textarea.extract =
 		{
 			first = { // included by default unless at text end
 				original : sc,
-				copy : Polymer.dom(sc).cloneNode()
+				copy : Polymer.dom(sc).cloneNode(true)
 			};
 			if(sAtText)
 				first = { 

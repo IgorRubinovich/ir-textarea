@@ -154,9 +154,10 @@ window.ir.textarea.paste = (function() {
 				right = extract.splitNode(pos.container, pos.offset, posCont, opts.top);
 			else
 			if(!hasContentBefore)
-				right = utils.getNonCustomContainer(pos.container);
+				//right = utils.getNonCustomContainer(pos.container);
+				right = utils.getNonCustomContainer(utils.nextNodeNonDescendant(pos.container, top));
 			else
-				right = utils.nextNode(pos.container);
+				right = utils.nextNodeNonDescendant(pos.container);
 				//Polymer.dom(pos.container).nextSibling;
 			left = hasContentBefore && Polymer.dom(right).previousSibling;
 			
@@ -459,10 +460,14 @@ window.ir.textarea.paste = (function() {
 			if(typeof html == 'string')
 				d.innerHTML = html;
 			else
-			if(html instanceof DocumentFragment)
+				d.innerHTML = utils.outerHTML(html);
+			
+			if(!d.innerHTML)
+				return pos;
+			/*if(html instanceof DocumentFragment)
 				d = html;
 			else
-				d.appendChild(html);
+				d.appendChild(html);*/
 			
 			d.normalize();
 			
