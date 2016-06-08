@@ -12,6 +12,7 @@ window.ir.textarea.utils = (function() {
 		.forEach(function(tag) { INLINE_ELEMENTS[tag.toUpperCase()] = true });
 		
 	var TRANSITIONAL_ELEMENTS = ['UL', 'TABLE', 'TBODY', 'THEAD', 'TH', 'TR'],
+		LAYOUT_ELEMENTS = ['TBODY', 'THEAD', 'TH', 'TR'],
 		SUBTRANSITIONAL_ELEMENTS = ['LI', 'TD'];
 
 	utils.recursiveInnerHTML = function(el, skipNodes) {
@@ -1149,6 +1150,10 @@ window.ir.textarea.utils = (function() {
 	
 	utils.isSubTransitionalElement = function(el) {
 		return el && el.tagName && SUBTRANSITIONAL_ELEMENTS.indexOf(el.tagName) > -1
+	}
+
+	utils.isLayoutElement = function(el) {
+		return el && el.tagName && (LAYOUT_ELEMENTS.indexOf(el.tagName) > -1 || (el.parentNode && LAYOUT_ELEMENTS.indexOf(el.parentNode.tagName) > -1))
 	}
 
 	utils.isSpecialElement = function(el) {

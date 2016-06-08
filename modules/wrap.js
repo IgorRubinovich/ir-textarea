@@ -88,7 +88,7 @@ window.ir.textarea.wrap = (function() {
 		for(i = 0; i < cn.length; i++)
 		{
 			n = cn[i];
-			if(Symbols.TEXT(n) || Symbols.NCBLOCK(n))
+			if((Symbols.TEXT(n) || Symbols.NCBLOCK(n)) && (!utils.isTransitionalElement(n) && !utils.isTransitionalElement(n.parentNode)))
 				groups[gid].push(n);
 			else
 			if(!Symbols.NCBLOCK(n) && utils.isInLightDom(n, top))
@@ -146,7 +146,7 @@ window.ir.textarea.wrap = (function() {
 		
 		// hard-extract selection up to splitRoot
 		extractRes = extract.extractContents(range.startPosition, range.endPosition, { delete : true, splitRoot : splitRoot, top : top });
-		console.log(extractRes)
+
 		// create a detached dummy paragraph
 		dummyparagraph = utils.newEmptyParagraph(true);
 		
@@ -168,6 +168,8 @@ window.ir.textarea.wrap = (function() {
 		
 		while(dummyparagraph.firstChild)
 			frag.appendChild(dummyparagraph.firstChild)
+
+		console.log(utils.outerHTML(frag));
 
 		// if wrapping bare nodes we don't want them to be merged as hanging
 		pos = utils.coordinatesPosToPos(startPath, top, true, true);

@@ -64,7 +64,7 @@ window.ir.textarea.extract =
 	// | text one in(startPos HERE) paragraph | <-- startPos causes the word "paragraph" to hang
 	//  `--------------------------------------
 	// paragraph ----------------------------
-	// | text two in paragraph (endPos HERE)|   <-- endPos doesn't cause any hanging end because paragraph two is entirely within the range
+	// | text two in paragraph (endPos HERE)|   <-- endPos doesn't cause any hanging end because contents of paragraph two is entirely within the range
 	//  `------------------------------------
 	// 
 	
