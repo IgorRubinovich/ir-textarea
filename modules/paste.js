@@ -549,8 +549,10 @@ window.ir.textarea.paste = (function() {
 			}
 			
 			if(!state.pos.code)
+            {
 				state.pos.code = "d";
 
+            }
 			// steps
 
 			// prepare
@@ -572,7 +574,6 @@ window.ir.textarea.paste = (function() {
 				tn.textContent = pos.container.textContent.slice(0, pos.offset);
 				pos.container.textContent = pos.container.textContent.slice(pos.offset, pos.container.textContent.length);
 			}
-			
 			first = last = d.firstChild;
 			// append
 			if(state.pos.lastChildText)
@@ -581,10 +582,15 @@ window.ir.textarea.paste = (function() {
 					Polymer.dom(parent).appendChild(last = d.firstChild);
 				}
 			else
-			if(state.pos.lastChildBlock)
+			if(state.pos.lastChildBlock){
 				while(d.firstChild)
 					Polymer.dom(pos.container).appendChild(last = d.firstChild);
-			// or insert
+            }
+            else if (!state.pos.textStart && !state.pos.textMiddle && !state.pos.textEnd && state.pos.code=='d')
+            {// handle the condition where a paste happens between nodes (not text)
+                pos.container.insertBefore(d.lastChild,pos.container.childNodes[pos.offset])
+             }   
+    		// or insert
 			else
 				while(d.firstChild)
 					Polymer.dom(parent).insertBefore(last = d.firstChild, pos.container);
