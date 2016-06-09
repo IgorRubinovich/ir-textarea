@@ -586,10 +586,11 @@ window.ir.textarea.paste = (function() {
 				while(d.firstChild)
 					Polymer.dom(pos.container).appendChild(last = d.firstChild);
             }
-            else if (!state.pos.textStart && !state.pos.textMiddle && !state.pos.textEnd && state.pos.code=='d')
-            {// handle the condition where a paste happens between nodes (not text)
-                pos.container.insertBefore(d.lastChild,pos.container.childNodes[pos.offset])
-             }   
+			else if (!state.pos.textStart && !state.pos.textMiddle && !state.pos.textEnd && state.pos.code=='d' && pos.container != utils.getNonCustomContainer(pos.container))
+			{
+				// handle the condition where a paste happens between nodes (not text)
+				pos.container.insertBefore(d.lastChild, pos.container.childNodes[pos.offset])
+            }   
     		// or insert
 			else
 				while(d.firstChild)
