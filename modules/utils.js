@@ -11,7 +11,7 @@ window.ir.textarea.utils = (function() {
 	"font,b,big,i,u,small,tt,abbr,acronym,cite,code,dfn,em,kbd,strong,samp,time,var,a,bdo,br,img,map,object,q,script,span,sub,sup".split(/,/)
 		.forEach(function(tag) { INLINE_ELEMENTS[tag.toUpperCase()] = true });
 		
-	var TRANSITIONAL_ELEMENTS = ['UL', 'TABLE', 'TBODY', 'THEAD', 'TH', 'TR'],
+	var TRANSITIONAL_ELEMENTS = ['OL', 'UL', 'TABLE', 'TBODY', 'THEAD', 'TH', 'TR'],
 		LAYOUT_ELEMENTS = ['TBODY', 'THEAD', 'TH', 'TR'],
 		SUBTRANSITIONAL_ELEMENTS = ['LI', 'TD'];
 
@@ -889,6 +889,15 @@ window.ir.textarea.utils = (function() {
 		return !r || r == top ? top.nextSibling : r;
 	}
 	
+	utils.isHangingPos = function(pos, top) {
+		if(utils.isLayoutElement(pos.container))
+			return false;
+
+		return utils.posToContainerEdgeHasContent(pos, "forward", top) && 
+					utils.posToContainerEdgeHasContent(pos, "backward", top);
+	
+	}
+	
 	utils.posToContainerEdgeHasContent = function(pos, dir, top) {
 		var atText, cont = utils.getNonCustomContainer(pos.container, top), n, pos, otherpos, t;
 		
@@ -1152,8 +1161,13 @@ window.ir.textarea.utils = (function() {
 		return el && el.tagName && SUBTRANSITIONAL_ELEMENTS.indexOf(el.tagName) > -1
 	}
 
+	// this one exceptionally checks the parent 
 	utils.isLayoutElement = function(el) {
-		return el && el.tagName && (LAYOUT_ELEMENTS.indexOf(el.tagName) > -1 || (el.parentNode && LAYOUT_ELEMENTS.indexOf(el.parentNode.tagName) > -1))
+		var p;
+
+		return 	el && 
+				(el.tagName && LAYOUT_ELEMENTS.indexOf(el.tagName) > -1) || 
+				(el.nodeType == 3 && (p = utils.parentNode(el)) && LAYOUT_ELEMENTS.indexOf(p.tagName) > -1)
 	}
 
 	utils.isSpecialElement = function(el) {

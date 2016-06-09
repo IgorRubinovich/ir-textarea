@@ -64,7 +64,7 @@ window.ir.textarea.extract =
 	// | text one in(startPos HERE) paragraph | <-- startPos causes the word "paragraph" to hang
 	//  `--------------------------------------
 	// paragraph ----------------------------
-	// | text two in paragraph (endPos HERE)|   <-- endPos doesn't cause any hanging end because contents of paragraph two is entirely within the range
+	// | text two in paragraph (endPos HERE)|   <-- endPos doesn't cause any hanging end because contents of paragraph two are entirely within the range
 	//  `------------------------------------
 	// 
 	
@@ -129,7 +129,7 @@ window.ir.textarea.extract =
 		sSource = eSource = Polymer.dom(b.commonAncestor);
 		sTarget = eTarget = extractRes = sSource.cloneNode(false);
 
-		// run over starts[0] -> last sibling / eFrom
+		// cursor between b.starts and b.ends path arrays
 		while(b.starts.length || b.ends.length)
 		{
 			sFrom = b.starts.shift();
@@ -192,7 +192,7 @@ window.ir.textarea.extract =
 		sCont = utils.getNonCustomContainer(startPos.container, opts.top);
 		eCont = utils.getNonCustomContainer(endPos.container, opts.top);
 		
-		if(b.commonAncestor != b.last.original && (!extractRes || b.commonAncestor == opts.top || sCont == eCont || utils.isSubTransitionalElement(b.commonAncestor)))
+		if(b.commonAncestor != b.last.original && (!extractRes || b.commonAncestor == opts.top || sCont == eCont || utils.isTransitionalElement(b.commonAncestor)))
 			extractRes = utils.moveChildrenToFragment(extractRes, true);
 		
 		if(hangingFirst && utils.isNonCustomContainer(Polymer.dom(extractRes).firstChild))

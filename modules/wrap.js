@@ -126,77 +126,101 @@ window.ir.textarea.wrap = (function() {
 	}
 	
 	wrap.splitRangeIntoWrapGroups = function(range, wrapper) {
-		var extractRes = extract.extractContents(range.startPosition, range.endPosition, { delete : true });
+		//var extractRes = extract.extractContents(range.startPosition, range.endPosition, { delete : true });
+		var sContainer, eContainer, sHanging, eHanging, n;
 		
-		if(Symbol.WRAPCONTAINER(extract))
-			extractRes.splitIntoWrapGroups(node).forEach(function(g) { wrap.wrapNodes(g, wrapper); });
+		sContainer = utils.getNonCustomContainer(range.startPosition.container, top, true);
+		eContainer = utils.getNonCustomContainer(range.endPosition.container, top, true);
 		
-	
+		sHanging = utils.isHangingPos(range.startPosition, top);
+		eHanging = utils.isHangingPos(range.endPosition, top);
+
+		
 	}
 	
 	wrap.wrapRangeSegment = function(range, wrapper, top) {
-		var frag, startPath, endPath, splitRoot, dummyparagraph, src, extractRes, pos;
+		var frag, startPath, endPath, splitRoot, dummyparagraph, src, extractRes, pos, n, done;
 		
 		// save path as coordinates
 		startPath = utils.posToCoorinatesPos(range.startPosition, top);
 		endPath = utils.posToCoorinatesPos(range.endPosition, top);
 		
-		// find split root
-		splitRoot = utils.commonContainer(range.startPosition.container, range.endPosition.container, top);
-		
-		// hard-extract selection up to splitRoot
-		extractRes = extract.extractContents(range.startPosition, range.endPosition, { delete : true, splitRoot : splitRoot, top : top });
+		if(utils.isHangingPos(range.startPosition, top) || utils.isHangingPos(range.endPosition, top))
+		{
+			// find split root
+			splitRoot = utils.commonContainer(range.startPosition.container, range.endPosition.container, top);
+			
+			// hard-extract selection up to splitRoot
+			extractRes = extract.extractContents(range.startPosition, range.endPosition, { delete : true, splitRoot : splitRoot, top : top });
 
-		// create a detached dummy paragraph
-		dummyparagraph = utils.newEmptyParagraph(true);
+			// create a detached dummy paragraph
+			dummyparagraph = utils.newEmptyParagraph(true);
+			
+			if(!extractRes)
+				return;
+			
+			if(splitRoot != top)
+				dummyparagraph.appendChild(extractRes);
+			else
+				while(extractRes.firstChild)
+					dummyparagraph.appendChild(extractRes.firstChild);
+			
+			// remember path of startPos
+			//dummyparagraph.appendChild(extract);
+			wrap.wrapContents(dummyparagraph, wrapper);
+
+			// put them all in a fragment
+			frag = document.createDocumentFragment();
+			
+			while(dummyparagraph.firstChild)
+				frag.appendChild(dummyparagraph.firstChild)
+
+			console.log(utils.outerHTML(frag));
+
+			// if wrapping bare nodes we don't want them to be merged as hanging
+			pos = utils.coordinatesPosToPos(startPath, top, true, true);
+			if(!utils.isNonCustomContainer(frag.firstChild) && utils.isNonCustomContainer(pos.container) && pos.offset == Polymer.dom(pos.container).childNodes.length)
+				pos = { container : utils.nextNodeNonDescendant(pos.container, top, true), offset : 0 };
 		
-		if(!extractRes)
-			return;
-		
-		if(splitRoot != top)
-			dummyparagraph.appendChild(extractRes);
+			// and paste at startPosition
+			return ir.textarea.paste.pasteHtmlAtPosWithParagraphs(frag, pos, { top : top });
+		}
 		else
-			while(extractRes.firstChild)
-				dummyparagraph.appendChild(extractRes.firstChild);
-		
-		// remember path of startPos
-		//dummyparagraph.appendChild(extract);
-		wrap.wrapContents(dummyparagraph, wrapper);
-
-		// put them all in a fragment
-		frag = document.createDocumentFragment();
-		
-		while(dummyparagraph.firstChild)
-			frag.appendChild(dummyparagraph.firstChild)
-
-		console.log(utils.outerHTML(frag));
-
-		// if wrapping bare nodes we don't want them to be merged as hanging
-		pos = utils.coordinatesPosToPos(startPath, top, true, true);
-		if(!utils.isNonCustomContainer(frag.firstChild) && utils.isNonCustomContainer(pos.container) && pos.offset == Polymer.dom(pos.container).childNodes.length)
-			pos = { container : utils.nextNodeNonDescendant(pos.container, top, true), offset : 0 };
-		
-		// and paste at startPosition
-		return ir.textarea.paste.pasteHtmlAtPosWithParagraphs(frag, pos, { top : top });
+		{
+			n = range.startPosition.container;
+			while(!done)
+			{
+				wrap.wrapContents(n, wrapper);
+				n = utils.nextNodeNonDescendant(n);
+				
+				done = n == range.endPosition.container
+			}
+		}
+			
+	
 	}
+	
+
 	
 	wrap.wrapRange = function(range, wrapper, top) {
 		var first, last, main, 
 			sHanging, eHanging, 
 			sContainer, eContainer,
-			sMainPos, eMainPos, sMainPath, eMainPath;
+			sMainPos, eMainPos, 
+			sMainPath, eMainPath,
+			sSub, eSub, includeLast, done, nextDone, t;
 		
 		sContainer = utils.getNonCustomContainer(range.startPosition.container, top, true);
 		eContainer = utils.getNonCustomContainer(range.endPosition.container, top, true);
-			
+		
+		// process hanging parts
+		
 		if(sContainer == eContainer)
 			return wrap.wrapRangeSegment(range, wrapper, top);
 
-		sHanging = 	utils.posToContainerEdgeHasContent(range.startPosition, "forward", top) && 
-					utils.posToContainerEdgeHasContent(range.startPosition, "backward", top);
-		eHanging = 	utils.posToContainerEdgeHasContent(range.endPosition, "forward", top) && 
-					utils.posToContainerEdgeHasContent(range.endPosition, "backward", top);
-
+		sHanging = 	utils.isHangingPos(range.startPosition, top);
+		eHanging = 	utils.isHangingPos(range.endPosition, top);
+		
 		sMainPos =  utils.maybeSlidePosDown(range.startPosition);
 		if(sHanging)
 		{
@@ -217,8 +241,44 @@ window.ir.textarea.wrap = (function() {
 			eMainPos = utils.coordinatesPosToPos(eMainPath);
 		}
 		//if(Polymer.dom(sContainer).nextSibling != eContainer)
-		if(!(sHanging && eHanging && Polymer.dom(sContainer).nextSibling == eContainer))
-			wrap.wrapRangeSegment({ startPosition : sMainPos, endPosition : eMainPos}, wrapper, top)
+
+		
+		// process the main part (non-hanging)
+		if(!(sHanging && eHanging && (Polymer.dom(sContainer).nextSibling == eContainer)))
+		{
+			nc = utils.nextNodeNonDescendant(sMainPos.container, top, true); //utils.nextNodeNonDescendant(sMainPos.container, top, true);
+			includeLast = !utils.posToContainerEdgeHasContent(eMainPos, "forward", top);
+
+			done = function(el) { return t != eMainPos.container && ((!includeLast && el == eContainer) || (includeLast && el == Polymer.dom(eContainer).nextSibling)) };
+
+			while(!done(nc))
+			{
+				// skip transitional elements
+				while(utils.isLayoutElement(nc) && !done(nc))
+					nc = utils.nextNode(nc, top);
+				
+				sSub = { container : nc, offset : 0 };
+				
+				if(!done(nc))
+					nc = utils.nextNodeNonDescendant(nc, top, true);
+				
+				//eSub = { container : nc = utils.nextNodeNonDescendant(nc, top, true), offset : 0 };
+				
+				// capture all non-blocks
+				while(	nc && !done(nc) &&
+						!utils.isNonCustomContainer(nc) && 
+						(t = utils.nextNodeNonDescendant(nc, top, true)) && 
+						!utils.isLayoutElement(nc) && 
+						t != nc)
+
+					nc = t;
+
+				if(nc) {
+					eSub = { container : nc, offset : 0 };
+					wrap.wrapRangeSegment({ startPosition : sSub, endPosition : eSub }, wrapper, top);
+				}
+			}
+		}
 	}
 	
 	unwrapRange = function(range, wrapper)
