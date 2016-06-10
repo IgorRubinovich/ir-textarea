@@ -281,7 +281,6 @@ window.ir.textarea.wrap = (function() {
 				}
 			}
 		}
-	}
     wrap.wrapWithAttributes = function(tag,attributes){
         var r = getSelection().getRangeAt(0), cltag,
                 posr = {
@@ -300,7 +299,6 @@ window.ir.textarea.wrap = (function() {
                 var aString =  '';
                 if(attributes && attributes['style']) astring = ' style=' + attributes['style'];
                 if(attributes && attributes['class']) astring = astring + ' class=' + attributes['class'];
-                
                 wrap.wrapRange(posr, "<" + tag + aString +  "><span id='insertionPoint'></span></" + cltag + ">", editor);
             }
     }
