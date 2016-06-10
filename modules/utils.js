@@ -510,7 +510,7 @@ window.ir.textarea.utils = (function() {
 		return { container : ncc, offset : Polymer.dom(ncc).childNodes.length }
 	}
 	
-	utils.nextNode = function(node, top) {
+	utils.nextNode = function(node, top, skipAncestors) {
 		var next, done;
 		
 		if(!node)
@@ -522,18 +522,14 @@ window.ir.textarea.utils = (function() {
 		if(Polymer.dom(node).childNodes && Polymer.dom(node).childNodes.length)
 			return Polymer.dom(node).firstChild;
 
-		while(node && node != top && !done) // !Polymer.dom(node).nextSibling) {
+		while(node && node != top && !next) // !Polymer.dom(node).nextSibling) {
 		{
-			next = node.nextSibling;
+			next = Polymer.dom(node).nextSibling;
 			if(!next || !utils.isInLightDom(next, top))
 				next = Polymer.dom(node).nextSibling;
 			
 			next = utils.isInLightDom(next, top) && next;
 			
-			if(next)
-				done = true;
-			
-			//node = Polymer.dom(node).parentNode;
 			node = utils.parentNode(node, top);
 		}
 		
@@ -990,6 +986,11 @@ window.ir.textarea.utils = (function() {
 		};
 	};
 
+	utils.onSameBranch = function(n, m, exceptEqual)
+	{
+		return utils.isDescendantOf(n, m, !exceptEqual) || utils.isDescendantOf(m, n, !exceptEqual);
+	}
+	
 	// check whether child is descendant of ancestor, set orEqual to true to consider ancestor as a descendant
 	utils.isDescendantOf = function(child, ancestor, orEqual) {
 		var pp = child;
