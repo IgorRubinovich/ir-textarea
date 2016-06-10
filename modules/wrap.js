@@ -126,104 +126,78 @@ window.ir.textarea.wrap = (function() {
 	}
 	
 	wrap.splitRangeIntoWrapGroups = function(range, wrapper) {
-		//var extractRes = extract.extractContents(range.startPosition, range.endPosition, { delete : true });
-		var sContainer, eContainer, sHanging, eHanging, n;
+		var extractRes = extract.extractContents(range.startPosition, range.endPosition, { delete : true });
 		
-		sContainer = utils.getNonCustomContainer(range.startPosition.container, top, true);
-		eContainer = utils.getNonCustomContainer(range.endPosition.container, top, true);
-		
-		sHanging = utils.isHangingPos(range.startPosition, top);
-		eHanging = utils.isHangingPos(range.endPosition, top);
-
 		if(Symbols.WRAPCONTAINER(extract))
 			extractRes.splitIntoWrapGroups(node).forEach(function(g) { wrap.wrapNodes(g, wrapper); });
 		
+	
 	}
 	
 	wrap.wrapRangeSegment = function(range, wrapper, top) {
-		var frag, startPath, endPath, splitRoot, dummyparagraph, src, extractRes, pos, n, done;
+		var frag, startPath, endPath, splitRoot, dummyparagraph, src, extractRes, pos;
 		
 		// save path as coordinates
 		startPath = utils.posToCoorinatesPos(range.startPosition, top);
 		endPath = utils.posToCoorinatesPos(range.endPosition, top);
 		
-		if(utils.isHangingPos(range.startPosition, top) || utils.isHangingPos(range.endPosition, top))
-		{
-			// find split root
-			splitRoot = utils.commonContainer(range.startPosition.container, range.endPosition.container, top);
-			
-			// hard-extract selection up to splitRoot
-			extractRes = extract.extractContents(range.startPosition, range.endPosition, { delete : true, splitRoot : splitRoot, top : top });
-
-			// create a detached dummy paragraph
-			dummyparagraph = utils.newEmptyParagraph(true);
-			
-			if(!extractRes)
-				return;
-			
-			if(splitRoot != top)
-				dummyparagraph.appendChild(extractRes);
-			else
-				while(extractRes.firstChild)
-					dummyparagraph.appendChild(extractRes.firstChild);
-			
-			// remember path of startPos
-			//dummyparagraph.appendChild(extract);
-			wrap.wrapContents(dummyparagraph, wrapper);
-
-			// put them all in a fragment
-			frag = document.createDocumentFragment();
-			
-			while(dummyparagraph.firstChild)
-				frag.appendChild(dummyparagraph.firstChild)
-
-			console.log(utils.outerHTML(frag));
-
-			// if wrapping bare nodes we don't want them to be merged as hanging
-			pos = utils.coordinatesPosToPos(startPath, top, true, true);
-			if(!utils.isNonCustomContainer(frag.firstChild) && utils.isNonCustomContainer(pos.container) && pos.offset == Polymer.dom(pos.container).childNodes.length)
-				pos = { container : utils.nextNodeNonDescendant(pos.container, top, true), offset : 0 };
+		// find split root
+		splitRoot = utils.commonContainer(range.startPosition.container, range.endPosition.container, top);
 		
-			// and paste at startPosition
-			return ir.textarea.paste.pasteHtmlAtPosWithParagraphs(frag, pos, { top : top });
-		}
-		else
-		{
-			n = range.startPosition.container;
-			while(!done)
-			{
-				wrap.wrapContents(n, wrapper);
-				n = utils.nextNodeNonDescendant(n);
-				
-				done = n == range.endPosition.container
-			}
-		}
-			
-	
-	}
-	
+		// hard-extract selection up to splitRoot
+		extractRes = extract.extractContents(range.startPosition, range.endPosition, { delete : true, splitRoot : splitRoot, top : top });
 
+		// create a detached dummy paragraph
+		dummyparagraph = utils.newEmptyParagraph(true);
+		
+		if(!extractRes)
+			return;
+		
+		if(splitRoot != top)
+			dummyparagraph.appendChild(extractRes);
+		else
+			while(extractRes.firstChild)
+				dummyparagraph.appendChild(extractRes.firstChild);
+		
+		// remember path of startPos
+		//dummyparagraph.appendChild(extract);
+		wrap.wrapContents(dummyparagraph, wrapper);
+
+		// put them all in a fragment
+		frag = document.createDocumentFragment();
+		
+		while(dummyparagraph.firstChild)
+			frag.appendChild(dummyparagraph.firstChild)
+
+		console.log(utils.outerHTML(frag));
+
+		// if wrapping bare nodes we don't want them to be merged as hanging
+		pos = utils.coordinatesPosToPos(startPath, top, true, true);
+		if(!utils.isNonCustomContainer(frag.firstChild) && utils.isNonCustomContainer(pos.container) && pos.offset == Polymer.dom(pos.container).childNodes.length)
+			pos = { container : utils.nextNodeNonDescendant(pos.container, top, true), offset : 0 };
+		
+		// and paste at startPosition
+		return ir.textarea.paste.pasteHtmlAtPosWithParagraphs(frag, pos, { top : top });
+	}
 	
 	wrap.wrapRange = function(range, wrapper, top) {
 		var first, last, main, 
 			sHanging, eHanging, 
 			sContainer, eContainer,
-			sMainPos, eMainPos, 
-			sMainPath, eMainPath,
-			sSub, eSub, includeLast, done, nextDone, t;
+			sMainPos, eMainPos, sMainPath, eMainPath;
 		
 		sContainer = utils.getNonCustomContainer(range.startPosition.container, top, true);
 		eContainer = utils.getNonCustomContainer(range.endPosition.container, top, true);
-		
-		// process hanging parts
-		
+			
 		if(sContainer == eContainer)
 			return wrap.wrapRangeSegment(range, wrapper, top);
 
-		sHanging = 	utils.isHangingPos(range.startPosition, top);
-		eHanging = 	utils.isHangingPos(range.endPosition, top);
-		
-		sMainPos =  utils.maybeSlidePosDown(range.startPosition);
+		sHanging =	utils.posToContainerEdgeHasContent(range.startPosition, "forward", top) && 
+					utils.posToContainerEdgeHasContent(range.startPosition, "backward", top);
+		eHanging =	utils.posToContainerEdgeHasContent(range.endPosition, "forward", top) && 
+					utils.posToContainerEdgeHasContent(range.endPosition, "backward", top);
+
+		sMainPos =	utils.maybeSlidePosDown(range.startPosition);
 		if(sHanging)
 		{
 			sMainPos = utils.maybeSlidePosDown({ container : utils.nextNodeNonDescendant(sContainer), offset : 0});
@@ -232,7 +206,7 @@ window.ir.textarea.wrap = (function() {
 			sMainPos = wrap.wrapRangeSegment({ startPosition : range.startPosition, endPosition : sMainPos }, wrapper, top)
 		}
 		
-		eMainPos =  utils.maybeSlidePosDown(range.endPosition);
+		eMainPos =	utils.maybeSlidePosDown(range.endPosition);
 		if(eHanging)
 		{
 			eMainPos = utils.maybeSlidePosDown({ container : eContainer, offset : 0 });
@@ -243,91 +217,86 @@ window.ir.textarea.wrap = (function() {
 			eMainPos = utils.coordinatesPosToPos(eMainPath);
 		}
 		//if(Polymer.dom(sContainer).nextSibling != eContainer)
-
-		
-		// process the main part (non-hanging)
-		if(!(sHanging && eHanging && (Polymer.dom(sContainer).nextSibling == eContainer)))
-		{
-			nc = utils.nextNodeNonDescendant(sMainPos.container, top, true); //utils.nextNodeNonDescendant(sMainPos.container, top, true);
-			includeLast = !utils.posToContainerEdgeHasContent(eMainPos, "forward", top);
-
-			done = function(el) { return t != eMainPos.container && ((!includeLast && el == eContainer) || (includeLast && el == Polymer.dom(eContainer).nextSibling)) };
-
-			while(!done(nc))
-			{
-				// skip transitional elements
-				while(utils.isLayoutElement(nc) && !done(nc))
-					nc = utils.nextNode(nc, top);
-				
-				sSub = { container : nc, offset : 0 };
-				
-				if(!done(nc))
-					nc = utils.nextNodeNonDescendant(nc, top, true);
-				
-				//eSub = { container : nc = utils.nextNodeNonDescendant(nc, top, true), offset : 0 };
-				
-				// capture all non-blocks
-				while(	nc && !done(nc) &&
-						!utils.isNonCustomContainer(nc) && 
-						(t = utils.nextNodeNonDescendant(nc, top, true)) && 
-						!utils.isLayoutElement(nc) && 
-						t != nc)
-
-					nc = t;
-
-				if(nc) {
-					eSub = { container : nc, offset : 0 };
-					wrap.wrapRangeSegment({ startPosition : sSub, endPosition : eSub }, wrapper, top);
+		if(!(sHanging && eHanging && Polymer.dom(sContainer).nextSibling == eContainer))
+			wrap.wrapRangeSegment({ startPosition : sMainPos, endPosition : eMainPos}, wrapper, top)
+	}
+	wrap.wrapWithAttributes = function(tag,attributes){
+		var r = getSelection().getRangeAt(0), cltag,
+				posr = {
+					startPosition : {
+						container : r.startContainer,
+						offset : r.startOffset
+					},
+					endPosition : {
+						container : r.endContainer,
+						offset : r.endOffset
+					}
 				}
+			cltag = tag.replace(/^\W+\w/, '')
+			wrap.normalizeWraps(posr.startPosition,posr.endPosition,tag,attributes);
+			if(! wrap.detectOverlap(posr,tag))
+			{
+				var aString =  '';
+				if(attributes && attributes['style']) astring = ' style=' + attributes['style'];
+				if(attributes && attributes['class']) astring = astring + ' class=' + attributes['class'];
+				
+				wrap.wrapRange(posr, "<" + tag + aString +	"><span id='insertionPoint'></span></" + cltag + ">", editor);
 			}
+	}
+    wrap.isOverlap = function(node,t,attributes){
+            // potential overlap if tag matches the node's local name
+        var elemOverlap = (node.localName ==t);
+		// attribute overlap if attributes exist and class specifed == the class of the parent OR
+		// attributes exists and style specified == the style of the parent
+		var attributeOverlap = attributes && 
+            ((attribute.class && attribute.class == Polymer.dom(node).parentElement.className) || 
+                (attribute.style && attribute.style == Polymer.dom(node.container).parentElement.style));
+        // overlap exists if we have element overlap and no attributes or if we element attribute AND attribute overlap
+        return elemOverlap && !attributes || elemOverlap && attributeOverlap;
+	}
+	wrap.detectOverlap = function(range,tag,attributes){
+		// detects overlapping wrapping elements to the range specified  based on the tag and the style/class attributes
+			var startOverlap = wrap.isOverlap(range.startPosition.container ,tag,attributes);
+			var endOverlap = wrap.isOverlap(range.endPosition.container,tag, attributes);
+			/* Overlap None == 0
+			   Overlap Start == 1
+			   Overlap End == 2
+				Overlap Both == 3 */
+			return startOverlap + 2 * endOverlap;
 		}
-    wrap.wrapWithAttributes = function(tag,attributes){
-        var r = getSelection().getRangeAt(0), cltag,
-                posr = {
-                    startPosition : {
-                        container : r.startContainer,
-                        offset : r.startOffset
-                    },
-                    endPosition : {
-                        container : r.endContainer,
-                        offset : r.endOffset
-                    }
+	wrap.buildAttribute = function(className,style){
+		var a = {};
+		if(style) a['style'] = style;
+		if(className) a['class'] = className;
+		return a ;
+	}
+	wrap.normalizeWraps = function(startPosition,endPosition,tag,attributes){
+        
+		if(startPosition.container != endPosition.container)
+		{
+            var top = Polymer.dom(startPosition.container).parentNode;
+			var currentNode = startPosition.container;
+            
+            // walk down nodes, removing matching wraps until we hit the last one
+            do{
+                // is current node a match? If yes then remove
+                if(wrap.isOverlap(currentNode,tag,attributes))
+                {
+                    nextNode = Polymer.dom(currentNode).previousSibling;
+                    utils.replaceWithOwnChildren(currentNode);
+                    currentNode = utils.nextNodeNonDescendant(nextNode,top);
                 }
-            cltag = tag.replace(/^\W+\w/, '')
-            if(! wrap.detectOverlap(posr,tag))
-            {
-                var aString =  '';
-                if(attributes && attributes['style']) astring = ' style=' + attributes['style'];
-                if(attributes && attributes['class']) astring = astring + ' class=' + attributes['class'];
-                wrap.wrapRange(posr, "<" + tag + aString +  "><span id='insertionPoint'></span></" + cltag + ">", editor);
+                else
+                {
+                    currentNode = utils.nextNodeNonDescendant(currentNode,top)
+                    
+                }
             }
-    }
-    wrap.detectOverlap = function(range,tag,attributes){
-        // detects overlapping wrapping elements to the range specified  based on the tag and the style/class attributes
-        var overlapTest = function(element,attributes){
-                var elemOverlap = (element.container.parentElement.localName ==tag);
-                // attribute overlap if attributes exist and class specifed == the class of the parent OR
-                // attributes exists and style specified == the style of the parent
-                var attributeOverlap = attributes && 
-                    ((attribute.class && attribute.class == element.container.parentElement.className) || 
-                        (attribute.style && attribute.style == element.container.parentElement.sytle));
-                // overlap exists if we have element overlap and no attributes or if we element attribute AND attribute overlap
-                return elemOverlap && !attributes || elemOverlap && attributeOverlap;
-            }
-            var startOverlap = overlapTest(range.startPosition,attributes);
-            var endOverlap = overlapTest(range.endPosition,attributes);
-            /* Overlap None == 0
-               Overlap Start == 1
-               Overlap End == 2
-                Overlap Both == 3 */
-            return startOverlap + 2 * endOverlap;
-        }
-    wrap.buildAttribute = function(className,style){
-        var a = {};
-        if(style) a['style'] = style;
-        if(className) a['class'] = className;
-        return a ;
-    }	
+            while(currentNode != endPosition.container)
+					
+		}	
+	}	 
+		
 	unwrapRange = function(range, wrapper)
 	{
 		
