@@ -135,6 +135,8 @@ window.ir.textarea.wrap = (function() {
 		sHanging = utils.isHangingPos(range.startPosition, top);
 		eHanging = utils.isHangingPos(range.endPosition, top);
 
+		if(Symbols.WRAPCONTAINER(extract))
+			extractRes.splitIntoWrapGroups(node).forEach(function(g) { wrap.wrapNodes(g, wrapper); });
 		
 	}
 	
@@ -279,8 +281,53 @@ window.ir.textarea.wrap = (function() {
 				}
 			}
 		}
-	}
-	
+    wrap.wrapWithAttributes = function(tag,attributes){
+        var r = getSelection().getRangeAt(0), cltag,
+                posr = {
+                    startPosition : {
+                        container : r.startContainer,
+                        offset : r.startOffset
+                    },
+                    endPosition : {
+                        container : r.endContainer,
+                        offset : r.endOffset
+                    }
+                }
+            cltag = tag.replace(/^\W+\w/, '')
+            if(! wrap.detectOverlap(posr,tag))
+            {
+                var aString =  '';
+                if(attributes && attributes['style']) astring = ' style=' + attributes['style'];
+                if(attributes && attributes['class']) astring = astring + ' class=' + attributes['class'];
+                wrap.wrapRange(posr, "<" + tag + aString +  "><span id='insertionPoint'></span></" + cltag + ">", editor);
+            }
+    }
+    wrap.detectOverlap = function(range,tag,attributes){
+        // detects overlapping wrapping elements to the range specified  based on the tag and the style/class attributes
+        var overlapTest = function(element,attributes){
+                var elemOverlap = (element.container.parentElement.localName ==tag);
+                // attribute overlap if attributes exist and class specifed == the class of the parent OR
+                // attributes exists and style specified == the style of the parent
+                var attributeOverlap = attributes && 
+                    ((attribute.class && attribute.class == element.container.parentElement.className) || 
+                        (attribute.style && attribute.style == element.container.parentElement.sytle));
+                // overlap exists if we have element overlap and no attributes or if we element attribute AND attribute overlap
+                return elemOverlap && !attributes || elemOverlap && attributeOverlap;
+            }
+            var startOverlap = overlapTest(range.startPosition,attributes);
+            var endOverlap = overlapTest(range.endPosition,attributes);
+            /* Overlap None == 0
+               Overlap Start == 1
+               Overlap End == 2
+                Overlap Both == 3 */
+            return startOverlap + 2 * endOverlap;
+        }
+    wrap.buildAttribute = function(className,style){
+        var a = {};
+        if(style) a['style'] = style;
+        if(className) a['class'] = className;
+        return a ;
+    }	
 	unwrapRange = function(range, wrapper)
 	{
 		
