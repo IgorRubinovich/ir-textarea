@@ -235,6 +235,9 @@ window.ir.textarea.wrap = (function() {
 			
 			wrap.wrapRangeSegment({ startPosition : eMainPos, endPosition : range.endPosition }, wrapper, top, true)
 			
+			if(!utils.isNonCustomContainer(eContainer))
+				eContainer = utils.getNonCustomContainer(eMainPos.container, top, true);
+
 			eMainPos = utils.coordinatesPosToPos(eMainPath);
 		}
 
@@ -255,7 +258,7 @@ window.ir.textarea.wrap = (function() {
 
 		console.log('up the hill');
 
-		sPath = utils.getElementPathFromTop(sContainer, commonContainer) || [];
+		sPath = utils.getElementPathFromTop(sContainer, commonContainer, true) || [];
 
 		t = n = sContainer;
 		if(sHanging)
@@ -264,23 +267,23 @@ window.ir.textarea.wrap = (function() {
 		// up and right the tree until we're on an __endBranch node
 		while(sPath.length && !n.__endBranch && t != top && n != top)
 		{
-			t = sPath.pop();
+			n = t = sPath.pop();
 			if(sHanging)
 				t = Polymer.dom(t).nextSibling;
-			while(t && !t.__endBranch)
+			while(t && !t.__endBranch && t != top)
 			{
 				if(!(t.nodeType == 3 && utils.isLayoutElement(t))) // we do want to wrap non-text transitional elements
+				{
 					wrap.wrapContents(t, wrapper);
+					if(!utils.isNonCustomContainer(t) && !t.is && !utils.parentNode(t))
+						t = utils.parentNode(t); // when wrapping a non-container it's _replacing_ t
+				}
+				if(t != top)
+					n = t;
 				t = Polymer.dom(t).nextSibling;
 			}
-			
-			if(!(t && t.__endBranch))
-				t = utils.nextNodeNonDescendant(n, top, true);
-			
-			if(t != top)
-				n = t;
-			else
-				n = Polymer.dom(n).nextSibling;
+			//if(t)
+			//	n = t;
 		}
 		
 		// the mid-nodes
@@ -302,10 +305,9 @@ window.ir.textarea.wrap = (function() {
 		// down the tree until we meet eContainer
 		while(ePath.length && n != eContainer)
 		{
-			t = Polymer.dom(n).firstChild;
-			
+			t = Polymer.dom(n).firstChild;			
 			n = ePath.shift();
-			while(t && t != n)
+			while(t && !t.__endBranch)
 			{
 				if(!(t.nodeType == 3 && utils.isLayoutElement(t))) // we do want to wrap non-text transitional elements
 					wrap.wrapContents(t, wrapper);
