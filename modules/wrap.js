@@ -233,7 +233,7 @@ window.ir.textarea.wrap = (function() {
 					}
 				}
 			cltag = tag.replace(/^\W+\w/, '')
-			wrap.normalizeWraps(posr.startPosition,posr.endPosition,tag,attributes);
+			//wrap.normalizeWraps(posr.startPosition,posr.endPosition,tag,attributes);
 			if(! wrap.detectOverlap(posr,tag))
 			{
 				var aString =  '';
@@ -271,9 +271,10 @@ window.ir.textarea.wrap = (function() {
 		return a ;
 	}
 	wrap.normalizeWraps = function(startPosition,endPosition,tag,attributes){
-        
+        var x = utils.ancestors(startPosition.container);
 		if(startPosition.container != endPosition.container)
 		{
+            var commonParent = utils.commonContainer(startPosition.container, endPosition.container);
             var top = Polymer.dom(startPosition.container).parentNode;
 			var currentNode = startPosition.container;
             
@@ -284,12 +285,18 @@ window.ir.textarea.wrap = (function() {
                 {
                     nextNode = Polymer.dom(currentNode).previousSibling;
                     utils.replaceWithOwnChildren(currentNode);
-                    currentNode = utils.nextNodeNonDescendant(nextNode,top);
+                    currentNode = utils.nextNodeNonDescendant(nextNode,commonParent);
+                    
                 }
                 else
                 {
-                    currentNode = utils.nextNodeNonDescendant(currentNode,top)
+                    currentNode = utils.nextNodeNonDescendant(currentNode,commonParent)
                     
+                }
+                if(currentNode == commonParent)
+                {
+                    currentNode = utils.nextNode(currentNode,commonParent);
+                    commonParent = currentNode;
                 }
             }
             while(currentNode != endPosition.container)

@@ -459,7 +459,6 @@ window.ir.textarea.utils = (function() {
 
 		return range;
 	};
-
 	
 	utils.prevPos = function(pos, top) {
 		var n, p, ncc;
@@ -1224,7 +1223,6 @@ window.ir.textarea.utils = (function() {
 		p.appendChild(el)
 		return p;
 	},
-
 	
 	utils.mergeNodes = function (left, right, setCaretAtMergePoint) {
 		var caretPos, ret, t, p, l, r, offset, atText;
@@ -1451,6 +1449,18 @@ window.ir.textarea.utils = (function() {
 		else 
 			return p.childNodes;
 	}
+    utils.ancestors = function(p){
+        var a = [];
+        if(Polymer.dom(p))
+        {
+            while(p != document.body)
+            {
+                p = Polymer.dom(p).parentNode;
+                a.push(p);
+            }
+        }
+        return a;                
+    }
 	
 	var debounceCache = {};
 	utils.debounce = function(f, ms, prevTimeout) {
