@@ -258,7 +258,8 @@ window.ir.textarea.utils = (function() {
 	utils.getNonCustomContainer = function(child, top, excludeTop) {
 		var c = child, ncc;
 
-		ncc = utils.getTopCustomElementAncestor(child, top);
+		// removed experimentally
+		// ncc = utils.getTopCustomElementAncestor(child, top);
 		if(ncc)
 			child = ncc;
 		
@@ -487,13 +488,13 @@ window.ir.textarea.utils = (function() {
 		return { container : Polymer.dom(ncc).firstChild, offset : 0 }
 	}
 	
-	utils.nextPos = function(pos, top) {
+	utils.nextPos = function(pos, top, skipText) {
 		var n, ncc;
 		
 		if(!pos)
 			return;
 
-		if(utils.atText(pos) != 'end')
+		if(!skipText && utils.atText(pos) != 'end')
 			return { container : pos.container, offset : offset + 1 }
 		
 		if(utils.posToContainerEdgeHasContent(pos, "forward"))
@@ -986,6 +987,25 @@ window.ir.textarea.utils = (function() {
 		};
 	};
 
+	utils.markBranch = function(n, top, attribute, value)
+	{
+		n[attribute] = value;
+		while(n && n != top)
+		{
+			n = utils.parentNode(n);
+			n[attribute] = value;
+		}
+	}
+	utils.unmarkBranch = function(n, top, attribute, value)
+	{
+		n[attribute] = value;
+		while(n && n != top)
+		{
+			n = utils.parentNode(n);
+			delete n[attribute];
+		}
+	}
+
 	utils.onSameBranch = function(n, m, exceptEqual)
 	{
 		return utils.isDescendantOf(n, m, !exceptEqual) || utils.isDescendantOf(m, n, !exceptEqual);
@@ -1089,7 +1109,7 @@ window.ir.textarea.utils = (function() {
 	
 	utils.identity = function(o) { return o; }
 		
-	utils.getDomPath = function(child, ancestor, top)
+	/*utils.getDomPath = function(child, ancestor, top)
 	{
 		var p, res;
 		p = child;
@@ -1102,7 +1122,7 @@ window.ir.textarea.utils = (function() {
 		}
 		
 		return res;
-	}
+	}*/
 
 	utils.getDomPath = function(child, parent, top, criteria)
 	{
