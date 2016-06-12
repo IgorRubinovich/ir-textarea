@@ -13,6 +13,8 @@ window.ir.textarea.extract =
 		node - the node to split
 		offset - in the splitted node,
 		limit - the root of the split.
+		
+		For details see https://github.com/IgorRubinovich/ir-textarea/wiki/extractContents
 	*/
 	extract.splitNode = function(node, offset, limit, top) {
 		var parent = Polymer.dom(limit).parentNode,

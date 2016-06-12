@@ -258,7 +258,8 @@ window.ir.textarea.utils = (function() {
 	utils.getNonCustomContainer = function(child, top, excludeTop) {
 		var c = child, ncc;
 
-		ncc = utils.getTopCustomElementAncestor(child, top);
+		// removed experimentally
+		// ncc = utils.getTopCustomElementAncestor(child, top);
 		if(ncc)
 			child = ncc;
 		
@@ -323,7 +324,7 @@ window.ir.textarea.utils = (function() {
 		return { container : utils.getChildFromPath(coordinatePos.container, top, skipCaret, approximate), offset : coordinatePos.offset };
 	}
 
-	// return element path from top, includes top by default
+	// return an array of elements from child to top, includes top by default
 	utils.getElementPathFromTop = function(child, top, excludeTop) {
 		var path = [];
 		while(child && child != top)
@@ -486,13 +487,13 @@ window.ir.textarea.utils = (function() {
 		return { container : Polymer.dom(ncc).firstChild, offset : 0 }
 	}
 	
-	utils.nextPos = function(pos, top) {
+	utils.nextPos = function(pos, top, skipText) {
 		var n, ncc;
 		
 		if(!pos)
 			return;
 
-		if(utils.atText(pos) != 'end')
+		if(!skipText && utils.atText(pos) != 'end')
 			return { container : pos.container, offset : offset + 1 }
 		
 		if(utils.posToContainerEdgeHasContent(pos, "forward"))
@@ -509,7 +510,7 @@ window.ir.textarea.utils = (function() {
 		return { container : ncc, offset : Polymer.dom(ncc).childNodes.length }
 	}
 	
-	utils.nextNode = function(node, top) {
+	utils.nextNode = function(node, top, skipAncestors) {
 		var next, done;
 		
 		if(!node)
@@ -521,18 +522,14 @@ window.ir.textarea.utils = (function() {
 		if(Polymer.dom(node).childNodes && Polymer.dom(node).childNodes.length)
 			return Polymer.dom(node).firstChild;
 
-		while(node && node != top && !done) // !Polymer.dom(node).nextSibling) {
+		while(node && node != top && !next) // !Polymer.dom(node).nextSibling) {
 		{
-			next = node.nextSibling;
+			next = Polymer.dom(node).nextSibling;
 			if(!next || !utils.isInLightDom(next, top))
 				next = Polymer.dom(node).nextSibling;
 			
 			next = utils.isInLightDom(next, top) && next;
 			
-			if(next)
-				done = true;
-			
-			//node = Polymer.dom(node).parentNode;
 			node = utils.parentNode(node, top);
 		}
 		
@@ -989,6 +986,30 @@ window.ir.textarea.utils = (function() {
 		};
 	};
 
+	utils.markBranch = function(n, top, attribute, value)
+	{
+		n[attribute] = value;
+		while(n && n != top)
+		{
+			n = utils.parentNode(n);
+			n[attribute] = value;
+		}
+	}
+	utils.unmarkBranch = function(n, top, attribute, value)
+	{
+		n[attribute] = value;
+		while(n && n != top)
+		{
+			n = utils.parentNode(n);
+			delete n[attribute];
+		}
+	}
+
+	utils.onSameBranch = function(n, m, exceptEqual)
+	{
+		return utils.isDescendantOf(n, m, !exceptEqual) || utils.isDescendantOf(m, n, !exceptEqual);
+	}
+	
 	// check whether child is descendant of ancestor, set orEqual to true to consider ancestor as a descendant
 	utils.isDescendantOf = function(child, ancestor, orEqual) {
 		var pp = child;
@@ -1087,7 +1108,7 @@ window.ir.textarea.utils = (function() {
 	
 	utils.identity = function(o) { return o; }
 		
-	utils.getDomPath = function(child, ancestor, top)
+	/*utils.getDomPath = function(child, ancestor, top)
 	{
 		var p, res;
 		p = child;
@@ -1100,7 +1121,7 @@ window.ir.textarea.utils = (function() {
 		}
 		
 		return res;
-	}
+	}*/
 
 	utils.getDomPath = function(child, parent, top, criteria)
 	{
