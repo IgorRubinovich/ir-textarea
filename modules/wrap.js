@@ -247,31 +247,26 @@ window.ir.textarea.wrap = (function() {
 		if(!utils.rangeHasContent(sMainPos, eMainPos))
 			return console.log('no main part');
 		
+		// there's sure a main part and we are wrapping it		
+		
 		commonContainer = utils.commonContainer(sMainPos.container, eMainPos.container);
 
 		utils.markBranch(eContainer, top, "__endBranch", true);
 
 		console.log('up the hill');
 
-		sPath = utils.getChildPathFromTop(sContainer, commonContainer);
+		sPath = utils.getElementPathFromTop(sContainer, commonContainer) || [];
 
 		t = n = sContainer;
 		if(sHanging)
 			t = n = utils.nextNodeNonDescendant(n, top, true);
-		
-		//if(sContainer != top && Polymer.dom(sContainer).parentNode != top)
-		//	t = n = utils.parentNode(sContainer);
-		
-		//t = Polymer.dom(n).childNodes[index];
-		//if(t == sContainer && sHanging)
-		//	t = Polymer.dom(t).nextSibling
 
 		// up and right the tree until we're on an __endBranch node
 		while(sPath.length && !n.__endBranch && t != top && n != top)
 		{
-			index = sPath.pop();			
-			max = Polymer.dom(n).childNodes.length;
-			
+			t = sPath.pop();
+			if(sHanging)
+				t = Polymer.dom(t).nextSibling;
 			while(t && !t.__endBranch)
 			{
 				if(!(t.nodeType == 3 && utils.isLayoutElement(t))) // we do want to wrap non-text transitional elements
@@ -302,15 +297,14 @@ window.ir.textarea.wrap = (function() {
 
 		console.log('down the hill')
 
-		ePath = utils.getChildPathFromTop(eContainer, n);
+		ePath = utils.getElementPathFromTop(eContainer, n) || [];
 		
 		// down the tree until we meet eContainer
-		while(ePath.length)
+		while(ePath.length && n != eContainer)
 		{
-			index = ePath.shift();
-			t = Polymer.dom(n).firstChild;//utils.parentNode(n).firstChild;
-			n = Polymer.dom(n).childNodes[index]; // it's important to do this before changes, since the numeric path will change
-			index = 0;
+			t = Polymer.dom(n).firstChild;
+			
+			n = ePath.shift();
 			while(t && t != n)
 			{
 				if(!(t.nodeType == 3 && utils.isLayoutElement(t))) // we do want to wrap non-text transitional elements

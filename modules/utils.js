@@ -324,7 +324,7 @@ window.ir.textarea.utils = (function() {
 		return { container : utils.getChildFromPath(coordinatePos.container, top, skipCaret, approximate), offset : coordinatePos.offset };
 	}
 
-	// return element path from top, includes top by default
+	// return an array of elements from child to top, includes top by default
 	utils.getElementPathFromTop = function(child, top, excludeTop) {
 		var path = [];
 		while(child && child != top)
