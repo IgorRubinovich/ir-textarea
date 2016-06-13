@@ -188,12 +188,36 @@ window.ir.textarea.wrap = (function() {
 		pos = utils.coordinatesPosToPos(startPath, top, true, true);
 		if(!utils.isNonCustomContainer(frag.firstChild) && utils.isNonCustomContainer(pos.container) && pos.offset == Polymer.dom(pos.container).childNodes.length)
 			pos = { container : utils.nextNodeNonDescendant(pos.container, top, true), offset : 0 };
-	
+
+		if(frag.firstChild.is)
+			utils.replaceWithOwnChildren(frag.firstChild);
+		
 		// and paste at startPosition
 		return ir.textarea.paste.pasteHtmlAtPosWithParagraphs(frag, pos, { top : top });
 	}
 	
+	//var criteria = function(n) { return !(n.nodeType == 3 && (utils.isLayoutElement(n) || utils.isTransitionalElement(utils.parentNode(n)))) }
+	
 	wrap.wrapRange = function(range, wrapper, top) {
+		//wrap.getRangeContour();
+		var result, criteria, operation;
+		
+		result = [];
+		criteria = function(n) { return 
+			!(n.nodeType == 3 && (utils.isLayoutElement(n) || utils.isTransitionalElement(utils.parentNode(n)))) 
+		}
+		operation = function(n) { 
+			result.push(n);
+			console.log(n); 
+		}
+
+		wrap.getRangeContour(range, wrapper, top, criteria, operation);
+	
+		result.forEach(function(t) { wrap.wrapContents(t, wrapper) });
+		
+	}
+	
+	wrap.getRangeContour = function(range, wrapper, top, criteria, operation) {
 		var first, last, main, 
 			sHanging, eHanging, 
 			sContainer, eContainer,
@@ -201,31 +225,42 @@ window.ir.textarea.wrap = (function() {
 			sMainPath, eMainPath,
 			sSub, eSub, includeLast, 
 			sPath, ePath, index, max, EOD;
-
+			//criteria, operation;
+			
 		
 		EOD = Polymer.dom(top).nextSibling;
-		
- 		// process hanging parts
 
+		while(!criteria(range.startPosition.container) || !utils.posToContainerEdgeHasContent(range.startPosition, "forward", top))
+			range.startPosition = { container : utils.nextNodeNonDescendant(range.startPosition.container, top, true), offset : 0 };
+		while(!criteria(range.endPosition.container) || !utils.posToContainerEdgeHasContent(range.endPosition, "backward", top))
+		{
+			t = utils.prevNode(range.endPosition.container, top); //{ container : utils.prevNode(range.endPosition.container, top, true), offset : 0 };
+			range.endPosition = { container : t, offset : t.length };
+		}
+
+ 		// process hanging parts
 		sHanging = 	range.endPosition.container != top && utils.isHangingPos(range.startPosition, top);
 		eHanging = 	range.endPosition.container != top && utils.isHangingPos(range.endPosition, top);
 
 		sMainPos =	utils.maybeSlidePosDown(range.startPosition);
 		eMainPos =	utils.maybeSlidePosDown(range.endPosition);
-		
+
 		sContainer = utils.getNonCustomContainer(sMainPos.container, top, true);
 		eContainer = utils.getNonCustomContainer(eMainPos.container, top, true);
-	
+
 		if(sHanging)
 		{
 			if(sContainer == eContainer)
 				sMainPos = range.endPosition	
 			else
-				sMainPos = utils.maybeSlidePosDown({ container : utils.nextNodeNonDescendant(sContainer, top, true), offset : 0});
+				sMainPos = utils.maybeSlidePosDown(range.startPosition); // utils.nextNodeNonDescendant(sContainer, top, true)
 			
 			sMainPath = utils.posToCoorinatesPos(sMainPos);
 			
-			sMainPos = wrap.wrapRangeSegment({ startPosition : range.startPosition, endPosition : sMainPos }, wrapper, top, true)
+			sMainPos = wrap.wrapRangeSegment({ 
+												startPosition : range.startPosition, 
+												endPosition : utils.getLastCaretPosition(sContainer)
+											}, wrapper, top, true)
 		}
 		
 		if(eHanging && range.endPosition && sContainer != eContainer)
@@ -243,17 +278,23 @@ window.ir.textarea.wrap = (function() {
 
 		// check whether there's main part
 		n = sMainPos.container;
-		if(utils.isDescendantOf(sMainPos.container, sContainer));
-			n = utils.nextNodeNonDescendant(n);
-		
+		if(sHanging && utils.isDescendantOf(sMainPos.container, sContainer, true))
+		{
+			do {
+				n = utils.nextNodeNonDescendant(n, top, true);
+			} while(!criteria(n))
+			sMainPos =	{ container : n, offset : 0 };
+			sContainer = utils.getNonCustomContainer(n, top, true);
+		}
 		console.log(sMainPos.container, eMainPos.container);
-		if(!utils.rangeHasContent(sMainPos, eMainPos))
+		if(sContainer == eContainer || !utils.rangeHasContent(sMainPos, eMainPos))
 			return console.log('no main part');
 		
 		// there's sure a main part and we are wrapping it		
 		
 		commonContainer = utils.commonContainer(sMainPos.container, eMainPos.container);
 
+		utils.markBranch(sContainer, top, "__startBranch", true);
 		utils.markBranch(eContainer, top, "__endBranch", true);
 
 		console.log('up the hill');
@@ -261,42 +302,38 @@ window.ir.textarea.wrap = (function() {
 		sPath = utils.getElementPathFromTop(sContainer, commonContainer, true) || [];
 
 		t = n = sContainer;
-		if(sHanging)
-			t = n = utils.nextNodeNonDescendant(n, top, true);
+		//if(sHanging)
+			
+		if(!n.__endBranch && criteria(n))
+			operation(n);
 
 		// up and right the tree until we're on an __endBranch node
 		while(sPath.length && !n.__endBranch && t != top && n != top)
 		{
 			n = t = sPath.pop();
-			if(sHanging)
+			if(n.__startBranch)
 				t = Polymer.dom(t).nextSibling;
-			while(t && !t.__endBranch && t != top)
+			
+			while(t && !t.__startBranch && !t.__endBranch && t != top)
 			{
-				if(!(t.nodeType == 3 && utils.isLayoutElement(t))) // we do want to wrap non-text transitional elements
-				{
-					wrap.wrapContents(t, wrapper);
-					if(!utils.isNonCustomContainer(t) && !t.is && !utils.parentNode(t))
-						t = utils.parentNode(t); // when wrapping a non-container it's _replacing_ t
-				}
+				if(criteria(t)) // we do want to wrap non-text transitional elements
+					operation(t);
 				if(t != top)
 					n = t;
 				t = Polymer.dom(t).nextSibling;
 			}
-			//if(t)
-			//	n = t;
 		}
 		
+		
 		// the mid-nodes
-		while(n && !n.__endBranch && n != top && n != EOD)
+		while(n && !n.__startBranch && !n.__endBranch && n != top && n != EOD)
 		{
-			if(!(n.nodeType == 3 && utils.isLayoutElement(n)))
-				wrap.wrapContents(n, wrapper);
+			if(criteria(n))
+				operation(n);
 
-			if(utils.isNonCustomContainer(n)) // for containers the wrapper will go inside n, otherwise it will wrap n
-				n = Polymer.dom(n).nextSibling;
-			else
-				n = utils.nextNodeNonDescendant(n, top, true);
+			n = Polymer.dom(n).nextSibling;
 		}
+
 
 		console.log('down the hill')
 
@@ -307,10 +344,11 @@ window.ir.textarea.wrap = (function() {
 		{
 			t = Polymer.dom(n).firstChild;			
 			n = ePath.shift();
-			while(t && !t.__endBranch)
+			while(t && !t.__endBranch && t != eContainer)
 			{
-				if(!(t.nodeType == 3 && utils.isLayoutElement(t))) // we do want to wrap non-text transitional elements
-					wrap.wrapContents(t, wrapper);
+				if(criteria(t)) // we do want to wrap non-text transitional elements
+					operation(t);
+
 				t = Polymer.dom(t).nextSibling;
 			}
 		}
@@ -318,37 +356,10 @@ window.ir.textarea.wrap = (function() {
 		if(!eHanging && utils.rangeHasContent({ container : eContainer, offset : 0 }, range.endPosition))
 			wrap.wrapContents(eContainer, wrapper);
 		
+		utils.unmarkBranch(sContainer, top, "__startBranch");		
 		utils.unmarkBranch(eContainer, top, "__endBranch");		
 	}
-	
-	function garbage() {
-		// process the main part (non-hanging)
-		if(sContainer != eContainer && (!(sHanging && eHanging && Polymer.dom(sContainer).nextSibling == eContainer))) //utils.onSameBranch(Polymer.dom(sContainer).nextSibling, eContainer)))
-		{
-			n = sMainPos.container
-			if(sHanging && utils.onSameBranch(n, sContainer))
-				n = utils.nextNodeNonDescendant(sMainPos.container, top, true);
-			includeLast = !utils.posToContainerEdgeHasContent(eMainPos, "forward", top);
-		
-			while(n && !done) //n != eContainer)
-			{
-				// skip layout elements
-				while(n && (eContainer != n) && (utils.isLayoutElement(n) || (isDesc = utils.isDescendantOf(eContainer, n, false))))
-					n = utils.nextNode(n, top);
 
-				done = eContainer == n;
-				
-				if(n && (!done || includeLast))
-				{
-					wrap.wrapContents(n, wrapper, false)
-					n = utils.nextNodeNonDescendant(n, top);
-				}
-			}
-
-		}
-				
-	}
-		
 	wrap.wrapWithAttributes = function(tag,attributes){
 		var r = getSelection().getRangeAt(0), cltag,
 				posr = {
