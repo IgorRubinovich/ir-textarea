@@ -203,9 +203,7 @@ window.ir.textarea.wrap = (function() {
 		var result, criteria, operation;
 		
 		result = [];
-		criteria = function(n) { return 
-			!(n.nodeType == 3 && (utils.isLayoutElement(n) || utils.isTransitionalElement(utils.parentNode(n)))) 
-		}
+		criteria = function(n) { return !(n.nodeType == 3 && (utils.isLayoutElement(n) || utils.isTransitionalElement(utils.parentNode(n)))) }
 		operation = function(n) { 
 			result.push(n);
 			console.log(n); 
@@ -251,17 +249,20 @@ window.ir.textarea.wrap = (function() {
 		if(sHanging)
 		{
 			if(sContainer == eContainer)
-				sMainPos = range.endPosition	
+				sMainPos = range.startPosition;
 			else
 				sMainPos = utils.maybeSlidePosDown(range.startPosition); // utils.nextNodeNonDescendant(sContainer, top, true)
 			
 			sMainPath = utils.posToCoorinatesPos(sMainPos);
 			
 			sMainPos = wrap.wrapRangeSegment({ 
-												startPosition : range.startPosition, 
-												endPosition : utils.getLastCaretPosition(sContainer)
+												startPosition : sMainPos, 
+												endPosition : sContainer == eContainer ? range.endPosition : utils.getLastCaretPosition(sContainer)
 											}, wrapper, top, true)
 		}
+		
+		if(sContainer == eContainer)
+			return;
 		
 		if(eHanging && range.endPosition && sContainer != eContainer)
 		{
@@ -304,7 +305,7 @@ window.ir.textarea.wrap = (function() {
 		t = n = sContainer;
 		//if(sHanging)
 			
-		if(!n.__endBranch && criteria(n))
+		if(!sHanging && !n.__endBranch && criteria(n))
 			operation(n);
 
 		// up and right the tree until we're on an __endBranch node

@@ -800,6 +800,9 @@ window.ir.textarea.utils = (function() {
 				lastContainer = node.childNodes[node.childNodes.length-1];
 				while(!(pos = utils.getLastCaretPosition(lastContainer)) && lastContainer.previousSibling)
 					lastContainer = lastContainer.previousSibling;
+			
+				while(lastContainer == utils.isLayoutElement(lastContainer))
+					lastContainer = utils.prevNode(lastContainer, top)
 			}
 
 			return pos || { container : node, offset : node.nodeType == 3 ? node.textContent.length : 0 };

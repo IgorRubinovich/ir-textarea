@@ -194,8 +194,8 @@ window.ir.textarea.extract =
 		sCont = utils.getNonCustomContainer(startPos.container, opts.top);
 		eCont = utils.getNonCustomContainer(endPos.container, opts.top);
 		
-		if(b.commonAncestor != b.last.original && (
-			!extractRes || 
+		if(b.commonAncestor != b.last.original && b.commonAncestor != b.first.original &&
+			(!extractRes || 
 			b.commonAncestor == opts.top || 
 			sCont == eCont || 
 			utils.isTransitionalElement(b.commonAncestor)))
