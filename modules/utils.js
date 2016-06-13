@@ -1421,9 +1421,14 @@ window.ir.textarea.utils = (function() {
 		
 		frag = utils.childrenToFragment(el);
 		first = frag.firstChild;
-		
-		p.insertBefore(frag, el);
-		
+		try
+        {
+		  p.insertBefore(frag, el);
+        }
+        catch(err)
+        {
+                console.log('Failed to insert node after fragment ' +  el + ' ' + frag);
+        }
 		utils.removeFromParent(el);
 	
 		return first;

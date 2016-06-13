@@ -362,7 +362,7 @@ window.ir.textarea.wrap = (function() {
 					}
 				}
 			cltag = tag.replace(/^\W+\w/, '')
-			//wrap.normalizeWraps(posr.startPosition,posr.endPosition,tag,attributes);
+			wrap.normalizeWraps(posr.startPosition,posr.endPosition,tag,attributes);
 			if(! wrap.detectOverlap(posr,tag))
 			{
 				var aString =  '';
@@ -404,35 +404,65 @@ window.ir.textarea.wrap = (function() {
 		if(startPosition.container != endPosition.container)
 		{
             var commonParent = utils.commonContainer(startPosition.container, endPosition.container);
-            var top = Polymer.dom(startPosition.container).parentNode;
+                
 			var currentNode = startPosition.container;
+            var rangeNodes = wrap.getSelectedNodes(true);
+            for(rn in rangeNodes)
+            {
+                wrap.removeNodeWraps(rangeNodes[rn],tag,attributes);
+            }
             
-            // walk down nodes, removing matching wraps until we hit the last one
-            do{
-                // is current node a match? If yes then remove
-                if(wrap.isOverlap(currentNode,tag,attributes))
+		}	
+	}	 
+    wrap.removeNodeWraps = function(currentNode,tag,attributes){
+            var drillChildren = function(nodes,tag,attributes)
+            {
+                for(s in children)
                 {
-                    nextNode = Polymer.dom(currentNode).previousSibling;
+                    wrap.removeNodeWraps(children[s],tag,attributes);
+                }
+            }
+            // is current node a match? If yes then remove
+            if(wrap.isOverlap(currentNode,tag,attributes))
+            {
+                // hold the previousSibling since this node is being removed
+                children = Polymer.dom(currentNode).childNodes;
+                if(children.length)
+                {
                     utils.replaceWithOwnChildren(currentNode);
-                    currentNode = utils.nextNodeNonDescendant(nextNode,commonParent);
-                    
+                    drillChildren(children,tag,attributes);
                 }
                 else
                 {
-                    currentNode = utils.nextNodeNonDescendant(currentNode,commonParent)
-                    
-                }
-                if(currentNode == commonParent)
-                {
-                    currentNode = utils.nextNode(currentNode,commonParent);
-                    commonParent = currentNode;
+                    utils.removeFromParent(currentNode);
                 }
             }
-            while(currentNode != endPosition.container)
-					
-		}	
-	}	 
-		
+            else
+            {
+                var children = Polymer.dom(currentNode).childNodes;
+                drillChildren(children,tag,attributes);
+            
+            }
+    }
+	wrap.getSelectedNodes = function(fullySelected){
+        var selection = window.getSelection();
+        var range = selection.getRangeAt(0);
+        if(range && range.commonAncestorContainer && range.commonAncestorContainer.getElementsByTagName)
+        {
+            var allWithinRangeParent = range.commonAncestorContainer.getElementsByTagName("*");
+
+            var allSelected = [];
+            for (var i=0, el; el = allWithinRangeParent[i]; i++) {
+              // The second parameter says to include the element 
+              // even if it's not fully selected
+              if (selection.containsNode(el, fullySelected) ) {
+                allSelected.push(Polymer.dom(el).node);
+              }
+            }
+            return allSelected;
+        }
+    }	
+    
 	unwrapRange = function(range, wrapper)
 	{
 		
