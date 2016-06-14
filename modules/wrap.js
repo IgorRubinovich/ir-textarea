@@ -362,7 +362,8 @@ window.ir.textarea.wrap = (function() {
 					}
 				}
 			cltag = tag.replace(/^\W+\w/, '')
-			wrap.normalizeWraps(posr.startPosition,posr.endPosition,tag,attributes);
+           
+			wrap.normalizeWraps(posr,tag,attributes);
 			if(! wrap.detectOverlap(posr,tag))
 			{
 				var aString =  '';
@@ -383,6 +384,7 @@ window.ir.textarea.wrap = (function() {
         // overlap exists if we have element overlap and no attributes or if we element attribute AND attribute overlap
         return elemOverlap && !attributes || elemOverlap && attributeOverlap;
 	}
+    
 	wrap.detectOverlap = function(range,tag,attributes){
 		// detects overlapping wrapping elements to the range specified  based on the tag and the style/class attributes
 			var startOverlap = wrap.isOverlap(range.startPosition.container ,tag,attributes);
@@ -393,27 +395,99 @@ window.ir.textarea.wrap = (function() {
 				Overlap Both == 3 */
 			return startOverlap + 2 * endOverlap;
 		}
+    
 	wrap.buildAttribute = function(className,style){
 		var a = {};
 		if(style) a['style'] = style;
 		if(className) a['class'] = className;
 		return a ;
 	}
-	wrap.normalizeWraps = function(startPosition,endPosition,tag,attributes){
-        var x = utils.ancestors(startPosition.container);
-		if(startPosition.container != endPosition.container)
-		{
-            var commonParent = utils.commonContainer(startPosition.container, endPosition.container);
-                
-			var currentNode = startPosition.container;
-            var rangeNodes = wrap.getSelectedNodes(true);
-            for(rn in rangeNodes)
+        
+	wrap.normalizeWraps = function(range,tag,attributes){
+        var rangeDetails = wrap.rangeDetails(range,tag,attributes);
+        // normalize start pos container
+        if(rangeDetails.sHanging)
+        {
+            console.log("overlapping range at start");
+            var sContainerPos = rangeDetails.sAnc.indexOf(rangeDetails.sContainer);
+            var newFragTop = null;
+            var newFragBottom = null;
+            var newFragPosition=-1;
+            // determine if any parent nodes up to the first non custom container
+            // need to be normalized
+            for(var x = sContainerPos -1; x >= 0; x--)
             {
-                wrap.removeNodeWraps(rangeNodes[rn],tag,attributes);
+                if(wrap.isOverlap(rangeDetails.sAnc[x],tag,attributes))
+                {
+                    if(newFragPosition==-1 )
+                    { // we need to persist some custom wrapper elements to the new locations
+                        // so we'll build a tree of customer wrappers here.
+                        newFragPosition = x +1;
+                        if((x + 1) < sContainerPos)
+                            newFragTop = newFragBottom = utils.newEmptyClone(rangeDetails.sAnc[x+1]);
+                    }
+                    
+                }
+                else if (newFragPosition > -1)
+                {
+                    if(newFragTop == null)
+                    {newFragTop = newFragBottom = utils.newEmptyClone(rangeDetails.sAnc[x])}
+                    else
+                    {
+                        newFragBottom.childNodes.appendChild(utils.newEmptyClone(rangeDetails.sAnc[x]));
+                        newFragBottom = newFragBottom.childNodes[0];
+                    }
+                }
+            }
+            if(newFragTop != null)
+            {
+                newFragBottom.appendChild(rangeDetails.sMainPos.container)
+                rangeDetails.sAnc[newFragPosition].appendChild(newFragTop)
+            }
+            else
+            {
+                var insideLeft = rangeDetails.range.startPosition.offset;
+                var insideRight = rangeDetails.range.startPosition.container.length;
+                if(rangeDetails.range.startPosition.container == rangeDetails.range.endPosition.container)
+                {
+                    insideRight = rangeDetails.range.endPosition.offset;
+                    // also requires a break in the dom here.
+                }
+                var outside = Polymer.dom(rangeDetails.sContainer).node.textContent.substr(0,rangeDetails.range.startPosition.offset);
+                var inside = Polymer.dom(rangeDetails.sContainer).node.textContent.substr(insideLeft,insideRight);
+                Polymer.dom(rangeDetails.sContainer).node.appendChild(new  Text(inside));
+                rangeDetails.range.startPosition.container.textContent = outside;
+                
+            }
+        }
+        // normalize end position container
+        if(rangeDetails.eHanging)
+        {
+                console.log("overlapping range at end");
+        }
+        // normalize all nodes between the spos and epos
+		if(range.startPosition.container != range.endPosition.container)
+		{
+            for(rn in rangeDetails.drillNodes)
+            {
+                wrap.removeNodeWraps(rangeDetails.drillNodes[rn],tag,attributes);
             }
             
 		}	
 	}	 
+    wrap.overLappingItems = function(list,t,attributes){
+        var isOverlap = false;
+        var overlapNodes =[];
+        for(i in list)
+        {
+            if(wrap.isOverlap(list[i], t,attributes))
+            {
+                overlapNodes.push(list[i])        
+            }
+        }
+        return overlapNodes;
+    }
+    
     wrap.removeNodeWraps = function(currentNode,tag,attributes){
             var drillChildren = function(nodes,tag,attributes)
             {
@@ -444,24 +518,72 @@ window.ir.textarea.wrap = (function() {
             
             }
     }
-	wrap.getSelectedNodes = function(fullySelected){
-        var selection = window.getSelection();
-        var range = selection.getRangeAt(0);
-        if(range && range.commonAncestorContainer && range.commonAncestorContainer.getElementsByTagName)
+    
+    wrap.rangeDetails = function(range,tag,attributes){
+        // get all nodes to the right and up the left side of the trapazoid to the common parent
+        // and back down to the endpos
+        var nodesToDrill = function(range,sAnc,eAnc,top)
         {
-            var allWithinRangeParent = range.commonAncestorContainer.getElementsByTagName("*");
-
-            var allSelected = [];
-            for (var i=0, el; el = allWithinRangeParent[i]; i++) {
-              // The second parameter says to include the element 
-              // even if it's not fully selected
-              if (selection.containsNode(el, fullySelected) ) {
-                allSelected.push(Polymer.dom(el).node);
-              }
+            var nodeList = []
+            var currentNode = range.startPosition.container;
+            var dir = 1;
+            var reachedTop = false;
+            var ePosAnc = eAnc.indexOf(currentNode);
+            var sPosAnc = sAnc.indexOf(currentNode);
+            while(currentNode != range.endPosition.container)
+            {
+                if(Polymer.dom(currentNode).nextSibling && !(ePosAnc > -1)) dir =0;
+                if(ePosAnc > -1) dir = -1;
+                if(!Polymer.dom(currentNode).nextSibling && !reachedTop) dir=1;
+                
+                if (dir == 0)
+                {
+                    currentNode = Polymer.dom(currentNode).nextSibling;
+                    //console.log("move right " + currentNode);
+                }
+                
+                if(dir == -1)
+                {
+                    currentNode = Polymer.dom(currentNode).childNodes[0];
+                    //console.log("move down " + currentNode );
+                }
+                if(dir == 1)
+                {
+                    currentNode=Polymer.dom(currentNode).parentNode;
+                    //console.log("move up " + currentNode);
+                }
+                ePosAnc = eAnc.indexOf(currentNode);
+                sPosAnc = sAnc.indexOf(currentNode);
+                if(ePosAnc < 0 && sPosAnc < 0 && currentNode != range.endPosition.container)
+                {
+                    nodeList.push(currentNode);
+                    //console.log("added " + currentNode);
+                }
             }
-            return allSelected;
+            return nodeList;
         }
-    }	
+        if(range.startPosition.container != range.endPositionContainer)
+        {
+            var details = {"range":range};
+            details["sHanging"] = 	range.endPosition.container != top && utils.isHangingPos(range.startPosition, top);
+            details["eHanging"] = 	range.endPosition.container != top && utils.isHangingPos(range.endPosition, top);
+            details["sMainPos"] =	utils.maybeSlidePosDown(range.startPosition);
+            details["eMainPos"] =	utils.maybeSlidePosDown(range.endPosition);
+            details["sContainer"] = utils.getNonCustomContainer(details["sMainPos"].container, top, true);
+            details["eContainer"] = utils.getNonCustomContainer(details["eMainPos"].container, top, true);
+            details["eAnc"] = utils.ancestors(details.eMainPos.container);
+            details["sAnc"] = utils.ancestors(details.sMainPos.container);
+            //details["commonParent"]  = utils.commonContainer(range.startPosition.container,range.endPosition.container);
+            details["commonParent"] = utils.firstCommonListItem(details.sAnc,details.eAnc);
+            details["drillNodes"] = nodesToDrill(range,details["sAnc"],details["eAnc"], details.commonParent);
+            details["spAncOverLapping"] = wrap.overLappingItems(details.sAnc,details["commonParent"],attributes);
+            details["epAncOverlapping"] = wrap.overLappingItems(details.eAnc,details["commonParent"],attributes);
+        
+            return details;
+        }
+        
+    }
+	
     
 	unwrapRange = function(range, wrapper)
 	{

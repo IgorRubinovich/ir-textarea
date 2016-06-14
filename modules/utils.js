@@ -956,6 +956,16 @@ window.ir.textarea.utils = (function() {
 	
 		return res;
 	}
+    utils.firstCommonListItem = function(sAnc,eAnc)
+    {
+        for (posE in eAnc)
+        {
+            if(sAnc.indexOf(eAnc[posE]) > -1)
+                return eAnc[posE]
+        }
+        console.log('Could not find a common container')
+        return null;
+    }
 	
 	utils.getElementPosition = function(element, fromElement) {
 		var top = 0, left = 0, width = 0, height = 0, cs, i;
@@ -1560,6 +1570,15 @@ window.ir.textarea.utils = (function() {
 			return el.firstChild
 			
 	}
+    utils.cloneNodeWithProperties = function(el)
+    {
+        newElement = el.cloneNode(true);
+        for(var i in el.properties) 
+        {
+            newElement[i] = el[i]
+        }
+        return newElement;
+    }
 
 	return utils;
 })();
