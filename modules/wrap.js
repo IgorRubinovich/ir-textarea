@@ -306,10 +306,15 @@ window.ir.textarea.wrap = (function() {
 		//if(sHanging)
 			
 		//if(!sHanging && !n.__endBranch && criteria(n))
-		if((!sHanging || !(!utils.isNonCustomContainer(n) && utils.parentNode(n) == top)) && !n.__endBranch && criteria(n))
+		//if((!sHanging || !(!utils.isNonCustomContainer(n) && utils.parentNode(n) == top)) && !n.__endBranch && criteria(n))
 		//if((!sHanging || utils.parentNode(n) == top) && !n.__endBranch && criteria(n))
-			operation(n);
-
+		if((!sHanging || !utils.isDescendantOf(range.startPosition.container, n, true)) && !n.__endBranch && criteria(n))
+		{
+			operation(n);		
+			sPath = utils.getElementPathFromTop(n, commonContainer, true) || [];
+			//sPath.pop();
+		}	
+			
 		// up and right the tree until we're on an __endBranch node
 		while(sPath.length && !n.__endBranch && t != top && n != top)
 		{
