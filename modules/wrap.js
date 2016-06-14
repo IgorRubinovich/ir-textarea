@@ -305,14 +305,16 @@ window.ir.textarea.wrap = (function() {
 		t = n = sContainer;
 		//if(sHanging)
 			
-		if(!sHanging && !n.__endBranch && criteria(n))
+		//if(!sHanging && !n.__endBranch && criteria(n))
+		if((!sHanging || !(!utils.isNonCustomContainer(n) && utils.parentNode(n) == top)) && !n.__endBranch && criteria(n))
+		//if((!sHanging || utils.parentNode(n) == top) && !n.__endBranch && criteria(n))
 			operation(n);
 
 		// up and right the tree until we're on an __endBranch node
 		while(sPath.length && !n.__endBranch && t != top && n != top)
 		{
 			n = t = sPath.pop();
-			if(n.__startBranch)
+			if(n.__startBranch || sHanging)
 				t = Polymer.dom(t).nextSibling;
 			
 			while(t && !t.__startBranch && !t.__endBranch && t != top)

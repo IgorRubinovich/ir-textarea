@@ -454,6 +454,8 @@ window.ir.textarea.paste = (function() {
 		// d - html to paste
 		// determine pos and html 
 		determinePasteState : function(pos, d) {
+			var parent = utils.parentNode(pos.container, top);
+			
 			/*
 			/ states and steps
 			
@@ -572,7 +574,7 @@ window.ir.textarea.paste = (function() {
 			if(state.html == 4 && utils.isInlineElement(d.firstChild) && state.pos.code.match(/[ac]/)) 
 			{
 				t = utils.parentNode(pos.container);
-				while(t && t != top && utils.isInlineElement(t))
+				if(t && t != top && utils.isInlineElement(t))
 				{	
 					s = state.pos.code == 'a' ? t : Polymer.dom(t).nextSibling;
 					if(s)
