@@ -255,6 +255,13 @@ window.ir.textarea.utils = (function() {
 		return el;
 	}
 	
+	utils.getNonInlineContainer = function(child, top, excludeTop) {
+		while(child && child != top && child.nodeType == 3 || utils.isInlineElement(child) || !utils.canHaveChildren(child))
+			child = utils.parentNode(child);
+		
+		return child;
+	}
+	
 	utils.getNonCustomContainer = function(child, top, excludeTop) {
 		var c = child, ncc;
 
@@ -467,8 +474,8 @@ window.ir.textarea.utils = (function() {
 		if(!pos)
 			return;
 
-		if(utils.atText(pos) != 'start')
-			return { container : pos.container, offset : offset - 1 }
+		if(pos.container.nodeType == 3 && utils.atText(pos) != 'start')
+			return { container : pos.container, offset : pos.offset - 1 }
 		
 		if(utils.posToContainerEdgeHasContent(pos, "backward"))
 		{
@@ -539,7 +546,7 @@ window.ir.textarea.utils = (function() {
 		return next;
 	}
 
-	utils.prevNode = function(node, top, opts) {
+	utils.prevNode = function(node, top) {
 		var pn, done, ild;
 		
 		if(node == top)
@@ -792,6 +799,9 @@ window.ir.textarea.utils = (function() {
 				lastContainer = node.childNodes[node.childNodes.length-1];
 				while(!(pos = utils.getLastCaretPosition(lastContainer)) && lastContainer.previousSibling)
 					lastContainer = lastContainer.previousSibling;
+			
+				while(lastContainer == utils.isLayoutElement(lastContainer))
+					lastContainer = utils.prevNode(lastContainer, top)
 			}
 
 			return pos || { container : node, offset : node.nodeType == 3 ? node.textContent.length : 0 };
@@ -834,7 +844,7 @@ window.ir.textarea.utils = (function() {
 		if(utils.canHaveChildren(m) && Polymer.dom(m).childNodes.length == endPos.offset)
 			m = utils.nextNodeNonDescendant(m);
 		
-		if(n.nodeType == 3)
+		if(n.nodeType == 3 && !utils.isLayoutElement(n))
 			// same text container check
 			if(n == m)
 				return startPos.offset - endPos.offset
@@ -858,7 +868,9 @@ window.ir.textarea.utils = (function() {
 			return false;
 		
 		while(n && n != m)
-			if(!utils.isTransitionalElement(n) && n.nodeType == 3 || !utils.canHaveChildren(n) || n.is)
+			if(!utils.isTransitionalElement(n) &&
+				(!utils.getTopCustomElementAncestor(n, top) || utils.parentNode(n).hasAttribute("contenteditable"))
+				&& (n.nodeType == 3 || !utils.canHaveChildren(n) || n.is))
 				return true;
 			else
 			if(utils.isNonCustomContainer(n) && n.childNodes.length == startPos.offset)

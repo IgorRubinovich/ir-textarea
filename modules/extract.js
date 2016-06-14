@@ -194,7 +194,12 @@ window.ir.textarea.extract =
 		sCont = utils.getNonCustomContainer(startPos.container, opts.top);
 		eCont = utils.getNonCustomContainer(endPos.container, opts.top);
 		
-		if(b.commonAncestor != b.last.original && (!extractRes || b.commonAncestor == opts.top || sCont == eCont || utils.isTransitionalElement(b.commonAncestor)))
+		if(b.commonAncestor != b.last.original && b.commonAncestor != b.first.original &&
+			(!extractRes || 
+			b.commonAncestor == opts.top || 
+			sCont == eCont || 
+			utils.isTransitionalElement(b.commonAncestor)))
+			
 			extractRes = utils.moveChildrenToFragment(extractRes, true);
 		
 		if(hangingFirst && utils.isNonCustomContainer(Polymer.dom(extractRes).firstChild))
@@ -207,6 +212,7 @@ window.ir.textarea.extract =
 			if(utils.isNonCustomContainer(extractRes))
 				extractRes = utils.childrenToFragment(extractRes);
 		}
+
 		// up to here the original dom remained intact
 		if(del)
 		{
