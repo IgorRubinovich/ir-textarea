@@ -222,7 +222,7 @@ window.ir.textarea.wrap = (function() {
 			sMainPos, eMainPos, 
 			sMainPath, eMainPath,
 			sSub, eSub, includeLast, 
-			sPath, ePath, index, max, EOD;
+			sPath, ePath, index, max, EOD, t;
 			//criteria, operation;
 			
 		

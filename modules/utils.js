@@ -1366,7 +1366,7 @@ window.ir.textarea.utils = (function() {
 	}	
 		
 	utils.isInlineElement = function(el) {
-		return el && el.tagName && INLINE_ELEMENTS[el.tagName];
+		return el && el.tagName && INLINE_ELEMENTS[el.tagName] && !utils.isParagraph(el);
 	}
 	
 	utils.sameParent = function(e1, e2)

@@ -308,6 +308,12 @@ This code may only be used under the MIT license found at http://opensource.org/
 		<button onclick="testPaste('<span class=\'paragraph\'>- hello paste -</span>hanging')">paste (hanging end)</button>
 	</div>
 	<div>
+		Inline paste:
+		<button onclick="testPaste('<i>some italic</i>')">paste italic</button>
+		<button onclick="testPaste('<b>some bold</b>')">paste bold</button>
+		<button onclick="testPaste('<u>some underline</u>')">paste underline</button>
+	</div>
+	<div>
 		Copy/paste full loop:
 		<button onclick="testLoop(true)">sync</button>
 		<button onclick="testLoop()">async</button>
@@ -326,7 +332,7 @@ This code may only be used under the MIT license found at http://opensource.org/
 	<div 
 		id="editor" 
 		contenteditable
-	><ul><li>list item 1</li><li>list item 2</li><li>list item 3</li></ul><table border>
+	>some normal text, an <i>italic block</i><b>and a bold block</b> enter a bar<ul><li>list item 1</li><li>list item 2</li><li>list item 3</li></ul><table border>
 			<tr>
 				<td>table inside</td>
 				<td>paragraph</td>
