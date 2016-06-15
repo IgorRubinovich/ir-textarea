@@ -284,7 +284,7 @@ window.ir.textarea.wrap = (function() {
 												endPosition : sContainer == eContainer ? range.endPosition : utils.getLastCaretPosition(sContainer)
 											}, wrapper, top, true)
 		}
-		
+ 		
 		if(sContainer == eContainer && !sHanging && !eHanging)
 		{
 			if(criteria(sContainer))
