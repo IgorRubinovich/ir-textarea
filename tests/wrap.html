@@ -49,7 +49,9 @@ This code may only be used under the MIT license found at http://opensource.org/
 		<button onclick="testWrapSelection('i')"><i>i</i></button>
 		<button onclick="testWrapSelection('u')"><u>u</u></button>
 		<button onclick="testWrapSelection('s')"><s>s</s></button>
-		<button onclick="testWrapSelection('span style=\'background-color : yellow\'')">color marker</button>
+		<button onclick="testWrapSelection('span style=\'background-color : yellow\'')">yellow</button>
+		<button onclick="testWrapSelection('span style=\'background-color : lightgreen\'')">green</button>
+		<button onclick="testWrapSelection('span style=\'background-color : lightblue\'')">blue</button>
 		<br>
 		<textarea type=text id="wrapper" rows=1>&lt;i&gt;&lt;/i&gt;</textarea>
 	</div>
@@ -126,7 +128,8 @@ This code may only be used under the MIT license found at http://opensource.org/
 	<div 
 		id="editor" 
 		contenteditable
-	>some normal text, an <i>italic block</i><b>and a bold block</b> enter a bar<ir-gallery contenteditable="false" theme="blackfriday" style="display: inline-block;"><div class="caption-wrapper"><img src="http://lorempixel.com/300/200/" style="display: inline-block; position: relative; transform: translate(0px, 0px);"><div class="caption" contenteditable="true">hi caption</div></div></ir-gallery><table border>
+	><span class="paragraph">01. paragraphs with empty paragraph between</span><span class="paragraph">02. two consecutive</span><span class="paragraph">03. paragraphs</span>some normal text, an <i>italic block</i><b>and a bold block</b> enter a bar
+	<ir-gallery contenteditable="false" theme="blackfriday" style="display: inline-block;"><div class="caption-wrapper"><img src="http://lorempixel.com/300/200/" style="display: inline-block; position: relative; transform: translate(0px, 0px);"><div class="caption" contenteditable="true">hi caption</div></div></ir-gallery><table border>
 		<tr>
 			<td>some</td>
 			<td>tabled</td>

@@ -8,7 +8,7 @@ window.ir.textarea.utils = (function() {
 	
 	var INLINE_ELEMENTS = {};
 	
-	"font,b,big,i,u,small,tt,abbr,acronym,cite,code,dfn,em,kbd,strong,samp,time,var,a,bdo,br,img,map,object,q,script,span,sub,sup".split(/,/)
+	"font,b,big,i,u,small,tt,abbr,acronym,cite,code,dfn,em,kbd,strong,samp,time,var,a,bdo,br,img,map,object,q,script,s,span,sub,sup".split(/,/)
 		.forEach(function(tag) { INLINE_ELEMENTS[tag.toUpperCase()] = true });
 		
 	var TRANSITIONAL_ELEMENTS = ['OL', 'UL', 'TABLE', 'TBODY', 'THEAD', 'TH', 'TR'],
@@ -862,9 +862,6 @@ window.ir.textarea.utils = (function() {
 		
 		// end is not at start of text
 		
-		//if(!utils.posInSameContainer(startPos, { container : m, offset : 0 }))
-		//	return false;
-		
 		if(n == m)
 			return false;
 		
@@ -878,7 +875,10 @@ window.ir.textarea.utils = (function() {
 				n = utils.nextNodeNonDescendant(n, top);
 			else
 				n = utils.nextNode(n, top);
-			
+		
+		if(n == m && n.nodeType == 3 && endPos.offset > 0 && startPos.container != endPos.container)
+			return true;
+		
 		return false;
 	}
 	

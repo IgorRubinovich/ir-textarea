@@ -146,7 +146,12 @@ window.ir.textarea.wrap = (function() {
 	}
 	
 	wrap.wrapRangeSegment = function(range, wrapper, top, viaExtract) {
-		var frag, startPath, endPath, splitRoot, dummyparagraph, src, extractRes, pos, n, done;
+		var frag, startPath, endPath, splitRoot, 
+			dummyparagraph, src, extractRes, pos, n, done,
+			sAtInlineEdge, eAtInlineEdge;
+			
+		sAtInlineEdge = utils.atText(range.startPosition, 'start') &&
+							utils.isInlineElement(utils.parentNode(range.startPosition.container));
 		
 		// save path as coordinates
 		startPath = utils.posToCoorinatesPos(range.startPosition, top);
@@ -173,7 +178,6 @@ window.ir.textarea.wrap = (function() {
 				dummyparagraph.appendChild(extractRes.firstChild);
 		
 		// remember path of startPos
-		//dummyparagraph.appendChild(extract);
 		wrap.wrapContents(dummyparagraph, wrapper);
 
 		// put them all in a fragment
@@ -186,9 +190,29 @@ window.ir.textarea.wrap = (function() {
 
 		// if wrapping bare nodes we don't want them to be merged as hanging
 		pos = utils.coordinatesPosToPos(startPath, top, true, true);
-		if(!utils.isNonCustomContainer(frag.firstChild) && utils.isNonCustomContainer(pos.container) && pos.offset == Polymer.dom(pos.container).childNodes.length)
+		if(!utils.isNonCustomContainer(frag.firstChild) && 
+			utils.isNonCustomContainer(pos.container) && 
+			pos.offset == Polymer.dom(pos.container).childNodes.length)
+			
 			pos = { container : utils.nextNodeNonDescendant(pos.container, top, true), offset : 0 };
 
+		// inline elements require some special treatment
+		// 		if we are in a text node wrapped in an inline element but selection start was not at its edge,
+		//		we should paste BEFORE the inline element to avoid getting unwanted style
+		//if(utils.isInlineElement(utils.parentNode(pos.container)) && !sAtInlineEdge)
+		//	pos = { container : utils.parentNode(pos.container), offset : utils.getChildPositionInParent(pos.container) }
+		//else
+		// 		if we are on an inline element and selection at its edge,
+		//		we should paste INSIDE the inline element to avoid losing style
+		if(utils.isInlineElement(pos.container) && sAtInlineEdge)
+		{
+			if(!Polymer.dom(pos.container).firstChild)
+				Polymer.dom(pos.container).appendChild(document.createTextNode(''));
+			
+			pos = { container : pos.container.firstChild, offset : 0 }
+		}
+		//|| utils.isInlineElement(utils.parentNode(pos.container)))
+	
 		if(frag.firstChild.is)
 			utils.replaceWithOwnChildren(frag.firstChild);
 		
@@ -206,7 +230,7 @@ window.ir.textarea.wrap = (function() {
 		criteria = function(n) { return !(n.nodeType == 3 && (utils.isLayoutElement(n) || utils.isTransitionalElement(utils.parentNode(n)))) }
 		operation = function(n) { 
 			result.push(n);
-			console.log(n); 
+			console.log("to wrap:", n); 
 		}
 
 		wrap.getRangeContour(range, wrapper, top, criteria, operation);
@@ -330,6 +354,8 @@ window.ir.textarea.wrap = (function() {
 					n = t;
 				t = Polymer.dom(t).nextSibling;
 			}
+			if(t)
+				n = t;
 		}
 		
 		
