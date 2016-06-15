@@ -21,6 +21,7 @@ This code may only be used under the MIT license found at http://opensource.org/
   <script src="../modules/extract.js"></script>
   <script src="../modules/paste.js"></script>
   <script src="../modules/wrap.js"></script>
+  <script src="suites/wrap.js"></script>
 
   <style>
 	body { background-color : #eaeaea; padding : 25px }
@@ -53,22 +54,80 @@ This code may only be used under the MIT license found at http://opensource.org/
 		<button onclick="testWrapSelection('span style=\'background-color : lightgreen\'')">green</button>
 		<button onclick="testWrapSelection('span style=\'background-color : lightblue\'')">blue</button>
 		<button onclick="resetHTML()">reset html</button>
-		<br>
 		<textarea type=text id="wrapper" rows=1>&lt;i&gt;&lt;/i&gt;</textarea>
+		<hr>
+		Save a successful test
+		<input type=text id="testName" rows=1 placeholder="test name here">
+		<button onclick="saveTest()">save</button>
+		<button onclick="runTests()">run</button>
+		<textarea type=text id="testsLog" rows=1 placeholder="test name here"></textarea>
 	</div>
 	<script>
-		var editor, w = window.ir.textarea.wrap;
+		var editor, 
+			w = window.ir.textarea.wrap,
+			utils = window.ir.textarea.utils;
 
-		var originalHTML;
+		var originalHTML, 
+			last = {}, 
+			testsLog, 
+			testsLogArr = [], 
+			caretPos, 
+			testName;
 		
 		window.addEventListener('DOMContentLoaded', function () {
 			editor = document.getElementById('editor');
+			
+			testsLog = document.getElementById('testsLog');
+			
+			testsLog.value = JSON.stringify(ir.textarea.tests.wrap);
+			
+			testName = document.getElementById('testName');
 			originalHTML = Polymer.dom(editor).innerHTML;
 			document.addEventListener('keydown', function(e) { 
 				if(e.altKey && e.keyCode == 82) resetHTML(); 
 				if(e.altKey && e.keyCode == 69) testWrapSelection('span style=\'background-color : yellow\''); 
 			})
 		});
+		
+
+		
+		function runTests() {
+			var testsData = JSON.parse(testsLog.value),
+				results = [];
+			
+			var runTest = function(td)
+			{
+				if(!testsData.length)
+					return console.log(results.map(JSON.stringify).join("\n"));
+					
+				var td = testsData.shift();
+				console.log('running', td.name)
+				
+				editor.innerHTML = td.originalHTML;
+				this[td.command].apply(this, td.arguments);
+				
+				results.push({ name : td.name, passed : Polymer.dom(editor).innerHTML == td.resultHTML })
+
+				setTimeout(runTest, 500);
+			}
+
+			runTest();
+		}
+		
+		function saveTest() {
+			if(!testName.value)
+				return alert('must enter a test name')
+
+			testsLogArr.push({ 
+							name : testName.value, 
+							command : last.command,
+							arguments : last.arguments,
+							originalHTML : last.originalHTML, 
+							resultHTML : last.resultHTML
+						});
+							
+			testsLog.value = JSON.stringify(testsLogArr);
+		}
 		
 		function testWrap() {
 			var d;
@@ -110,8 +169,37 @@ This code may only be used under the MIT license found at http://opensource.org/
 			})
 		}
 
-		function testWrapSelection(tag) {
-		    w.wrapWithAttributes(tag,null);
+		function testWrapSelection(tag, startPosCoords, endPosCoords) {
+			var s, e, r;
+
+			if(startPosCoords && endPosCoords)
+			{ 
+				s = startPosCoords && utils.coordinatesPosToPos(startPosCoords);
+				e = endPosCoords && utils.coordinatesPosToPos(endPosCoords);
+			}
+			else
+			{
+				r = utils.getSelectionRange();
+				
+				s = {
+						container : r.startContainer,
+						offset : r.startOffset
+					}
+				e = {
+						container : r.endContainer,
+						offset : r.endOffset
+					}
+			}
+			
+			last = {
+				command : "testWrapSelection",
+				arguments : [tag, utils.posToCoorinatesPos(s), utils.posToCoorinatesPos(e)],
+				originalHTML : Polymer.dom(editor).innerHTML,
+			}
+
+			w.wrapWithAttributes({ startPosition : s, endPosition : e}, tag);
+			
+			last.resultHTML = Polymer.dom(editor).innerHTML;
         }	
 		
 		function resetHTML()

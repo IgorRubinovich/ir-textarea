@@ -413,19 +413,27 @@ window.ir.textarea.wrap = (function() {
 		utils.unmarkBranch(range.endPosition, top, "__endBranch");		
 	}
 
-	wrap.wrapWithAttributes = function(tag,attributes){
-		var r = getSelection().getRangeAt(0), cltag,
-				posr = {
-					startPosition : {
-						container : r.startContainer,
-						offset : r.startOffset
-					},
-					endPosition : {
-						container : r.endContainer,
-						offset : r.endOffset
-					}
+	wrap.wrapWithAttributes = function(range, tag, attributes){
+		var r, cltag, posr;
+		
+		if(range)
+			posr = range;
+		else
+		{
+			r = utils.getSelectionRange();
+			posr = {
+				startPosition : {
+					container : r.startContainer,
+					offset : r.startOffset
+				},
+				endPosition : {
+					container : r.endContainer,
+					offset : r.endOffset
 				}
-			cltag = tag.replace(/^\W+\w/, '')
+			}
+		}
+		
+		cltag = tag.replace(/^\W+\w/, '')
 			//wrap.normalizeWraps(posr.startPosition,posr.endPosition,tag,attributes);
 			if(! wrap.detectOverlap(posr,tag))
 			{

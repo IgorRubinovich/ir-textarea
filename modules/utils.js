@@ -899,9 +899,21 @@ window.ir.textarea.utils = (function() {
 	}
 	
 	utils.isHangingPos = function(pos, top) {
+		var c;
+		
 		if(utils.isLayoutElement(pos.container))
 			return false;
-
+		
+		if(utils.isNonCustomContainer(pos.container) && utils.parentNode(pos.container) == top)
+			return false;
+			
+		if(pos.container == top)
+		{
+			c = Polymer.dom(top).childNodes[pos.offset];
+			if(c.is || !(c.nodeType == 3 || utils.isInlineElement(c)))
+				return false;
+		}
+			
 		return utils.posToContainerEdgeHasContent(pos, "forward", top) && 
 					utils.posToContainerEdgeHasContent(pos, "backward", top);
 	
