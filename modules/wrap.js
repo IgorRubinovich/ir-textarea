@@ -285,6 +285,11 @@ window.ir.textarea.wrap = (function() {
 											}, wrapper, top, true)
 		}
 		
+		if(sContainer == eContainer && !sHanging && !eHanging)
+		{
+			if(criteria(sContainer))
+				operation(sContainer);
+		}
 		if(sContainer == eContainer)
 			return;
 		
