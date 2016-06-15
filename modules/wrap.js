@@ -255,6 +255,7 @@ window.ir.textarea.wrap = (function() {
 		
 		EOD = Polymer.dom(top).nextSibling;
 
+		// move start and end into the prev/next container if the containers they're in are to be excluded
 		while(!criteria(range.startPosition.container) || !utils.posToContainerEdgeHasContent(range.startPosition, "forward", top))
 			range.startPosition = { container : utils.nextNodeNonDescendant(range.startPosition.container, top, true), offset : 0 };
 		while(!criteria(range.endPosition.container) || !utils.posToContainerEdgeHasContent(range.endPosition, "backward", top))
@@ -263,7 +264,7 @@ window.ir.textarea.wrap = (function() {
 			range.endPosition = { container : t, offset : t.length };
 		}
 
- 		// process hanging parts
+		// collect basic info
 		sHanging = 	range.endPosition.container != top && utils.isHangingPos(range.startPosition, top);
 		eHanging = 	range.endPosition.container != top && utils.isHangingPos(range.endPosition, top);
 
@@ -273,6 +274,7 @@ window.ir.textarea.wrap = (function() {
 		sContainer = utils.getNonCustomContainer(sMainPos.container, top, true);
 		eContainer = utils.getNonCustomContainer(eMainPos.container, top, true);
 
+		 // process hanging parts
 		if(sHanging)
 		{
 			if(sContainer == eContainer)
@@ -330,8 +332,11 @@ window.ir.textarea.wrap = (function() {
 		
 		commonContainer = utils.commonContainer(sMainPos.container, eMainPos.container);
 
-		utils.markBranch(range.startPosition.container, top, "__startBranch", true);
-		utils.markBranch(range.endPosition.container, top, "__endBranch", true);
+		//utils.markBranch(range.startPosition.container, top, "__startBranch", true);
+		//utils.markBranch(range.endPosition.container, top, "__endBranch", true);
+
+		utils.markBranch(range.startPosition, top, "__startBranch", true);
+		utils.markBranch(range.endPosition, top, "__endBranch", true);
 
 		console.log('up the hill');
 
@@ -347,6 +352,7 @@ window.ir.textarea.wrap = (function() {
 		{
 			operation(n);		
 			sPath = utils.getElementPathFromTop(n, commonContainer, true) || [];
+			n = utils.nextNodeNonDescendant(n, top, true);
 			//sPath.pop();
 		}	
 			
@@ -403,8 +409,8 @@ window.ir.textarea.wrap = (function() {
 		if(!eHanging && utils.rangeHasContent({ container : eContainer, offset : 0 }, range.endPosition))
 			wrap.wrapContents(eContainer, wrapper);
 		
-		utils.unmarkBranch(range.startPosition.container, top, "__startBranch");		
-		utils.unmarkBranch(range.endPosition.container, top, "__endBranch");		
+		utils.unmarkBranch(range.startPosition, top, "__startBranch");		
+		utils.unmarkBranch(range.endPosition, top, "__endBranch");		
 	}
 
 	wrap.wrapWithAttributes = function(tag,attributes){

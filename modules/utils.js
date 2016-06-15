@@ -1001,6 +1001,15 @@ window.ir.textarea.utils = (function() {
 
 	utils.markBranch = function(n, top, attribute, value)
 	{
+		var pos;
+
+		// if n is a position and its offset is points to an element, mark the element
+		if(n.container && Polymer.dom(n.container).childNodes && Polymer.dom(n.container).childNodes[n.offset])
+			Polymer.dom(n.container).childNodes[n.offset][attribute] = value;
+
+		if(n.container)
+			n = n.container;
+
 		n[attribute] = value;
 		while(n && n != top)
 		{
@@ -1010,6 +1019,13 @@ window.ir.textarea.utils = (function() {
 	}
 	utils.unmarkBranch = function(n, top, attribute, value)
 	{
+		// if n is a position and its offset is points to an element, unmark the element
+		if(n.container && Polymer.dom(n.container).childNodes && Polymer.dom(n.container).childNodes[n.offset])
+			delete Polymer.dom(n.container).childNodes[n.offset][attribute];
+
+		if(n.container)
+			n = n.container;
+		
 		n[attribute] = value;
 		while(n && n != top)
 		{
