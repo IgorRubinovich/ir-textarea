@@ -52,14 +52,22 @@ This code may only be used under the MIT license found at http://opensource.org/
 		<button onclick="testWrapSelection('span style=\'background-color : yellow\'')">yellow</button>
 		<button onclick="testWrapSelection('span style=\'background-color : lightgreen\'')">green</button>
 		<button onclick="testWrapSelection('span style=\'background-color : lightblue\'')">blue</button>
+		<button onclick="resetHTML()">reset html</button>
 		<br>
 		<textarea type=text id="wrapper" rows=1>&lt;i&gt;&lt;/i&gt;</textarea>
 	</div>
 	<script>
 		var editor, w = window.ir.textarea.wrap;
 
+		var originalHTML;
+		
 		window.addEventListener('DOMContentLoaded', function () {
 			editor = document.getElementById('editor');
+			originalHTML = Polymer.dom(editor).innerHTML;
+			document.addEventListener('keydown', function(e) { 
+				if(e.altKey && e.keyCode == 82) resetHTML(); 
+				if(e.altKey && e.keyCode == 69) testWrapSelection('span style=\'background-color : yellow\''); 
+			})
 		});
 		
 		function testWrap() {
@@ -105,6 +113,11 @@ This code may only be used under the MIT license found at http://opensource.org/
 		function testWrapSelection(tag) {
 		    w.wrapWithAttributes(tag,null);
         }	
+		
+		function resetHTML()
+		{
+			Polymer.dom(editor).innerHTML = originalHTML;
+		}
 		
 		var intToRandom = (function() {
 			var cache = {};
