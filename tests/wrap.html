@@ -98,7 +98,7 @@ This code may only be used under the MIT license found at http://opensource.org/
 			var runTest = function(td)
 			{
 				if(!testsData.length)
-					return console.log(results.map(JSON.stringify).join("\n"));
+					return console.table(results); //.map(function(n) { return n.name + " " + (n.passed ? "PASS" : "FAIL") }).join("\n"));
 					
 				var td = testsData.shift();
 				console.log('running', td.name)

@@ -233,7 +233,6 @@ window.ir.textarea.wrap = (function() {
 		criteria = function(n) { return !(n.nodeType == 3 && (utils.isLayoutElement(n) || utils.isTransitionalElement(utils.parentNode(n)))) }
 		operation = function(n) { 
 			result.push(n);
-			console.log("to wrap:", n); 
 		}
 
 		wrap.getRangeContour(range, wrapper, top, criteria, operation);
@@ -326,7 +325,7 @@ window.ir.textarea.wrap = (function() {
 		}
 		console.log(sMainPos.container, eMainPos.container);
 		if(sContainer == eContainer && !utils.rangeHasContent(sMainPos, eMainPos))
-			return console.log('no main part');
+			return // console.log('no main part');
 		
 		// there's sure a main part and we are wrapping it		
 		
@@ -337,8 +336,6 @@ window.ir.textarea.wrap = (function() {
 
 		utils.markBranch(range.startPosition, top, "__startBranch", true);
 		utils.markBranch(range.endPosition, top, "__endBranch", true);
-
-		console.log('up the hill');
 
 		sPath = utils.getElementPathFromTop(sContainer, commonContainer, true) || [];
 
@@ -384,9 +381,6 @@ window.ir.textarea.wrap = (function() {
 
 			n = Polymer.dom(n).nextSibling;
 		}
-
-
-		console.log('down the hill')
 
 		ePath = utils.getElementPathFromTop(eContainer, n) || [];
 		
