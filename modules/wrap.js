@@ -283,17 +283,16 @@ window.ir.textarea.wrap = (function() {
 												startPosition : sMainPos, 
 												endPosition : sContainer == eContainer ? range.endPosition : utils.getLastCaretPosition(sContainer)
 											}, wrapper, top, true)
+											
 		}
- 		
+		
 		if(sContainer == eContainer && !sHanging && !eHanging)
 		{
 			if(criteria(sContainer))
 				operation(sContainer);
 		}
-		if(sContainer == eContainer)
-			return;
 		
-		if(eHanging && range.endPosition && sContainer != eContainer)
+		if(eHanging && range.endPosition && (sContainer != eContainer || !sHanging))
 		{
 			eMainPos = utils.maybeSlidePosDown({ container : eContainer, offset : 0 });
 			eMainPath = utils.posToCoorinatesPos(eMainPos);
@@ -306,6 +305,10 @@ window.ir.textarea.wrap = (function() {
 			eMainPos = utils.coordinatesPosToPos(eMainPath);
 		}
 
+		
+		if(sContainer == eContainer)
+			return;
+		
 		// check whether there's main part
 		n = sMainPos.container;
 		if(sHanging && utils.isDescendantOf(sMainPos.container, sContainer, true))
@@ -317,15 +320,15 @@ window.ir.textarea.wrap = (function() {
 			sContainer = utils.getNonCustomContainer(n, top, true);
 		}
 		console.log(sMainPos.container, eMainPos.container);
-		if(sContainer == eContainer || !utils.rangeHasContent(sMainPos, eMainPos))
+		if(sContainer == eContainer && !utils.rangeHasContent(sMainPos, eMainPos))
 			return console.log('no main part');
 		
 		// there's sure a main part and we are wrapping it		
 		
 		commonContainer = utils.commonContainer(sMainPos.container, eMainPos.container);
 
-		utils.markBranch(sContainer, top, "__startBranch", true);
-		utils.markBranch(eContainer, top, "__endBranch", true);
+		utils.markBranch(range.startPosition.container, top, "__startBranch", true);
+		utils.markBranch(range.endPosition.container, top, "__endBranch", true);
 
 		console.log('up the hill');
 
@@ -383,6 +386,8 @@ window.ir.textarea.wrap = (function() {
 		{
 			t = Polymer.dom(n).firstChild;			
 			n = ePath.shift();
+			if(t.__startBranch)
+				t = Polymer.dom(t).nextSibling;
 			while(t && !t.__endBranch && t != eContainer)
 			{
 				if(criteria(t)) // we do want to wrap non-text transitional elements
@@ -395,8 +400,8 @@ window.ir.textarea.wrap = (function() {
 		if(!eHanging && utils.rangeHasContent({ container : eContainer, offset : 0 }, range.endPosition))
 			wrap.wrapContents(eContainer, wrapper);
 		
-		utils.unmarkBranch(sContainer, top, "__startBranch");		
-		utils.unmarkBranch(eContainer, top, "__endBranch");		
+		utils.unmarkBranch(range.startPosition.container, top, "__startBranch");		
+		utils.unmarkBranch(range.endPosition.container, top, "__endBranch");		
 	}
 
 	wrap.wrapWithAttributes = function(tag,attributes){
