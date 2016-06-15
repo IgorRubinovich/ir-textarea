@@ -56,6 +56,11 @@ This code may only be used under the MIT license found at http://opensource.org/
 		<button onclick="resetHTML()">reset html</button>
 		<textarea type=text id="wrapper" rows=1>&lt;i&gt;&lt;/i&gt;</textarea>
 		<hr>
+		<button onclick="testWrapBlockLevel('h1')">H1</button>		
+		<button onclick="testWrapBlockLevel('h2')">H2</button>		
+		<button onclick="testWrapBlockLevel('h3')">H3</button>		
+		<button onclick="testWrapBlockLevel('span', { class : 'paragraph')">P</button>		
+		<hr>
 		Save a successful test
 		<input type=text id="testName" rows=1 placeholder="test name here">
 		<button onclick="saveTest()">save</button>
@@ -182,6 +187,23 @@ This code may only be used under the MIT license found at http://opensource.org/
 			})
 		}
 
+		function testWrapBlockLevel(tag, startPosCoords, endPosCoords) {
+			var r = utils.getSelectionRange(), s, e;
+
+			//s = startPosCoords && utils.coordinatesPosToPos(startPosCoords);
+			//e = endPosCoords && utils.coordinatesPosToPos(endPosCoords);
+			s = {
+					container : r.startContainer,
+					offset : r.startOffset
+				}
+			e = {
+					container : r.endContainer,
+					offset : r.endOffset
+				}
+
+			w.wrapRangeBlockLevel({ startPosition : s, endPosition : e }, tag, editor);
+		}
+		
 		function testWrapSelection(tag, startPosCoords, endPosCoords) {
 			var s, e, r;
 

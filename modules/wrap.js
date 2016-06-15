@@ -458,12 +458,14 @@ window.ir.textarea.wrap = (function() {
 				Overlap Both == 3 */
 			return startOverlap + 2 * endOverlap;
 		}
+	
 	wrap.buildAttribute = function(className,style){
 		var a = {};
 		if(style) a['style'] = style;
 		if(className) a['class'] = className;
 		return a ;
 	}
+	
 	wrap.normalizeWraps = function(startPosition,endPosition,tag,attributes){
         
 		if(startPosition.container != endPosition.container)
@@ -491,9 +493,30 @@ window.ir.textarea.wrap = (function() {
 		}	
 	}	 
 		
-	unwrapRange = function(range, wrapper)
-	{
+	wrap.wrapRangeBlockLevel = function(range, tag, top) {
+		var sContainer, eContainer;
 		
+		sContainer = utils.getNonCustomContainer(range.startPosition.container);
+		eContainer = utils.getNonCustomContainer(range.endPosition.container);
+		
+		utils.markBranch(range.endPosition.container, top, "__endBranch", true);
+
+		if(sContainer == eContainer)
+			return utils.replaceTag(sContainer, tag);
+		
+		n = sContainer;
+		while(n && !n.__endBranch)
+		{
+			n = utils.replaceTag(n, tag);
+			n = Polymer.dom(n).nextSibling;
+		}
+		
+		if(n)
+			n = utils.replaceTag(n, tag);
+		
+		utils.unmarkBranch(range.endPosition.container, top, "__endBranch", true);
+
+		return n;
 	}
 	
 	return wrap;

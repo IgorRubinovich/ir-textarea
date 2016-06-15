@@ -1470,6 +1470,22 @@ window.ir.textarea.utils = (function() {
 	
 		return first;
 	}
+
+	utils.replaceTag = function(node, tag)
+	{
+		var pn, pnn, newNode = document.createElement(tag);
+
+		pn = Polymer.dom(node);
+		pnn = Polymer.dom(newNode);
+
+		while(pn.firstChild)
+			pnn.appendChild(pn.firstChild);
+
+		utils.replaceNodeWith(node, newNode);
+
+		return newNode;
+	}
+
 	
 	utils.numerify = function(x) {
 		if(typeof x == 'undefined' || !x)
