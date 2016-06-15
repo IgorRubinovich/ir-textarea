@@ -59,7 +59,7 @@ This code may only be used under the MIT license found at http://opensource.org/
 		Save a successful test
 		<input type=text id="testName" rows=1 placeholder="test name here">
 		<button onclick="saveTest()">save</button>
-		<button onclick="runTests()">run</button>
+		<button id="runTests" onclick="runTests()">run</button>
 		<textarea type=text id="testsLog" rows=1 placeholder="test name here"></textarea>
 	</div>
 	<script>
@@ -72,12 +72,14 @@ This code may only be used under the MIT license found at http://opensource.org/
 			testsLog, 
 			testsLogArr = [], 
 			caretPos, 
-			testName;
+			testName,
+			runTestsButton;
 		
 		window.addEventListener('DOMContentLoaded', function () {
 			editor = document.getElementById('editor');
 			
 			testsLog = document.getElementById('testsLog');
+			runTestsButton = document.getElementById('runTests');
 			
 			testsLog.value = JSON.stringify(ir.textarea.tests.wrap);
 			
@@ -95,11 +97,16 @@ This code may only be used under the MIT license found at http://opensource.org/
 			var testsData = JSON.parse(testsLog.value),
 				results = [];
 			
+			runTestsButton.disabled = true;
+			
 			var runTest = function(td)
 			{
 				if(!testsData.length)
+				{	
+					runTestsButton.disabled = false; 
 					return console.table(results); //.map(function(n) { return n.name + " " + (n.passed ? "PASS" : "FAIL") }).join("\n"));
-					
+				}
+				
 				var td = testsData.shift();
 				console.log('running', td.name)
 				
@@ -242,7 +249,7 @@ This code may only be used under the MIT license found at http://opensource.org/
 	</table>bare text<ir-gallery contenteditable="false"><img  src="http://lorempixel.com/300/200/"  style="display: inline-block; position: relative; width: 247px; height: 186.859px; transform: translate(0px, 0px);" width="247" height="186.859375"></ir-gallery><span class="paragraph">a paragraph with a CE just before it no space between</span>
 	
 a couple empty paragraphs<span class="paragraph"></span><span class="paragraph"></span><span class="paragraph">two consecutive</span><span class="paragraph">hello<br><br><br><br><br><br><br><br><br></span><span class="paragraph">01. paragraphs with empty paragraph between</span><span class="paragraph">02. two consecutive</span><span class="paragraph">03. paragraphs</span>
-	<ir-gallery contenteditable="false"><img src=" src="http://lorempixel.com/301/201/" " style="display: inline-block; position: relative; width: 247px; height: 186.859px; transform: translate(0px, 0px);" width="247" height="186.859375"></ir-gallery><span class="paragraph">a paragraph with a CE just before it no space between</span>
+	<ir-gallery contenteditable="false"><img src="http://lorempixel.com/301/201/" " style="display: inline-block; position: relative; width: 247px; height: 186.859px; transform: translate(0px, 0px);" width="247" height="186.859375"></ir-gallery><span class="paragraph">a paragraph with a CE just before it no space between</span>
 
 	
 	

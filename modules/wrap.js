@@ -189,8 +189,6 @@ window.ir.textarea.wrap = (function() {
 		while(dummyparagraph.firstChild)
 			frag.appendChild(dummyparagraph.firstChild)
 
-		console.log(utils.outerHTML(frag));
-
 		// if wrapping bare nodes we don't want them to be merged as hanging
 		pos = utils.coordinatesPosToPos(startPath, top, true, true);
 		if(!utils.isNonCustomContainer(frag.firstChild) && 
@@ -323,7 +321,7 @@ window.ir.textarea.wrap = (function() {
 			sMainPos =	{ container : n, offset : 0 };
 			sContainer = utils.getNonCustomContainer(n, top, true);
 		}
-		console.log(sMainPos.container, eMainPos.container);
+
 		if(sContainer == eContainer && !utils.rangeHasContent(sMainPos, eMainPos))
 			return // console.log('no main part');
 		
