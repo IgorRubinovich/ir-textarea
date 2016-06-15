@@ -81,7 +81,9 @@ This code may only be used under the MIT license found at http://opensource.org/
 			testsLog = document.getElementById('testsLog');
 			runTestsButton = document.getElementById('runTests');
 			
-			testsLog.value = JSON.stringify(ir.textarea.tests.wrap);
+			testsLogArr = ir.textarea.tests.wrap;
+			
+			testsLog.value = formatTests(testsLogArr);
 			
 			testName = document.getElementById('testName');
 			originalHTML = Polymer.dom(editor).innerHTML;
@@ -133,7 +135,11 @@ This code may only be used under the MIT license found at http://opensource.org/
 							resultHTML : last.resultHTML
 						});
 							
-			testsLog.value = JSON.stringify(testsLogArr);
+			testsLog.value = formatTests(testsLogArr);
+		}
+		
+		function formatTests(arr) {
+			return JSON.stringify(arr, null, "\t");
 		}
 		
 		function testWrap() {

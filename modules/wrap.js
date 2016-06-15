@@ -193,14 +193,15 @@ window.ir.textarea.wrap = (function() {
 		pos = utils.coordinatesPosToPos(startPath, top, true, true);
 		if(!utils.isNonCustomContainer(frag.firstChild) && 
 			utils.isNonCustomContainer(pos.container) && 
-			pos.offset == Polymer.dom(pos.container).childNodes.length)
+			pos.offset == Polymer.dom(pos.container).childNodes.length &&
+			utils.parentNode(pos.container) == top)
 			
 			pos = { container : utils.nextNodeNonDescendant(pos.container, top, true), offset : 0 };
 
 		// inline elements require some special treatment
 		// 		if pos.container is at inline element pos 0 and selection at its edge,
 		//		we should paste INSIDE the inline element to avoid losing style
-		if(sAtInlineEdge && utils.isInlineElement(pos.container))
+		if((sAtInlineEdge && utils.isInlineElement(pos.container)) || (utils.canHaveChildren(pos.container) && !pos.container.childNodes.length))
 		{
 			if(!Polymer.dom(pos.container).firstChild)
 				Polymer.dom(pos.container).appendChild(document.createTextNode(''));
