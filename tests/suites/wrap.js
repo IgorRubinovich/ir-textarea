@@ -1,3 +1,5 @@
+var ir = window.ir;
+
 ir.textarea.tests = ir.textarea.tests || {};
 ir.textarea.tests.wrap =
 

@@ -406,25 +406,8 @@ window.ir.textarea.wrap = (function() {
 		utils.unmarkBranch(range.endPosition, top, "__endBranch");		
 	}
 
-	wrap.wrapWithAttributes = function(range, tag, attributes){
-		var r, cltag, posr;
-		
-		if(range)
-			posr = range;
-		else
-		{
-			r = utils.getSelectionRange();
-			posr = {
-				startPosition : {
-					container : r.startContainer,
-					offset : r.startOffset
-				},
-				endPosition : {
-					container : r.endContainer,
-					offset : r.endOffset
-				}
-			}
-		}
+	wrap.wrapWithAttributes = function(posr, tag, attributes){
+		var cltag, posr;
 		
 		cltag = tag.replace(/^\W+\w/, '')
 			//wrap.normalizeWraps(posr.startPosition,posr.endPosition,tag,attributes);
@@ -438,7 +421,7 @@ window.ir.textarea.wrap = (function() {
 			}
 	}
     wrap.isOverlap = function(node,t,attributes){
-            // potential overlap if tag matches the node's local name
+		// potential overlap if tag matches the node's local name
         var elemOverlap = (node.localName ==t);
 		// attribute overlap if attributes exist and class specifed == the class of the parent OR
 		// attributes exists and style specified == the style of the parent
@@ -493,26 +476,26 @@ window.ir.textarea.wrap = (function() {
 		}	
 	}	 
 		
-	wrap.wrapRangeBlockLevel = function(range, tag, top) {
-		var sContainer, eContainer;
-		
+	wrap.wrapRangeBlockLevel = function(range, wrapper, top) {
+		var sContainer, eContainer, tag;
+				
 		sContainer = utils.getNonCustomContainer(range.startPosition.container);
 		eContainer = utils.getNonCustomContainer(range.endPosition.container);
 		
 		utils.markBranch(range.endPosition.container, top, "__endBranch", true);
 
 		if(sContainer == eContainer)
-			return utils.replaceTag(sContainer, tag);
+			return utils.replaceTag(sContainer, wrapper);
 		
 		n = sContainer;
 		while(n && !n.__endBranch)
 		{
-			n = utils.replaceTag(n, tag);
+			n = utils.replaceTag(n, wrapper);
 			n = Polymer.dom(n).nextSibling;
 		}
 		
 		if(n)
-			n = utils.replaceTag(n, tag);
+			n = utils.replaceTag(n, wrapper);
 		
 		utils.unmarkBranch(range.endPosition.container, top, "__endBranch", true);
 
