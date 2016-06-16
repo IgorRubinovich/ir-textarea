@@ -943,8 +943,6 @@ window.ir.textarea.utils = (function() {
 		return utils.rangeHasContent(otherpos, pos); 
 	}
 	
-		
-	
 	utils.commonContainer = function(sc, ec, top)
 	{
 		var p, res;
@@ -1501,7 +1499,7 @@ window.ir.textarea.utils = (function() {
         var a = [];
         if(Polymer.dom(p))
         {
-            while(p != document.body)
+            while(p != document.body && p != null)
             {
                 p = Polymer.dom(p).parentNode;
                 a.push(p);

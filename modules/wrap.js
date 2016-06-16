@@ -393,15 +393,19 @@ window.ir.textarea.wrap = (function() {
 			}
 	}
     wrap.isOverlap = function(node,t,attributes){
-            // potential overlap if tag matches the node's local name
-        var elemOverlap = (node.localName ==t);
-		// attribute overlap if attributes exist and class specifed == the class of the parent OR
-		// attributes exists and style specified == the style of the parent
-		var attributeOverlap = attributes && 
-            ((attribute.class && attribute.class == Polymer.dom(node).parentElement.className) || 
-                (attribute.style && attribute.style == Polymer.dom(node.container).parentElement.style));
-        // overlap exists if we have element overlap and no attributes or if we element attribute AND attribute overlap
-        return elemOverlap && !attributes || elemOverlap && attributeOverlap;
+        if(node != null && node.localName && t != null)
+        {
+                // potential overlap if tag matches the node's local name
+            var elemOverlap = (node.localName ==t);
+            // attribute overlap if attributes exist and class specifed == the class of the parent OR
+            // attributes exists and style specified == the style of the parent
+            var attributeOverlap = attributes && 
+                ((attribute.class && attribute.class == Polymer.dom(node).parentElement.className) || 
+                    (attribute.style && attribute.style == Polymer.dom(node.container).parentElement.style));
+            // overlap exists if we have element overlap and no attributes or if we element attribute AND attribute overlap
+            return elemOverlap && !attributes || elemOverlap && attributeOverlap;
+        }
+        return false;
 	}
     
 	wrap.detectOverlap = function(range,tag,attributes){
@@ -428,71 +432,90 @@ window.ir.textarea.wrap = (function() {
         if(rangeDetails.sHanging)
         {
             console.log("overlapping range at start");
-            var sContainerPos = rangeDetails.sAnc.indexOf(rangeDetails.sContainer);
-            var newFragTop = null;
-            var newFragBottom = null;
-            var newFragPosition=-1;
-            // determine if any parent nodes up to the first non custom container
-            // need to be normalized
-            for(var x = sContainerPos -1; x >= 0; x--)
+            var sFirstNonCustomPos = function(rd){
+                if(rd.sAnc)
+                {var x =  rd.sAnc.indexOf(rd.sContainer);
+                return x;}
+                else return -1;
+            }   
+            var anyOverlap = function(anc,start,tag,attributes)
             {
-                if(wrap.isOverlap(rangeDetails.sAnc[x],tag,attributes))
+                var isAny = false
+                for (var x = start; x < anc.length; x++)
                 {
-                    if(newFragPosition==-1 )
-                    { // we need to persist some custom wrapper elements to the new locations
-                        // so we'll build a tree of customer wrappers here.
-                        newFragPosition = x +1;
-                        if((x + 1) < sContainerPos)
-                            newFragTop = newFragBottom = utils.newEmptyClone(rangeDetails.sAnc[x+1]);
-                    }
+                    isAny  = isAny || wrap.isOverlap(anc[x],tag,attributes);
+                    if(isAny) break;
+                }
+                return isAny;
+            }
+            var determineCommonWrap = function(part,container,tag,attributes)
+            {
+                
+                for(var x= 0; x< part.anc.length;x++)
+                {
+                    var isOverlapThisNode = wrap.isOverlap(part.anc[x],tag,attributes);
+                    var isOverlapAnyAnc = anyOverlap(part.anc[x],x+1,tag,attributes);
+                    var isAtContainer = part.anc[x] ==container;
                     
+                    if( !isAtContainer && !isOverlapThisNode && !isOverlapAnyAnc)
+                        return part.anc[x];
+                    if(isAtContainer)
+                        return container;
                 }
-                else if (newFragPosition > -1)
+                return null;
+            }
+            var determineUnwrapParent = function(part, container, tag, attributes)
+            {
+                var isOverlap =anyOverlap(part.anc,0,tag,attributes);
+                if(isOverlap)
                 {
-                    if(newFragTop == null)
-                    {newFragTop = newFragBottom = utils.newEmptyClone(rangeDetails.sAnc[x])}
-                    else
+                    for(var x = 0; x< part.anc.length; x++)
                     {
-                        newFragBottom.childNodes.appendChild(utils.newEmptyClone(rangeDetails.sAnc[x]));
-                        newFragBottom = newFragBottom.childNodes[0];
+                        if(wrap.isOverlap(part.anc[x],tag,attributes))
+                            return part.anc[x];
                     }
                 }
-            }
-            if(newFragTop != null)
-            {
-                newFragBottom.appendChild(rangeDetails.sMainPos.container)
-                rangeDetails.sAnc[newFragPosition].appendChild(newFragTop)
-            }
-            else
-            {
-                var insideLeft = rangeDetails.range.startPosition.offset;
-                var insideRight = rangeDetails.range.startPosition.container.length;
-                if(rangeDetails.range.startPosition.container == rangeDetails.range.endPosition.container)
-                {
-                    insideRight = rangeDetails.range.endPosition.offset;
-                    // also requires a break in the dom here.
-                }
-                var outside = Polymer.dom(rangeDetails.sContainer).node.textContent.substr(0,rangeDetails.range.startPosition.offset);
-                var inside = Polymer.dom(rangeDetails.sContainer).node.textContent.substr(insideLeft,insideRight);
-                Polymer.dom(rangeDetails.sContainer).node.appendChild(new  Text(inside));
-                rangeDetails.range.startPosition.container.textContent = outside;
+                else
+                    return null;
                 
             }
+            // if the firstNonCustomPos is the range's sContainer we are done with sHanging since no other wrap containers exist
+            if(rangeDetails.sAnc[0] != rangeDetails.sContainer)
+            { 
+                var sPart0,sPart2;
+                var sPart1 = {"node":window.ir.textarea.extract.extractContents(rangeDetails.sMainPos,rangeDetails.eMainPos,{"top":rangeDetails.sContainer,delete:false})};
+                wrap.removeNodeWraps(sPart1.node,tag,attributes);
+                sPart1['anc'] = utils.ancestors(rangeDetails.sMainPos.container);
+                sPart1['common_wrap'] =determineCommonWrap(sPart1,rangeDetails.sContainer,tag,attributes);
+                sPart1['unwrap_parent'] = determineUnwrapParent(sPart1,rangeDetails.sContainer,tag,attributes);
+                sPart2 = {'node': window.ir.textarea.extract.extractContents({container:rangeDetails.eMainPos.container,offset:rangeDetails.eMainPos.offset}, {container:rangeDetails.eMainPos.container,offset:rangeDetails.eMainPos.offset + rangeDetails.eMainPos.container.length},{"top":rangeDetails.sAnc[sFirstNonCustomPos(rangeDetails)],'delete':false}),"anc":[]};
+                // remove part2
+                window.ir.textarea.extract.extractContents({container:rangeDetails.eMainPos.container,offset:rangeDetails.eMainPos.offset}, {container:rangeDetails.eMainPos.container,offset:rangeDetails.eMainPos.offset + rangeDetails.eMainPos.container.length},{"top":rangeDetails.sAnc[sFirstNonCustomPos(rangeDetails)],'delete':true})
+                // remove part1
+                window.ir.textarea.extract.extractContents(rangeDetails.sMainPos,rangeDetails.eMainPos,                                                                                     {"top":rangeDetails.sContainer,delete:true});
+                if(sPart1['unwrap_parent'].nextSibling != null)
+                {
+                    
+                    Polymer.dom(sPart1['unwrap_parent'].parentNode).insertBefore(sPart2.node,sPart1['unwrap_parent'].nextSibling);
+                    Polymer.dom(sPart1['unwrap_parent'].parentNode).insertBefore(sPart1.node,sPart1['unwrap_parent'].nextSibling);
+                }
+                else
+                {
+                    Polymer.dom(sPart1['common_wrap']).appendChild(sPart2.node);
+                    Polymer.dom(sPart1['common_wrap']).appendChild(sPart1.node);
+                }
+            }
+            
         }
-        // normalize end position container
-        if(rangeDetails.eHanging)
-        {
-                console.log("overlapping range at end");
-        }
-        // normalize all nodes between the spos and epos
+        // normalize all nodes between the spos hanging  and epos hanging parts
 		if(range.startPosition.container != range.endPosition.container)
 		{
             for(rn in rangeDetails.drillNodes)
             {
                 wrap.removeNodeWraps(rangeDetails.drillNodes[rn],tag,attributes);
-            }
-            
+            } 
 		}	
+        
 	}	 
     wrap.overLappingItems = function(list,t,attributes){
         var isOverlap = false;
@@ -597,6 +620,10 @@ window.ir.textarea.wrap = (function() {
             details["drillNodes"] = nodesToDrill(range,details["sAnc"],details["eAnc"], details.commonParent);
             details["spAncOverLapping"] = wrap.overLappingItems(details.sAnc,details["commonParent"],attributes);
             details["epAncOverlapping"] = wrap.overLappingItems(details.eAnc,details["commonParent"],attributes);
+            if(range.startPosition.container == range.endPosition.container)
+                details["sPosRight"] = range.endPosition;
+            else
+                details["sPosRight"] = { container : range.startPosition.container, offset : range.startPosition.container.textContent.length}
         
             return details;
         }
