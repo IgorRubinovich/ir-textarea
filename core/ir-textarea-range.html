@@ -122,8 +122,8 @@
 				this.$.start.editor = this.editor;
 				this.$.end.editor = this.editor;
 
-				this.editor.addEventListener('keydown', this.keyDownHandler.bind(this));
-				this.editor.addEventListener('keyup', this.keyUpHandler.bind(this));
+				this.editor.$.editor.addEventListener('keydown', this.keyDownHandler.bind(this));
+				this.editor.$.editor.addEventListener('keyup', this.keyUpHandler.bind(this));
 				
 				this.editor.addEventListener('mousedown', function(e) { 
 					if(!e.altKey) 
@@ -144,7 +144,6 @@
 				this.editor.$.editor.addEventListener('mousedown', this.mouseDownHandler.bind(this));
 				//this.editor.addEventListener('mousemove', this.mouseUpHandler.bind(this));
 				this.editor.$.editor.addEventListener('mouseup', this.mouseUpHandler.bind(this));
-
 			
 				Polymer.dom(this.editor.$.editor).observeNodes(function(info) {
 					//this.processNewNodes(info.addedNodes);
@@ -358,6 +357,8 @@
 
 				if([16,17].indexOf(keyCode) > -1) // shift, ctrl, (alt)
 					return e.preventDefault();
+					
+				this._hold = false;
 				
 				Polymer.dom.flush();
 				
@@ -405,10 +406,17 @@
 			
 			keyDownHandler : function (e) {
 				var keyCode = e.keyCode, handled;
+					this._hold = true;
 				
 				if([16,17].indexOf(keyCode) > -1) // shift, ctrl, (alt)
+				{	
+					this._hold = false;
 					return e.preventDefault();
-
+				}
+					
+				if(this._hold)
+					this.keyUpHandler(e);
+				
 				"selectAll,copy,cut,direction,enter,shiftEnter,delete".split(',').forEach(function(handler) {
 					if(!handled)
 						handled = this[handler + "KeyHandler"].call(this, e);
@@ -434,7 +442,7 @@
 				s = this.$.start;
 				e = this.$.end;
 				
-				extract = utils.extractContents(this.$.start, this.$.end);
+				extract = ir.textarea.extract.extractContents(this.$.start, this.$.end);
 
 				if(extract.nodeType == 3)
 					console.log(extract);
@@ -459,7 +467,7 @@
 				
 				this.hide();
 				
-				extract = utils.extractContents(s, e, { delete : true });
+				extract = ir.textarea.extract.extractContents(s, e, { delete : true });
 				
 				if(Polymer.dom(this.editor).childNodes.length)
 				{
@@ -562,7 +570,7 @@
 				{
 					this.hide();
 					utils.setCaretAt(this.startContainer, this.startOffset);
-					splitTop = utils.splitNode(this.startContainer, this.startOffset, splitTop);
+					splitTop = ir.textarea.extract.splitNode(this.startContainer, this.startOffset, splitTop);
 				}
 				else
 				if(state.atStart)
@@ -680,7 +688,7 @@
 					return this.setAt(el, el.textContent.length);
 			
 				this.setAt(el, 0);
-				if(dir != "backward")
+				if(dir != "backward" && el != this.editor)
 					this.go("forward");
 			},
 			
@@ -708,6 +716,8 @@
 
 				var nextInDir = function(n) { return Polymer.dom(n)[dir == "forward" ? "nextSibling" : "previousSibling"] };
 				var nextInDirOrParent = function(n) { return nextInDir(n) || Polymer.dom(n).parentNode; };
+				var prevInDir = function(n) { return Polymer.dom(n)[dir == "forward" ? "previousSibling" : "nextSibling"] };
+				var prevInDirOrParent = function(n) { return prevInDir(n) || Polymer.dom(n).parentNode };
 				var mergeInDir = function(n1, n2) { return dir == "forward" ? utils.mergeNodes(bccont, accont) : utils.mergeNodes(accont, bccont); };
 				
 				pos = this.startPosition;
@@ -719,8 +729,8 @@
 				
 				if(
 					atText == "middle" ||
-					(dir == 'forward' && atText == 'start') ||
-					(dir == 'backward' && atText == 'end')
+					(dir == 'forward' && atText == 'start' && pos.container.length > 1) ||
+					(dir == 'backward' && atText == 'end' && pos.container.length > 1)
 				)
 					return true;
 
@@ -741,8 +751,17 @@
 				if(SYMBOLS.TEXT(pos.container))
 				{
 					// note! bc and ac are relative to dir
-					bc = pos.container;
-					ac = nextInDirOrParent(bc);
+					if(pos.container.length == 1)
+					{
+						bc = prevInDirOrParent(pos.container);
+						utils.removeFromParent(pos.container);
+						done = true;
+					}
+					else
+					{
+						bc = pos.container;
+						ac = nextInDirOrParent(bc);
+					}
 				}
 				else
 				{
@@ -750,6 +769,8 @@
 					{
 						ac = pos.container;
 						bc = Polymer.dom(ac).previousSibling;
+						if(!bc)
+							bc = prevInDirOrParent(ac);
 					}
 					else
 					{
@@ -760,8 +781,8 @@
 				}
 
 				
-				// 2a - remove br if it's on the way ('cause BR is the queen of all things special)
-				if(utils.isTag('BR') && SYMBOLS.TEXT(bc) && (SYMBOLS.TEXT(t) || SYMBOLS.NCCONTBLOCK))
+				// 2a - remove br if it's on the way ('cause BR is the queen of all things special) .. (SYMBOLS.TEXT(t) || SYMBOLS.NCCONTBLOCK(t)
+				if(utils.isTag(ac, 'BR') && SYMBOLS.TEXT(bc))
 				{
 					t = nextInDir(ac);
 
@@ -806,7 +827,7 @@
 				}
 				
 				// 3. all simple delete cases - NCBLOCK,EMPTYCONT,IS
-				if(!done && SYMBOLS.NCBLOCK(ac) || SYMBOLS.EMPTYCONT(ac) || SYMBOLS.IS(ac))
+				if((!done && ac != this.editor) && (SYMBOLS.NCBLOCK(ac) || SYMBOLS.EMPTYCONT(ac) || SYMBOLS.IS(ac) || SYMBOLS.TEXT(ac)))
 				{
 					t = Polymer.dom(pos.container).parentNode;
 					Polymer.dom(t).removeChild(ac);

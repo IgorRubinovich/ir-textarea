@@ -42,7 +42,7 @@
 			*+[SYM1]			- node is 
 			*-[SYM1]			- node is not
 			[SYM1]|[SYM2] 		- ordered siblings
-			[SYM1]|||[SYM2] 	- unordered siblings (effectively (<SYM1>|<SYM2> or <SYM2>|<SYM1>))
+			[SYM1]||[SYM2] 		- unordered siblings (effectively (<SYM1>|<SYM2> or <SYM2>|<SYM1>))
 			[SYM1]>[SYM2] 		- immediate descendant e. g. ED>IS
 			[SYM1]>>[SYM2] 		- NODE2 is descendant of NODE1
 			
@@ -231,8 +231,9 @@
 		NCCONT :	function(el) { return el && !el.is && utils.canHaveChildren(el) },
 		// non-custom non-inline container block
 		NCCONTBLOCK: function(el) { return el && (!utils.isInlineElement(el) || utils.isParagraph(el)) && !el.is && utils.canHaveChildren(el) },
-		
-		WRAPCONTAINER: function(el) { return el && (Symbols.CONT(el) || Symbols.SUBTRANSITIONAL(el)) && !Symbols.INLINECONT(el)},
+
+		LAYOUTELEMENT : function(el) { return utils.isLayoutElement(el) },
+		WRAPCONTAINER: function(el) { return el && (Symbols.CONT(el) || Symbols.SUBTRANS(el)) && !Symbols.LAYOUTELEMENT(el)},
 		
 		// empty non-custom container
 		NCCONTEMPTY : function(el) { return !el.is && utils.canHaveChildren(el) && (!el.firstChild || el.firstChild.tagName == 'BR')},

@@ -1,0 +1,30 @@
+{
+  "name": "ir-textarea-demo",
+  "homepage": "https://github.com/IgorRubinovich/ir-textarea",
+  "authors": [
+    "Igor Rubinovich <igor.rubinovich@gmail.com>"
+  ],
+  "description": "demo for ir-textarea polymer component",
+  "main": "index.html",
+  "keywords": [
+    "textarea",
+    "wysiwyg",
+    "polymer"
+  ],
+  "license": "MIT",
+  "ignore": [
+    "**/.*",
+    "node_modules",
+    "bower_components",
+    "test",
+    "tests"
+  ],
+  "dependencies": {
+    "paper-material": "^1.0.6",
+    "paper-styles": "^1.1.4",
+    "ir-gallery": "https://github.com/IgorRubinovich/ir-gallery.git",
+    "webcomponentsjs": "^0.7.22",
+    "iron-flex-layout": "^1.3.1",
+    "ir-textarea": "https://github.com/IgorRubinovich/ir-textarea.git"
+  }
+}

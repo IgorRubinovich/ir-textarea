@@ -2,7 +2,9 @@ if(!window.ir) window.ir = {};
 if(!window.ir.textarea) window.ir.textarea = {};
 
 window.ir.textarea.paste = (function() {
-	var paste, utils = window.ir.textarea.utils;
+	var paste, 
+		utils = window.ir.textarea.utils,
+		extract = window.ir.textarea.extract;
 	
 	paste = {
 		pasteHandler : function(e) {
@@ -78,7 +80,124 @@ window.ir.textarea.paste = (function() {
 			e.preventDefault();
 			return false;
 		},	
-	
+
+		pasteHtmlAtPosWithParagraphs : function(html, pos, opts) {
+			var _div, div = document.createDocumentFragment(), //document.createElement('div'),
+				hasContainers, hasContentBefore, hasContentAfter, 
+				posCont, startCont, endCont, left, right,
+				hangingStart, hangingEnd, main, finalPos;
+			
+			if(!html)
+				return;
+
+			if(typeof html == 'string')
+			{
+				_div = document.createElement('div')
+				_div.innerHTML = html;
+				div = utils.copyChildrenToFragment(_div);
+				
+			}
+			else
+			if(html instanceof Node)
+				div = html;
+			else
+				throw new Error('Bad html parameter to pasteHtmlAtPosWithParagraphs: must be a string or a node.')
+			
+
+			// paste what:
+			// 
+			// div
+			//		1. hanging start
+			// 		2. nonCustomContainer
+			//			stuff
+			//		3. ... more containers ...
+			//		4. hanging end
+			//
+			// paste where:
+			//
+			//		a. hanging start 		
+			//		b. nonCustomContainer
+			// 		c. 		(contentBeforePos) (pos) (contentAfterPos)
+			// 		d. hanging end
+			// 
+			
+			
+			posCont = utils.getNonCustomContainer(pos.container, opts.top);
+			
+			hasContentBefore = utils.posToContainerEdgeHasContent(pos, "backward", top);
+			hasContentAfter = utils.posToContainerEdgeHasContent(pos, "forward", top);
+			
+			// if div has no containers paste as is
+			if(!utils.hasContainers(div) || !posCont)
+				return paste.pasteHtmlAtPos(html, pos);
+			
+			// if posCont is top, split as high as possible under top and paste as is
+			if(opts.top == posCont)
+			{
+				//if(!pos.container.nodeType == 3 && pos.offset == pos.container.length)
+				right = extract.splitNode(pos.container, pos.offset, utils.getLastAncestorBeforeTop(pos.container, opts.top), opts.top)
+				return paste.pasteHtmlAtPos(html, { container : right, offset : 0 });
+			}
+
+			// *** we are pasting into a nonCustomContainer ***
+			
+			// paste hanging start before splitting
+			hangingStart = document.createDocumentFragment();
+			while((t = Polymer.dom(div).firstChild) && !utils.isNonCustomContainer(t))
+				hangingStart.appendChild(t);
+			
+			if(hangingStart.childNodes.length)
+				pos = paste.pasteHtmlAtPos(hangingStart, pos);
+			
+			// split target if not at container edge
+			if(hasContentBefore && hasContentAfter)
+				right = extract.splitNode(pos.container, pos.offset, posCont, opts.top);
+			else
+			if(!hasContentBefore)
+				//right = utils.getNonCustomContainer(pos.container);
+				right = utils.getNonCustomContainer(utils.nextNodeNonDescendant(pos.container, top));
+			else
+				right = utils.nextNodeNonDescendant(pos.container);
+				//Polymer.dom(pos.container).nextSibling;
+			left = hasContentBefore && Polymer.dom(right).previousSibling;
+			
+			// paste hanging end before splitting
+			hangingEnd = document.createDocumentFragment();
+			while((t = Polymer.dom(div).lastChild) && !utils.isNonCustomContainer(t))
+				if(!hangingEnd.childNodes.length)
+					hangingEnd.appendChild(t);
+				else
+					hangingEnd.insertBefore(t, hangingEnd.firstChild);
+
+			main =  document.createDocumentFragment();
+			while((t = Polymer.dom(div).firstChild))
+				main.appendChild(t);
+				
+
+			if(hangingEnd.childNodes.length)
+			{
+				if(right.nodeType == 3)   // paste will merge them and position will change. we simply need to paste
+					while(hangingEnd.childNodes.length)			// hangingEnd as part of main fragment
+						main.appendChild(hangingEnd.firstChild);
+				else
+					finalPos = pos = paste.pasteHtmlAtPos(hangingEnd, { 
+																		container : Polymer.dom(right).firstChild ? Polymer.dom(right).firstChild : right, 
+																		offset : 0 
+																	});
+			
+			}
+			
+			pos = right ? { container : right, offset : 0 } : { container : utils.parentNode(left), offset : utils.getChildPositionInParent(left) + 1 };
+			// paste the rest before last
+			if(main.childNodes.length)
+				pos = paste.pasteHtmlAtPos(main, pos);
+
+			if(!finalPos)
+				finalPos = pos;
+			
+			return finalPos;
+		},
+		
 		pasteHtmlWithParagraphs : function (html, opts) // html is either a string or an element that will be inserted as is
 		{
 			var div, paragraph, r, sp, caretAt = {}, firstIsEmptyParagraph,
@@ -330,23 +449,13 @@ window.ir.textarea.paste = (function() {
 				return utils.setCaretAt(last, 0);
 			}
 		},
-
-		pasteHtmlAtPos : function(html, pos, top) {
-			var c = pos.container, 
-				o = pos.offset, 
-				parent, last, lastPos,
-				d = document.createElement('div'), index, len,
-				state = { html : {}, pos : {} }; // see states below
+		
+		// pos - where to paste
+		// d - html to paste
+		// determine pos and html 
+		determinePasteState : function(pos, d) {
+			var parent = utils.parentNode(pos.container, top);
 			
-			if(typeof html == 'string')
-				d.innerHTML = html;
-			if(html instanceof DocumentFragment)
-				d = html;
-			else
-				d.appendChild(html);
-			
-			parent = utils.parentNode(pos.container, top);
-
 			/*
 			/ states and steps
 			
@@ -395,10 +504,12 @@ window.ir.textarea.paste = (function() {
 			
 			// first determine the state according to the table
 			
+			var state = { html : {}, pos : {} }; // see states above
+			
 			// identify html states 1-4
-			state.html = 				1 && d.firstChild.nodeType == 3 && d.lastChild.nodeType == 3;
-			state.html = state.html || 	2 && d.firstChild.nodeType == 3 && d.lastChild.nodeType == 1;
-			state.html = state.html || 	3 && d.firstChild.nodeType == 1 && d.lastChild.nodeType == 3;
+			state.html = 				1 && d.firstChild.nodeType == 3 && d.lastChild.nodeType == 3 && 1;
+			state.html = state.html || 	2 && d.firstChild.nodeType == 3 && d.lastChild.nodeType == 1 && 2;
+			state.html = state.html || 	3 && d.firstChild.nodeType == 1 && d.lastChild.nodeType == 3 && 3;
 			state.html = state.html || 	4;
 
 			// identify pos states e-f
@@ -409,7 +520,7 @@ window.ir.textarea.paste = (function() {
 			
 			state.pos.lastChildBlock = 	pos.container.nodeType == 1 && 
 										utils.canHaveChildren(pos.container) &&
-										pos.container.childNodes.length == pos.offset &&
+										pos.container.childNodes.length  && pos.container.childNodes.length == pos.offset &&
 										(state.pos.code = 'f');
 										
 			state.pos.lastChild = state.pos.code;
@@ -425,6 +536,62 @@ window.ir.textarea.paste = (function() {
 			if(!state.pos.code)
 				state.pos.code = "d";
 
+			return state;
+		},
+
+		pasteHtmlAtPos : function(html, pos, top) {
+			var c = pos.container, 
+				o = pos.offset, 
+				parent, first, last, lastPos,
+				d = document.createElement('div'), index, len, t, s;
+
+			if(typeof html == 'string')
+				d.innerHTML = html;
+			else
+				d.innerHTML = utils.outerHTML(html);
+
+			if(!d.innerHTML)
+				return pos;
+
+			/*if(html instanceof DocumentFragment)
+				d = html;
+			else
+				d.appendChild(html);*/
+
+			d.normalize();
+
+			parent = utils.parentNode(pos.container, top);
+
+			state = paste.determinePasteState(pos, d);
+
+			// adjust for inline:
+			// when pasting on the edge of text block which is in an inline element and the html contains an inline element
+			// go up and insert the pasted content between the inline element and its appropriate sibling:
+			// e.g.:
+			// <b>abcd|</b><i>efgh</i> -> the caret is at end of <b>, say html is an <i> element, 
+			// then we want to paste the html between <b> and <i>
+			// states reminder: "a" - text start (caret is before text), "c" - text end (caret is after text)
+			/*if(state.html == 4 && utils.isInlineElement(d.firstChild) && state.pos.code.match(/[ac]/)) 
+			{
+				t = utils.parentNode(pos.container);
+				if(t && t != top && utils.isInlineElement(t))
+				{
+					s = state.pos.code == 'a' ? t : Polymer.dom(t).nextSibling;
+					if(s)
+						pos = { container : s, offset : 0 };
+					else
+						pos = { container : utils.parentNode(t), offset : utils.getChildPositionInParent(t) + 1 }
+					
+					t = utils.parentNode(pos.container);
+				}
+				
+				// refresh state
+				state = paste.determinePasteState(pos, d);
+				parent = utils.parentNode(pos.container, top);
+
+			}*/
+			
+			
 			// steps
 
 			// prepare
@@ -446,30 +613,56 @@ window.ir.textarea.paste = (function() {
 				tn.textContent = pos.container.textContent.slice(0, pos.offset);
 				pos.container.textContent = pos.container.textContent.slice(pos.offset, pos.container.textContent.length);
 			}
-			
+			first = last = d.firstChild;
 			// append
 			if(state.pos.lastChildText)
 				while(d.firstChild)
 					Polymer.dom(parent).appendChild(last = d.firstChild);
 			else
-			if(state.pos.lastChildBlock)
+			if(state.pos.lastChildBlock){
 				while(d.firstChild)
 					Polymer.dom(pos.container).appendChild(last = d.firstChild);
-			// or insert
+            }
+			else 
+			if (!utils.atText(pos) && state.pos.code=='d'&&
+					!pos.container.is &&
+					pos.container != utils.getNonCustomContainer(pos.container) &&
+					!utils.isInlineElement(pos.container))
+					//utils.isNonCustomContainer(pos.container))
+			
+				// handle the condition where a paste happens between nodes (not text), ignore this rule when at nonCustomContainer
+				Polymer.dom(pos.container).insertBefore(d.lastChild, pos.container.childNodes[pos.offset])
+    		// or insert
 			else
 				while(d.firstChild)
 					Polymer.dom(parent).insertBefore(last = d.firstChild, pos.container);
 
 			Polymer.dom.flush();
+				
+			len = 0;
+			// if first node and its previous sibling are text merge them 
+			if(first && first.nodeType == 3 && Polymer.dom(first).previousSibling && Polymer.dom(first).previousSibling.nodeType == 3)
+			{
+				//len = Polymer.dom(first).previousSibling.textContent.length;
+				utils.mergeNodes(t = Polymer.dom(first).previousSibling, first);
+				len = t.length;
+				//first = 
+				
+				if(first == last)
+					last = t;
+			}			
+			if(last && last.nodeType == 3 && Polymer.dom(last).nextSibling && Polymer.dom(last).nextSibling.nodeType == 3)
+			{
+				len = last.textContent.length;
+				last = utils.mergeNodes(last, Polymer.dom(last).nextSibling).container;
+			}
 
-			// infere new position
+			Polymer.dom.flush();
+
+			// infer new position
 			if(state.html == 1 || state.html == 3)
 			{
 				index = utils.getChildPositionInParent(last);
-				len = last.textContent.length;
-				
-				parent.normalize();
-				
 				lastPos = { container : last, offset : len }
 			}
 			else
