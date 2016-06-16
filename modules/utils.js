@@ -1471,20 +1471,26 @@ window.ir.textarea.utils = (function() {
 		return first;
 	}
 
-	// replace `node` with `wrapper`. `wrapper` is a string representing a tag with optional attributes e.g. 'span class="paragraph"'
-	utils.replaceTag = function(node, wrapper) 
+	// same as document.createElement but wrapper may include attributes along with the tag: e.g. 'span class="paragraph"'
+	utils.createTag = function(wrapper)
 	{
-		var pn, pnn, newNode,
-			split, tag, attrs,
-			div = document.createElement(div);
+		var split, tag, attrs, div = document.createElement('div');
 		
 		split = wrapper.split(/\s/);
 		tag = split.shift();
 		attrs = split.join('');
 		
 		div.innerHTML = "<" + tag + " " + attrs + "></" + tag + ">";
+	
+		return div.firstChild;
+	}
+	
+	// replace `node` with `wrapper`. `wrapper` is a string representing a tag with optional attributes e.g. 'span class="paragraph"'
+	utils.replaceTag = function(node, wrapper) 
+	{
+		var pn, pnn, newNode;
 
-		newNode = div.firstChild;
+		newNode = utils.createTag(wrapper);
 		
 		pn = Polymer.dom(node);
 		pnn = Polymer.dom(newNode);

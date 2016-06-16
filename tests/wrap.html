@@ -111,9 +111,6 @@ This code may only be used under the MIT license found at http://opensource.org/
 				if(!testsData.length)
 				{	
 					runTestsButton.disabled = false; 
-					
-					
-					
 					return console[navigator.userAgent.match("Edge|MSIE") ? "log" : "table"](results); //.map(function(n) { return n.name + " " + (n.passed ? "PASS" : "FAIL") }).join("\n"));
 				}
 				
@@ -123,7 +120,11 @@ This code may only be used under the MIT license found at http://opensource.org/
 				editor.innerHTML = td.originalHTML;
 				this[td.command].apply(this, td.arguments);
 				
-				results.push({ name : td.name, passed : Polymer.dom(editor).innerHTML == td.resultHTML })
+				results.push({ 
+								command : td.command.replace(/test\s*/, '').replace(/([A-Z])/g, " $1").trim(), 
+								name : td.name, 
+								passed : Polymer.dom(editor).innerHTML == td.resultHTML 
+							})
 
 				setTimeout(runTest, 500);
 			}

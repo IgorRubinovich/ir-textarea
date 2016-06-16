@@ -475,28 +475,68 @@ window.ir.textarea.wrap = (function() {
 					
 		}	
 	}	 
+
+	// internal method, will replace/wrap the node and/or return the node from which wrapRangeBlockLevel will look for nextSibling
+	wrap.wrapOrReplaceNode = function(node, wrapper) { 
+		var newNode, orig, subtrans, t;
 		
+		if(utils.isNonCustomContainer(node) && !(subtrans = utils.isSubTransitionalElement(node)))
+			return utils.replaceTag(node, wrapper);
+		
+		newNode = utils.createTag(wrapper);
+		
+		if(subtrans)
+		{
+			node = Polymer.dom(node).firstChild;
+			// empty subtrans simply - create the wrapper element`
+			if(!node)
+			{
+				Polymer.dom(node).appendChild(newNode);
+				return node;
+			}
+		}
+		else
+		{
+			t = node;
+			while(t && !utils.isNonCustomContainer(t))
+			{
+				t = Polymer.dom(t).previousSibling;
+				node = !utils.isNonCustomContainer(t) && t || node;
+			}
+		}
+
+		Polymer.dom(utils.parentNode(node)).insertBefore(newNode, node);
+		while(node && !node.is && !utils.isTransitionalElement(node) && !utils.isNonCustomContainer(node))
+		{
+			Polymer.dom(newNode).appendChild(node);
+			node = Polymer.dom(newNode).nextSibling;
+		}
+		
+		return node;
+		alert('uh - not implemented!')
+	}
+	
 	wrap.wrapRangeBlockLevel = function(range, wrapper, top) {
 		var sContainer, eContainer, tag;
 				
-		sContainer = utils.getNonCustomContainer(range.startPosition.container);
-		eContainer = utils.getNonCustomContainer(range.endPosition.container);
+		sContainer = utils.getNonCustomContainer(range.startPosition.container, top, true);
+		eContainer = utils.getNonCustomContainer(range.endPosition.container, top, true);
 		
 		utils.markBranch(range.endPosition.container, top, "__endBranch", true);
 
 		if(sContainer == eContainer)
-			return utils.replaceTag(sContainer, wrapper);
+			return wrap.wrapOrReplaceNode(sContainer, wrapper);
 		
 		n = sContainer;
 		while(n && !n.__endBranch)
 		{
-			n = utils.replaceTag(n, wrapper);
+			n = wrap.wrapOrReplaceNode(n, wrapper);
 			n = Polymer.dom(n).nextSibling;
 		}
-		
+
 		if(n)
-			n = utils.replaceTag(n, wrapper);
-		
+			n = wrap.wrapOrReplaceNode(n, wrapper);
+
 		utils.unmarkBranch(range.endPosition.container, top, "__endBranch", true);
 
 		return n;
