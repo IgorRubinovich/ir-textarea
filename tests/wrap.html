@@ -21,6 +21,7 @@ This code may only be used under the MIT license found at http://opensource.org/
   <script src="../modules/extract.js"></script>
   <script src="../modules/paste.js"></script>
   <script src="../modules/wrap.js"></script>
+  <script src="suites/wrap.js"></script>
 
   <style>
 	body { background-color : #eaeaea; padding : 25px }
@@ -49,16 +50,106 @@ This code may only be used under the MIT license found at http://opensource.org/
 		<button onclick="testWrapSelection('i')"><i>i</i></button>
 		<button onclick="testWrapSelection('u')"><u>u</u></button>
 		<button onclick="testWrapSelection('s')"><s>s</s></button>
-		<button onclick="testWrapSelection('span style=\'background-color : yellow\'')">color marker</button>
-		<br>
+		<button onclick="testWrapSelection('span style=\'background-color : yellow\'')">yellow</button>
+		<button onclick="testWrapSelection('span style=\'background-color : lightgreen\'')">green</button>
+		<button onclick="testWrapSelection('span style=\'background-color : lightblue\'')">blue</button>
+		<button onclick="resetHTML()">reset html</button>
 		<textarea type=text id="wrapper" rows=1>&lt;i&gt;&lt;/i&gt;</textarea>
+		<hr>
+		<button onclick="testWrapBlockLevel('h1')">H1</button>		
+		<button onclick="testWrapBlockLevel('h2')">H2</button>		
+		<button onclick="testWrapBlockLevel('h3')">H3</button>		
+		<button onclick="testWrapBlockLevel('span class=paragraph')">P</button>		
+		<hr>
+		Save a successful test
+		<input type=text id="testName" rows=1 placeholder="test name here">
+		<button onclick="saveTest()">save</button>
+		<button id="runTests" onclick="runTests()">run</button>
+		<textarea type=text id="testsLog" rows=1 placeholder="test name here"></textarea>
 	</div>
 	<script>
-		var editor, w = window.ir.textarea.wrap;
+		var editor, 
+			w = window.ir.textarea.wrap,
+			utils = window.ir.textarea.utils;
 
+		var originalHTML, 
+			last = {}, 
+			testsLog, 
+			testsLogArr = [], 
+			caretPos, 
+			testName,
+			runTestsButton;
+		
 		window.addEventListener('DOMContentLoaded', function () {
 			editor = document.getElementById('editor');
+			
+			testsLog = document.getElementById('testsLog');
+			runTestsButton = document.getElementById('runTests');
+			
+			testsLogArr = ir.textarea.tests.wrap;
+			
+			testsLog.value = formatTests(testsLogArr);
+			
+			testName = document.getElementById('testName');
+			originalHTML = Polymer.dom(editor).innerHTML;
+			document.addEventListener('keydown', function(e) { 
+				if(e.altKey && e.keyCode == 82) resetHTML(); 
+				if(e.altKey && e.keyCode == 69) testWrapSelection('span style=\'background-color : yellow\''); 
+			})
 		});
+		
+
+		
+		function runTests() {
+			var testsData = JSON.parse(testsLog.value),
+				results = [];
+			
+			runTestsButton.disabled = true;
+			
+			var runTest = function(td)
+			{
+				if(!testsData.length)
+				{	
+					runTestsButton.disabled = false; 
+					return console[navigator.userAgent.match("Edge|MSIE") ? "log" : "table"](results); //.map(function(n) { return n.name + " " + (n.passed ? "PASS" : "FAIL") }).join("\n"));
+				}
+				
+				var td = testsData.shift();
+				console.log('running', td.name)
+				
+				editor.innerHTML = td.originalHTML;
+				this[td.command].apply(this, td.arguments);
+				
+				results.push({ 
+								command : td.command.replace(/test\s*/, '').replace(/([A-Z])/g, " $1").trim(), 
+								name : td.name, 
+								passed : Polymer.dom(editor).innerHTML == td.resultHTML 
+							})
+
+				setTimeout(runTest, 500);
+			}
+
+			runTest();
+		}
+		
+		function saveTest() {
+			if(!testName.value)
+				return alert('must enter a test name')
+
+			testsLogArr.push({ 
+							name : testName.value, 
+							command : last.command,
+							arguments : last.arguments,
+							originalHTML : last.originalHTML, 
+							resultHTML : last.resultHTML
+						});
+							
+			testsLog.value = formatTests(testsLogArr);
+		}
+		
+		function formatTests(arr) {
+			return JSON.stringify(arr, null, "\t");
+		}
 		
 		function testWrap() {
 			var d;
@@ -100,9 +191,59 @@ This code may only be used under the MIT license found at http://opensource.org/
 			})
 		}
 
-		function testWrapSelection(tag) {
-		    w.wrapWithAttributes(tag,null);
+		function testWrapBlockLevel(tag, startPosCoords, endPosCoords) {
+			var r = utils.getSelectionRange(), s, e;
+
+			s = {
+					container : r.startContainer,
+					offset : r.startOffset
+				}
+			e = {
+					container : r.endContainer,
+					offset : r.endOffset
+				}
+
+			w.wrapRangeBlockLevel({ startPosition : s, endPosition : e }, tag, editor);
+				
+		}
+		
+		function testWrapSelection(tag, startPosCoords, endPosCoords) {
+			var s, e, r;
+
+			if(startPosCoords && endPosCoords)
+			{ 
+				s = startPosCoords && utils.coordinatesPosToPos(startPosCoords);
+				e = endPosCoords && utils.coordinatesPosToPos(endPosCoords);
+			}
+			else
+			{
+				r = utils.getSelectionRange();
+				
+				s = {
+						container : r.startContainer,
+						offset : r.startOffset
+					}
+				e = {
+						container : r.endContainer,
+						offset : r.endOffset
+					}
+			}
+			
+			last = {
+				command : "testWrapSelection",
+				arguments : [tag, utils.posToCoorinatesPos(s), utils.posToCoorinatesPos(e)],
+				originalHTML : Polymer.dom(editor).innerHTML,
+			}
+
+			w.wrapWithAttributes({ startPosition : s, endPosition : e}, tag);
+			
+			last.resultHTML = Polymer.dom(editor).innerHTML;
         }	
+		
+		function resetHTML()
+		{
+			Polymer.dom(editor).innerHTML = originalHTML;
+		}
 		
 		var intToRandom = (function() {
 			var cache = {};
@@ -126,7 +267,8 @@ This code may only be used under the MIT license found at http://opensource.org/
 	<div 
 		id="editor" 
 		contenteditable
-	>some normal text, an <i>italic block</i><b>and a bold block</b> enter a bar<ir-gallery contenteditable="false" theme="blackfriday" style="display: inline-block;"><div class="caption-wrapper"><img src="http://lorempixel.com/300/200/" style="display: inline-block; position: relative; transform: translate(0px, 0px);"><div class="caption" contenteditable="true">hi caption</div></div></ir-gallery><table border>
+	><span class="paragraph">01. paragraphs with empty paragraph between</span><span class="paragraph">02. two consecutive</span><span class="paragraph">03. paragraphs</span>some normal text, an <i>italic block</i><b>and a bold block</b> enter a bar
+	<ir-gallery contenteditable="false" theme="blackfriday" style="display: inline-block;"><div class="caption-wrapper"><img src="http://lorempixel.com/300/200/" style="display: inline-block; position: relative; transform: translate(0px, 0px);"><div class="caption" contenteditable="true">hi caption</div></div></ir-gallery><table border>
 		<tr>
 			<td>some</td>
 			<td>tabled</td>
@@ -138,7 +280,7 @@ This code may only be used under the MIT license found at http://opensource.org/
 	</table>bare text<ir-gallery contenteditable="false"><img  src="http://lorempixel.com/300/200/"  style="display: inline-block; position: relative; width: 247px; height: 186.859px; transform: translate(0px, 0px);" width="247" height="186.859375"></ir-gallery><span class="paragraph">a paragraph with a CE just before it no space between</span>
 	
 a couple empty paragraphs<span class="paragraph"></span><span class="paragraph"></span><span class="paragraph">two consecutive</span><span class="paragraph">hello<br><br><br><br><br><br><br><br><br></span><span class="paragraph">01. paragraphs with empty paragraph between</span><span class="paragraph">02. two consecutive</span><span class="paragraph">03. paragraphs</span>
-	<ir-gallery contenteditable="false"><img src=" src="http://lorempixel.com/301/201/" " style="display: inline-block; position: relative; width: 247px; height: 186.859px; transform: translate(0px, 0px);" width="247" height="186.859375"></ir-gallery><span class="paragraph">a paragraph with a CE just before it no space between</span>
+	<ir-gallery contenteditable="false"><img src="http://lorempixel.com/301/201/" " style="display: inline-block; position: relative; width: 247px; height: 186.859px; transform: translate(0px, 0px);" width="247" height="186.859375"></ir-gallery><span class="paragraph">a paragraph with a CE just before it no space between</span>
 
 	
 	

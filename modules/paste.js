@@ -544,26 +544,26 @@ window.ir.textarea.paste = (function() {
 				o = pos.offset, 
 				parent, first, last, lastPos,
 				d = document.createElement('div'), index, len, t, s;
-				
-			
+
 			if(typeof html == 'string')
 				d.innerHTML = html;
 			else
 				d.innerHTML = utils.outerHTML(html);
-			
+
 			if(!d.innerHTML)
 				return pos;
+
 			/*if(html instanceof DocumentFragment)
 				d = html;
 			else
 				d.appendChild(html);*/
-			
+
 			d.normalize();
-			
+
 			parent = utils.parentNode(pos.container, top);
 
 			state = paste.determinePasteState(pos, d);
-			
+
 			// adjust for inline:
 			// when pasting on the edge of text block which is in an inline element and the html contains an inline element
 			// go up and insert the pasted content between the inline element and its appropriate sibling:
@@ -571,11 +571,11 @@ window.ir.textarea.paste = (function() {
 			// <b>abcd|</b><i>efgh</i> -> the caret is at end of <b>, say html is an <i> element, 
 			// then we want to paste the html between <b> and <i>
 			// states reminder: "a" - text start (caret is before text), "c" - text end (caret is after text)
-			if(state.html == 4 && utils.isInlineElement(d.firstChild) && state.pos.code.match(/[ac]/)) 
+			/*if(state.html == 4 && utils.isInlineElement(d.firstChild) && state.pos.code.match(/[ac]/)) 
 			{
 				t = utils.parentNode(pos.container);
 				if(t && t != top && utils.isInlineElement(t))
-				{	
+				{
 					s = state.pos.code == 'a' ? t : Polymer.dom(t).nextSibling;
 					if(s)
 						pos = { container : s, offset : 0 };
@@ -589,7 +589,7 @@ window.ir.textarea.paste = (function() {
 				state = paste.determinePasteState(pos, d);
 				parent = utils.parentNode(pos.container, top);
 
-			}
+			}*/
 			
 			
 			// steps

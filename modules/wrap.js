@@ -146,7 +146,15 @@ window.ir.textarea.wrap = (function() {
 	}
 	
 	wrap.wrapRangeSegment = function(range, wrapper, top, viaExtract) {
-		var frag, startPath, endPath, splitRoot, dummyparagraph, src, extractRes, pos, n, done;
+		var frag, startPath, endPath, splitRoot, 
+			dummyparagraph, src, extractRes, pos, n, done,
+			sAtInlineEdge, eAtInlineEdge;
+			
+		sAtInlineEdge = utils.atText(range.startPosition, 'start') &&
+							utils.isInlineElement(utils.parentNode(range.startPosition.container));
+		
+		eAtInlineEdge = utils.atText(range.endPosition, 'end') &&
+							utils.isInlineElement(utils.parentNode(range.endPosition.container));
 		
 		// save path as coordinates
 		startPath = utils.posToCoorinatesPos(range.startPosition, top);
@@ -173,7 +181,6 @@ window.ir.textarea.wrap = (function() {
 				dummyparagraph.appendChild(extractRes.firstChild);
 		
 		// remember path of startPos
-		//dummyparagraph.appendChild(extract);
 		wrap.wrapContents(dummyparagraph, wrapper);
 
 		// put them all in a fragment
@@ -182,13 +189,32 @@ window.ir.textarea.wrap = (function() {
 		while(dummyparagraph.firstChild)
 			frag.appendChild(dummyparagraph.firstChild)
 
-		console.log(utils.outerHTML(frag));
-
 		// if wrapping bare nodes we don't want them to be merged as hanging
 		pos = utils.coordinatesPosToPos(startPath, top, true, true);
-		if(!utils.isNonCustomContainer(frag.firstChild) && utils.isNonCustomContainer(pos.container) && pos.offset == Polymer.dom(pos.container).childNodes.length)
+		if(!utils.isNonCustomContainer(frag.firstChild) && 
+			utils.isNonCustomContainer(pos.container) && 
+			pos.offset == Polymer.dom(pos.container).childNodes.length &&
+			utils.parentNode(pos.container) == top)
+			
 			pos = { container : utils.nextNodeNonDescendant(pos.container, top, true), offset : 0 };
 
+		// inline elements require some special treatment
+		// 		if pos.container is at inline element pos 0 and selection at its edge,
+		//		we should paste INSIDE the inline element to avoid losing style
+		if((sAtInlineEdge && utils.isInlineElement(pos.container)) || (utils.canHaveChildren(pos.container) && !pos.container.childNodes.length))
+		{
+			if(!Polymer.dom(pos.container).firstChild)
+				Polymer.dom(pos.container).appendChild(document.createTextNode(''));
+			
+			pos = { container : pos.container.firstChild, offset : 0 }
+		}
+		else
+		{
+			p = utils.parentNode(pos.container);
+			if(!sAtInlineEdge && !eAtInlineEdge && utils.isInlineElement(p) && Polymer.dom(p).nextSibling)
+				pos = { container : Polymer.dom(p).nextSibling, offset : 0 }
+		}
+		
 		if(frag.firstChild.is)
 			utils.replaceWithOwnChildren(frag.firstChild);
 		
@@ -206,7 +232,6 @@ window.ir.textarea.wrap = (function() {
 		criteria = function(n) { return !(n.nodeType == 3 && (utils.isLayoutElement(n) || utils.isTransitionalElement(utils.parentNode(n)))) }
 		operation = function(n) { 
 			result.push(n);
-			console.log(n); 
 		}
 
 		wrap.getRangeContour(range, wrapper, top, criteria, operation);
@@ -228,6 +253,7 @@ window.ir.textarea.wrap = (function() {
 		
 		EOD = Polymer.dom(top).nextSibling;
 
+		// move start and end into the prev/next container if the containers they're in are to be excluded
 		while(!criteria(range.startPosition.container) || !utils.posToContainerEdgeHasContent(range.startPosition, "forward", top))
 			range.startPosition = { container : utils.nextNodeNonDescendant(range.startPosition.container, top, true), offset : 0 };
 		while(!criteria(range.endPosition.container) || !utils.posToContainerEdgeHasContent(range.endPosition, "backward", top))
@@ -236,7 +262,7 @@ window.ir.textarea.wrap = (function() {
 			range.endPosition = { container : t, offset : t.length };
 		}
 
- 		// process hanging parts
+		// collect basic info
 		sHanging = 	range.endPosition.container != top && utils.isHangingPos(range.startPosition, top);
 		eHanging = 	range.endPosition.container != top && utils.isHangingPos(range.endPosition, top);
 
@@ -246,6 +272,7 @@ window.ir.textarea.wrap = (function() {
 		sContainer = utils.getNonCustomContainer(sMainPos.container, top, true);
 		eContainer = utils.getNonCustomContainer(eMainPos.container, top, true);
 
+		 // process hanging parts
 		if(sHanging)
 		{
 			if(sContainer == eContainer)
@@ -259,12 +286,16 @@ window.ir.textarea.wrap = (function() {
 												startPosition : sMainPos, 
 												endPosition : sContainer == eContainer ? range.endPosition : utils.getLastCaretPosition(sContainer)
 											}, wrapper, top, true)
+											
 		}
 		
-		if(sContainer == eContainer)
-			return;
+		if(sContainer == eContainer && !sHanging && !eHanging)
+		{
+			if(criteria(sContainer))
+				operation(sContainer);
+		}
 		
-		if(eHanging && range.endPosition && sContainer != eContainer)
+		if(eHanging && range.endPosition && (sContainer != eContainer || !sHanging))
 		{
 			eMainPos = utils.maybeSlidePosDown({ container : eContainer, offset : 0 });
 			eMainPath = utils.posToCoorinatesPos(eMainPos);
@@ -277,6 +308,10 @@ window.ir.textarea.wrap = (function() {
 			eMainPos = utils.coordinatesPosToPos(eMainPath);
 		}
 
+		
+		if(sContainer == eContainer)
+			return;
+		
 		// check whether there's main part
 		n = sMainPos.container;
 		if(sHanging && utils.isDescendantOf(sMainPos.container, sContainer, true))
@@ -287,18 +322,19 @@ window.ir.textarea.wrap = (function() {
 			sMainPos =	{ container : n, offset : 0 };
 			sContainer = utils.getNonCustomContainer(n, top, true);
 		}
-		console.log(sMainPos.container, eMainPos.container);
-		if(sContainer == eContainer || !utils.rangeHasContent(sMainPos, eMainPos))
-			return console.log('no main part');
+
+		if(sContainer == eContainer && !utils.rangeHasContent(sMainPos, eMainPos))
+			return // console.log('no main part');
 		
 		// there's sure a main part and we are wrapping it		
 		
 		commonContainer = utils.commonContainer(sMainPos.container, eMainPos.container);
 
-		utils.markBranch(sContainer, top, "__startBranch", true);
-		utils.markBranch(eContainer, top, "__endBranch", true);
+		//utils.markBranch(range.startPosition.container, top, "__startBranch", true);
+		//utils.markBranch(range.endPosition.container, top, "__endBranch", true);
 
-		console.log('up the hill');
+		utils.markBranch(range.startPosition, top, "__startBranch", true);
+		utils.markBranch(range.endPosition, top, "__endBranch", true);
 
 		sPath = utils.getElementPathFromTop(sContainer, commonContainer, true) || [];
 
@@ -312,6 +348,7 @@ window.ir.textarea.wrap = (function() {
 		{
 			operation(n);		
 			sPath = utils.getElementPathFromTop(n, commonContainer, true) || [];
+			n = utils.nextNodeNonDescendant(n, top, true);
 			//sPath.pop();
 		}	
 			
@@ -330,6 +367,8 @@ window.ir.textarea.wrap = (function() {
 					n = t;
 				t = Polymer.dom(t).nextSibling;
 			}
+			if(t)
+				n = t;
 		}
 		
 		
@@ -342,9 +381,6 @@ window.ir.textarea.wrap = (function() {
 			n = Polymer.dom(n).nextSibling;
 		}
 
-
-		console.log('down the hill')
-
 		ePath = utils.getElementPathFromTop(eContainer, n) || [];
 		
 		// down the tree until we meet eContainer
@@ -352,6 +388,8 @@ window.ir.textarea.wrap = (function() {
 		{
 			t = Polymer.dom(n).firstChild;			
 			n = ePath.shift();
+			if(t.__startBranch)
+				t = Polymer.dom(t).nextSibling;
 			while(t && !t.__endBranch && t != eContainer)
 			{
 				if(criteria(t)) // we do want to wrap non-text transitional elements
@@ -364,23 +402,14 @@ window.ir.textarea.wrap = (function() {
 		if(!eHanging && utils.rangeHasContent({ container : eContainer, offset : 0 }, range.endPosition))
 			wrap.wrapContents(eContainer, wrapper);
 		
-		utils.unmarkBranch(sContainer, top, "__startBranch");		
-		utils.unmarkBranch(eContainer, top, "__endBranch");		
+		utils.unmarkBranch(range.startPosition, top, "__startBranch");		
+		utils.unmarkBranch(range.endPosition, top, "__endBranch");		
 	}
 
-	wrap.wrapWithAttributes = function(tag,attributes){
-		var r = getSelection().getRangeAt(0), cltag,
-				posr = {
-					startPosition : {
-						container : r.startContainer,
-						offset : r.startOffset
-					},
-					endPosition : {
-						container : r.endContainer,
-						offset : r.endOffset
-					}
-				}
-			cltag = tag.replace(/^\W+\w/, '')
+	wrap.wrapWithAttributes = function(posr, tag, attributes){
+		var cltag, posr;
+		
+		cltag = tag.replace(/^\W+\w/, '')
            
 			wrap.normalizeWraps(posr,tag,attributes);
 			if(! wrap.detectOverlap(posr,tag))
@@ -395,7 +424,7 @@ window.ir.textarea.wrap = (function() {
     wrap.isOverlap = function(node,t,attributes){
         if(node != null && node.localName && t != null)
         {
-                // potential overlap if tag matches the node's local name
+		// potential overlap if tag matches the node's local name
             var elemOverlap = (node.localName ==t);
             // attribute overlap if attributes exist and class specifed == the class of the parent OR
             // attributes exists and style specified == the style of the parent
@@ -418,13 +447,14 @@ window.ir.textarea.wrap = (function() {
 				Overlap Both == 3 */
 			return startOverlap + 2 * endOverlap;
 		}
-    
+	
 	wrap.buildAttribute = function(className,style){
 		var a = {};
 		if(style) a['style'] = style;
 		if(className) a['class'] = className;
 		return a ;
 	}
+	
         
 	wrap.normalizeWraps = function(range,tag,attributes){
         var rangeDetails = wrap.rangeDetails(range,tag,attributes);
@@ -479,6 +509,33 @@ window.ir.textarea.wrap = (function() {
                     return null;
                 
             }
+            var duplicateAncTree = function(node,top,ancList)
+            {
+                var stack = [];
+                var current =null;
+                for( x in ancList )
+                {
+                    current = ancList[x];
+                    stack.push(Polymer.dom(current).cloneNode(false)); 
+                    if(current == top)break;
+                }
+                //stack.push(node);
+                current = stack.pop();
+                var newTop = current;
+                var last = newTop;
+                while(current)
+                {
+                    current = stack.pop();
+                    if(current)
+                    {
+                        Polymer.dom(last).appendChild(current);
+                        last = current;
+                    }
+                }
+                
+                if(newTop){last.appendChild(node);return newTop;} else return node;
+                
+            }
             // if the firstNonCustomPos is the range's sContainer we are done with sHanging since no other wrap containers exist
             if(rangeDetails.sAnc[0] != rangeDetails.sContainer)
             { 
@@ -488,15 +545,16 @@ window.ir.textarea.wrap = (function() {
                 sPart1['anc'] = utils.ancestors(rangeDetails.sMainPos.container);
                 sPart1['common_wrap'] =determineCommonWrap(sPart1,rangeDetails.sContainer,tag,attributes);
                 sPart1['unwrap_parent'] = determineUnwrapParent(sPart1,rangeDetails.sContainer,tag,attributes);
-                sPart2 = {'node': window.ir.textarea.extract.extractContents({container:rangeDetails.eMainPos.container,offset:rangeDetails.eMainPos.offset}, {container:rangeDetails.eMainPos.container,offset:rangeDetails.eMainPos.offset + rangeDetails.eMainPos.container.length},{"top":rangeDetails.sAnc[sFirstNonCustomPos(rangeDetails)],'delete':false}),"anc":[]};
+                sPart2 = {'node': window.ir.textarea.extract.extractContents({container:rangeDetails.eMainPos.container,offset:rangeDetails.eMainPos.offset }, {container:rangeDetails.eMainPos.container,offset:rangeDetails.eMainPos.offset + rangeDetails.eMainPos.container.length},{"top":rangeDetails.sAnc[sFirstNonCustomPos(rangeDetails)],'delete':false}),"anc":[]};
                 // remove part2
                 window.ir.textarea.extract.extractContents({container:rangeDetails.eMainPos.container,offset:rangeDetails.eMainPos.offset}, {container:rangeDetails.eMainPos.container,offset:rangeDetails.eMainPos.offset + rangeDetails.eMainPos.container.length},{"top":rangeDetails.sAnc[sFirstNonCustomPos(rangeDetails)],'delete':true})
                 // remove part1
                 window.ir.textarea.extract.extractContents(rangeDetails.sMainPos,rangeDetails.eMainPos,                                                                                     {"top":rangeDetails.sContainer,delete:true});
+                sPart2['new_unwrap_top'] = duplicateAncTree(sPart2.node,sPart1.unwrap_parent,sPart1.anc)
                 if(sPart1['unwrap_parent'].nextSibling != null)
                 {
                     
-                    Polymer.dom(sPart1['unwrap_parent'].parentNode).insertBefore(sPart2.node,sPart1['unwrap_parent'].nextSibling);
+                    Polymer.dom(sPart1['unwrap_parent'].parentNode).insertBefore(sPart2.new_unwrap_top,sPart1['unwrap_parent'].nextSibling);
                     Polymer.dom(sPart1['unwrap_parent'].parentNode).insertBefore(sPart1.node,sPart1['unwrap_parent'].nextSibling);
                 }
                 else
@@ -629,11 +687,71 @@ window.ir.textarea.wrap = (function() {
         }
         
     }
-	
-    
-	unwrapRange = function(range, wrapper)
-	{
+
+	// internal method, will replace/wrap the node and/or return the node from which wrapRangeBlockLevel will look for nextSibling
+	wrap.wrapOrReplaceNode = function(node, wrapper) { 
+		var newNode, orig, subtrans, t;
 		
+		if(utils.isNonCustomContainer(node) && !(subtrans = utils.isSubTransitionalElement(node)))
+			return utils.replaceTag(node, wrapper);
+		
+		newNode = utils.createTag(wrapper);
+		
+		if(subtrans)
+		{
+			node = Polymer.dom(node).firstChild;
+			// empty subtrans simply - create the wrapper element`
+			if(!node)
+			{
+				Polymer.dom(node).appendChild(newNode);
+				return node;
+			}
+		}
+		else
+		{
+			t = node;
+			while(t && !utils.isNonCustomContainer(t))
+			{
+				t = Polymer.dom(t).previousSibling;
+				node = !utils.isNonCustomContainer(t) && t || node;
+			}
+		}
+
+		Polymer.dom(utils.parentNode(node)).insertBefore(newNode, node);
+		while(node && !node.is && !utils.isTransitionalElement(node) && !utils.isNonCustomContainer(node))
+		{
+			Polymer.dom(newNode).appendChild(node);
+			node = Polymer.dom(newNode).nextSibling;
+		}
+		
+		return node;
+		alert('uh - not implemented!')
+	}
+	
+	wrap.wrapRangeBlockLevel = function(range, wrapper, top) {
+		var sContainer, eContainer, tag;
+				
+		sContainer = utils.getNonCustomContainer(range.startPosition.container, top, true);
+		eContainer = utils.getNonCustomContainer(range.endPosition.container, top, true);
+		
+		utils.markBranch(range.endPosition.container, top, "__endBranch", true);
+
+		if(sContainer == eContainer)
+			return wrap.wrapOrReplaceNode(sContainer, wrapper);
+		
+		n = sContainer;
+		while(n && !n.__endBranch)
+		{
+			n = wrap.wrapOrReplaceNode(n, wrapper);
+			n = Polymer.dom(n).nextSibling;
+		}
+
+		if(n)
+			n = wrap.wrapOrReplaceNode(n, wrapper);
+
+		utils.unmarkBranch(range.endPosition.container, top, "__endBranch", true);
+
+		return n;
 	}
 	
 	return wrap;

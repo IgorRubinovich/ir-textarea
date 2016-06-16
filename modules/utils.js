@@ -8,7 +8,7 @@ window.ir.textarea.utils = (function() {
 	
 	var INLINE_ELEMENTS = {};
 	
-	"font,b,big,i,u,small,tt,abbr,acronym,cite,code,dfn,em,kbd,strong,samp,time,var,a,bdo,br,img,map,object,q,script,span,sub,sup".split(/,/)
+	"font,b,big,i,u,small,tt,abbr,acronym,cite,code,dfn,em,kbd,strong,samp,time,var,a,bdo,br,img,map,object,q,script,s,span,sub,sup".split(/,/)
 		.forEach(function(tag) { INLINE_ELEMENTS[tag.toUpperCase()] = true });
 		
 	var TRANSITIONAL_ELEMENTS = ['OL', 'UL', 'TABLE', 'TBODY', 'THEAD', 'TH', 'TR'],
@@ -861,9 +861,6 @@ window.ir.textarea.utils = (function() {
 		
 		// end is not at start of text
 		
-		//if(!utils.posInSameContainer(startPos, { container : m, offset : 0 }))
-		//	return false;
-		
 		if(n == m)
 			return false;
 		
@@ -877,7 +874,10 @@ window.ir.textarea.utils = (function() {
 				n = utils.nextNodeNonDescendant(n, top);
 			else
 				n = utils.nextNode(n, top);
-			
+		
+		if(n == m && n.nodeType == 3 && endPos.offset > 0 && startPos.container != endPos.container)
+			return true;
+		
 		return false;
 	}
 	
@@ -898,9 +898,21 @@ window.ir.textarea.utils = (function() {
 	}
 	
 	utils.isHangingPos = function(pos, top) {
+		var c;
+		
 		if(utils.isLayoutElement(pos.container))
 			return false;
-
+		
+		if(utils.isNonCustomContainer(pos.container) && utils.parentNode(pos.container) == top)
+			return false;
+			
+		if(pos.container == top)
+		{
+			c = Polymer.dom(top).childNodes[pos.offset];
+			if(c.is || !(c.nodeType == 3 || utils.isInlineElement(c)))
+				return false;
+		}
+			
 		return utils.posToContainerEdgeHasContent(pos, "forward", top) && 
 					utils.posToContainerEdgeHasContent(pos, "backward", top);
 	
@@ -1008,6 +1020,15 @@ window.ir.textarea.utils = (function() {
 
 	utils.markBranch = function(n, top, attribute, value)
 	{
+		var pos;
+
+		// if n is a position and its offset is points to an element, mark the element
+		if(n.container && Polymer.dom(n.container).childNodes && Polymer.dom(n.container).childNodes[n.offset])
+			Polymer.dom(n.container).childNodes[n.offset][attribute] = value;
+
+		if(n.container)
+			n = n.container;
+
 		n[attribute] = value;
 		while(n && n != top)
 		{
@@ -1017,6 +1038,13 @@ window.ir.textarea.utils = (function() {
 	}
 	utils.unmarkBranch = function(n, top, attribute, value)
 	{
+		// if n is a position and its offset is points to an element, unmark the element
+		if(n.container && Polymer.dom(n.container).childNodes && Polymer.dom(n.container).childNodes[n.offset])
+			delete Polymer.dom(n.container).childNodes[n.offset][attribute];
+
+		if(n.container)
+			n = n.container;
+		
 		n[attribute] = value;
 		while(n && n != top)
 		{
@@ -1453,6 +1481,39 @@ window.ir.textarea.utils = (function() {
 	
 		return first;
 	}
+
+	// same as document.createElement but wrapper may include attributes along with the tag: e.g. 'span class="paragraph"'
+	utils.createTag = function(wrapper)
+	{
+		var split, tag, attrs, div = document.createElement('div');
+		
+		split = wrapper.split(/\s/);
+		tag = split.shift();
+		attrs = split.join('');
+		
+		div.innerHTML = "<" + tag + " " + attrs + "></" + tag + ">";
+	
+		return div.firstChild;
+	}
+	
+	// replace `node` with `wrapper`. `wrapper` is a string representing a tag with optional attributes e.g. 'span class="paragraph"'
+	utils.replaceTag = function(node, wrapper) 
+	{
+		var pn, pnn, newNode;
+
+		newNode = utils.createTag(wrapper);
+		
+		pn = Polymer.dom(node);
+		pnn = Polymer.dom(newNode);
+
+		while(pn.firstChild)
+			pnn.appendChild(pn.firstChild);
+
+		utils.replaceNodeWith(node, newNode);
+
+		return newNode;
+	}
+
 	
 	utils.numerify = function(x) {
 		if(typeof x == 'undefined' || !x)
