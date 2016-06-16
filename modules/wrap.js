@@ -130,7 +130,6 @@ window.ir.textarea.wrap = (function() {
 		return groups[0] && groups[0].length ? groups : [];
 	}
 	
-	
 	// 
 	wrap.wrapContents = function(node, wrapper) {
 		wrap.splitNodeIntoWrapGroups(node).forEach(function(g) { wrap.wrapNodes(g, wrapper); });
@@ -421,6 +420,7 @@ window.ir.textarea.wrap = (function() {
 				wrap.wrapRange(posr, "<" + tag + aString +	"><span id='insertionPoint'></span></" + cltag + ">", editor);
 			}
 	}
+    
     wrap.isOverlap = function(node,t,attributes){
         if(node != null && node.localName && t != null)
         {
@@ -454,8 +454,7 @@ window.ir.textarea.wrap = (function() {
 		if(className) a['class'] = className;
 		return a ;
 	}
-	
-        
+	        
 	wrap.normalizeWraps = function(range,tag,attributes){
         var rangeDetails = wrap.rangeDetails(range,tag,attributes);
         // normalize start pos container
@@ -551,7 +550,7 @@ window.ir.textarea.wrap = (function() {
                 // remove part1
                 window.ir.textarea.extract.extractContents(rangeDetails.sMainPos,rangeDetails.eMainPos,                                                                                     {"top":rangeDetails.sContainer,delete:true});
                 sPart2['new_unwrap_top'] = duplicateAncTree(sPart2.node,sPart1.unwrap_parent,sPart1.anc)
-                if(sPart1['unwrap_parent'].nextSibling != null)
+                if(sPart1['unwrap_parent'] && sPart1['unwrap_parent'].nextSibling != null)
                 {
                     
                     Polymer.dom(sPart1['unwrap_parent'].parentNode).insertBefore(sPart2.new_unwrap_top,sPart1['unwrap_parent'].nextSibling);
@@ -575,6 +574,7 @@ window.ir.textarea.wrap = (function() {
 		}	
         
 	}	 
+    
     wrap.overLappingItems = function(list,t,attributes){
         var isOverlap = false;
         var overlapNodes =[];
