@@ -60,6 +60,8 @@ This code may only be used under the MIT license found at http://opensource.org/
 		<button onclick="testWrapBlockLevel('h2')">H2</button>		
 		<button onclick="testWrapBlockLevel('h3')">H3</button>		
 		<button onclick="testWrapBlockLevel('span class=paragraph')">P</button>		
+		<button onclick="testWrapList('ul')">ul</button>		
+		<button onclick="testWrapList('ol')">ol</button>		
 		<hr>
 		Save a successful test
 		<input type=text id="testName" rows=1 placeholder="test name here">
@@ -189,6 +191,22 @@ This code may only be used under the MIT license found at http://opensource.org/
 					Polymer.dom(g[0]).parentNode.style.backgroundColor = c;
 				}, 50*i);
 			})
+		}
+
+		function testWrapList(tag, startPosCoords, endPosCoords) {
+			var r = utils.getSelectionRange(), s, e, r;
+
+			s = {
+					container : r.startContainer,
+					offset : r.startOffset
+				}
+			e = {
+					container : r.endContainer,
+					offset : r.endOffset
+				}
+
+			r = w.wrapRangeList({ startPosition : s, endPosition : e }, tag, editor)
+			utils.setCaretAt(r.startPosition.container, r.startPosition.offset, r.endPosition.container, r.endPosition.offset);
 		}
 
 		function testWrapBlockLevel(tag, startPosCoords, endPosCoords) {

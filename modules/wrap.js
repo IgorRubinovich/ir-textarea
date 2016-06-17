@@ -750,9 +750,29 @@ window.ir.textarea.wrap = (function() {
 		alert('uh - not implemented!')
 	}
 	
+	wrap.wrapRangeList = function(range, listTag, top) {
+		var r, sc, ec, list, last, pl;
+
+		r = wrap.wrapRangeBlockLevel(range, 'li', top);
+		
+		sc = utils.getElementPathFromTop(range.startPosition.container, top, true).reverse().filter(function(n) { return utils.isTag(n, 'LI'); })[0];
+		ec = utils.getElementPathFromTop(range.endPosition.container, top, true).reverse().filter(function(n) { return utils.isTag(n, 'LI'); })[0];
+		
+		list = Polymer.dom(Polymer.dom(sc).parentNode).insertBefore(utils.createTag(listTag), sc);
+		
+		pl = Polymer.dom(list)
+		
+		pl.appendChild(last = sc);
+	
+		while(last != ec)
+			pl.appendChild(last = pl.nextSibling);
+		
+		return r;
+	}
+	
 	wrap.wrapRangeBlockLevel = function(range, wrapper, top) {
 		var sContainer, eContainer, tag;
-				
+
 		sContainer = utils.getNonCustomContainer(range.startPosition.container, top, true);
 		eContainer = utils.getNonCustomContainer(range.endPosition.container, top, true);
 		
