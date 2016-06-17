@@ -839,7 +839,7 @@ window.ir.textarea.utils = (function() {
 	// a node has content if it is or contains a text node / a non-container block / a custom element
 	utils.nodeHasContent = function(node) {
 		return utils.visitNodes(node, function(n, meta, prevRes) {
-			return prevRes || n.nodeType == 3 || !utils.canHaveChildren(n) || n.is;
+			return prevRes || ((n.nodeType == 3 || !utils.canHaveChildren(n) || n.is) && !utils.isLayoutElement(n));
 		});
 	}
 	
@@ -890,6 +890,22 @@ window.ir.textarea.utils = (function() {
 			return true;
 		
 		return false;
+	}
+	
+	// query for ancestor matching criteria. criteria is a function that takes a node and returns a boolean
+	utils.queryAncestor = function(node, criteria, top, includeSelf)
+	{
+		if(includeSelf && criteria(node))
+			return true;
+		
+		if(node == top)
+			return null;
+
+		node = utils.parentNode(node);
+		while(node && node != top && !criteria(node))
+			node = utils.parentNode(node);
+		
+		return node != top ? node : null;
 	}
 	
 	utils.nextNodeNonDescendant = function(n, top, skipAncestors) {
