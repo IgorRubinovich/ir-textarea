@@ -236,7 +236,7 @@ This code may only be used under the MIT license found at http://opensource.org/
 			}
 
 			var res = w.wrapWithAttributes({ startPosition : s, endPosition : e}, tag);
-			console.log(res);
+			// console.log(res);
 			utils.setCaretAt(res.startPosition.container, res.startPosition.offset, res.endPosition.container, res.endPosition.offset);
 			
 			last.resultHTML = Polymer.dom(editor).innerHTML;

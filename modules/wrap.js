@@ -230,7 +230,7 @@ window.ir.textarea.wrap = (function() {
 	
 	wrap.wrapRange = function(range, wrapper, top) {
 		//wrap.getRangeContour();
-		var result, criteria, operation, resultRange, sp, se;
+		var result, criteria, operation, resultRange, sp, ep;
 		
 		sp = utils.posToCoordinatesPos(range.startPosition, top);
 		ep = utils.posToCoordinatesPos(range.endPosition, top);
@@ -339,14 +339,11 @@ window.ir.textarea.wrap = (function() {
 		}
 
 		if(sContainer == eContainer && !utils.rangeHasContent(sMainPos, eMainPos))
-			return resultRange; // console.log('no main part');
+			return resultRange;
 		
 		// there's sure a main part and we are wrapping it		
 		
 		commonContainer = utils.commonContainer(sMainPos.container, eMainPos.container);
-
-		//utils.markBranch(range.startPosition.container, top, "__startBranch", true);
-		//utils.markBranch(range.endPosition.container, top, "__endBranch", true);
 
 		utils.markBranch(range.startPosition, top, "__startBranch", true);
 		utils.markBranch(range.endPosition, top, "__endBranch", true);
@@ -354,17 +351,12 @@ window.ir.textarea.wrap = (function() {
 		sPath = utils.getElementPathFromTop(sContainer, commonContainer, true) || [];
 
 		t = n = sContainer;
-		//if(sHanging)
-			
-		//if(!sHanging && !n.__endBranch && criteria(n))
-		//if((!sHanging || !(!utils.isNonCustomContainer(n) && utils.parentNode(n) == top)) && !n.__endBranch && criteria(n))
-		//if((!sHanging || utils.parentNode(n) == top) && !n.__endBranch && criteria(n))
+
 		if((!sHanging || !utils.isDescendantOf(range.startPosition.container, n, true)) && !n.__endBranch && criteria(n))
 		{
 			operation(n);		
 			sPath = utils.getElementPathFromTop(n, commonContainer, true) || [];
 			n = utils.nextNodeNonDescendant(n, top, true);
-			//sPath.pop();
 		}	
 			
 		// up and right the tree until we're on an __endBranch node
@@ -385,7 +377,6 @@ window.ir.textarea.wrap = (function() {
 			if(t)
 				n = t;
 		}
-		
 		
 		// the mid-nodes
 		while(n && !n.__startBranch && !n.__endBranch && n != top && n != EOD)
