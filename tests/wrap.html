@@ -192,7 +192,7 @@ This code may only be used under the MIT license found at http://opensource.org/
 		}
 
 		function testWrapBlockLevel(tag, startPosCoords, endPosCoords) {
-			var r = utils.getSelectionRange(), s, e;
+			var r = utils.getSelectionRange(), s, e, r;
 
 			s = {
 					container : r.startContainer,
@@ -202,9 +202,8 @@ This code may only be used under the MIT license found at http://opensource.org/
 					container : r.endContainer,
 					offset : r.endOffset
 				}
-
-			w.wrapRangeBlockLevel({ startPosition : s, endPosition : e }, tag, editor);
-				
+			r = w.wrapRangeBlockLevel({ startPosition : s, endPosition : e }, tag, editor)
+			utils.setCaretAt(r.startPosition.container, r.startPosition.offset, r.endPosition.container, r.endPosition.offset);
 		}
 		
 		function testWrapSelection(tag, startPosCoords, endPosCoords) {

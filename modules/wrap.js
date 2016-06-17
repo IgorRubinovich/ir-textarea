@@ -696,17 +696,20 @@ window.ir.textarea.wrap = (function() {
         
     }
 
-	// internal method, will replace/wrap the node and/or return the node from which wrapRangeBlockLevel will look for nextSibling
+	// internal method, will replace/wrap the node and return the node from which wrapRangeBlockLevel will look for nextSibling
 	wrap.wrapOrReplaceNode = function(node, wrapper, top) { 
 		var newNode, orig, subtrans, cea, t,
-			condition = function(m) { 
+			topBoundaryCondition = function(m) { 
 				return 	utils.isNonCustomContainer(m) && 
 							!utils.isTransitionalElement(m) &&
 								!utils.isSubTransitionalElement(m) &&
 									!(utils.getTopCustomElementAncestor(m, top, true) && m.getAttribute('contenteditable')) 
-			};
+			},
+			bottomBoundaryCondition = function(m) {
+				return	m.nodeType == 3 || utils.isInlineElement(m) || !utils.canHaveChildren(m); 
+			}
 		
-		if(condition(node))
+		if(topBoundaryCondition(node))
 			return utils.replaceTag(node, wrapper);
 		
 		newNode = utils.createTag(wrapper);
@@ -714,6 +717,7 @@ window.ir.textarea.wrap = (function() {
 		subtrans = utils.isSubTransitionalElement(node);
 		cea = utils.getTopCustomElementAncestor(node, top, true) && node.getAttribute('contenteditable');
 		
+		// starting with subtransitional / custom element - start looking at its first child
 		if(subtrans || cea)
 		{
 			node = Polymer.dom(node).firstChild;
@@ -724,18 +728,19 @@ window.ir.textarea.wrap = (function() {
 				return node;
 			}
 		}
+		// else start with the given node and go up while there are inline/text/atomic nodes
 		else
 		{
 			t = node;
-			while(t && !condition(t))
+			while(t && bottomBoundaryCondition(t))
 			{
 				t = Polymer.dom(t).previousSibling;
-				node = !condition(t) && t || node;
+				node = bottomBoundaryCondition(t) && t || node;
 			}
 		}
 
 		Polymer.dom(utils.parentNode(node)).insertBefore(newNode, node);
-		while(node && !condition(node))
+		while(node && bottomBoundaryCondition(node))
 		{
 			Polymer.dom(newNode).appendChild(node);
 			node = Polymer.dom(newNode).nextSibling;
@@ -754,7 +759,10 @@ window.ir.textarea.wrap = (function() {
 		utils.markBranch(range.endPosition.container, top, "__endBranch", true);
 
 		if(sContainer == eContainer)
-			return wrap.wrapOrReplaceNode(sContainer, wrapper, top);
+		{
+			wrap.wrapOrReplaceNode(sContainer, wrapper, top);
+			return range;
+		}
 		
 		n = sContainer;
 		while(n && !n.__endBranch)
@@ -768,7 +776,7 @@ window.ir.textarea.wrap = (function() {
 
 		utils.unmarkBranch(range.endPosition.container, top, "__endBranch", true);
 
-		return n;
+		return range;
 	}
 	
 	return wrap;
