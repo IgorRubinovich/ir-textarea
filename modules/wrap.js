@@ -148,7 +148,8 @@ window.ir.textarea.wrap = (function() {
 	wrap.wrapRangeSegment = function(range, wrapper, top, viaExtract) {
 		var frag, startPath, endPath, splitRoot, 
 			dummyparagraph, src, extractRes, pos, n, done,
-			sAtInlineEdge, eAtInlineEdge;
+			sAtInlineEdge, eAtInlineEdge,
+			resultRange = {};
 			
 		sAtInlineEdge = utils.atText(range.startPosition, 'start') &&
 							utils.isInlineElement(utils.parentNode(range.startPosition.container));
@@ -157,8 +158,8 @@ window.ir.textarea.wrap = (function() {
 							utils.isInlineElement(utils.parentNode(range.endPosition.container));
 		
 		// save path as coordinates
-		startPath = utils.posToCoorinatesPos(range.startPosition, top);
-		endPath = utils.posToCoorinatesPos(range.endPosition, top);
+		startPath = utils.posToCoordinatesPos(range.startPosition, top);
+		endPath = utils.posToCoordinatesPos(range.endPosition, top);
 		
 		//if(utils.isHangingPos(range.startPosition, top) || utils.isHangingPos(range.endPosition, top))
 		
@@ -172,7 +173,7 @@ window.ir.textarea.wrap = (function() {
 		dummyparagraph = utils.newEmptyParagraph(true);
 		
 		if(!extractRes)
-			return;
+			return range;
 		
 		if(splitRoot != top)
 			dummyparagraph.appendChild(extractRes);
@@ -219,14 +220,20 @@ window.ir.textarea.wrap = (function() {
 			utils.replaceWithOwnChildren(frag.firstChild);
 		
 		// and paste at startPosition
-		return ir.textarea.paste.pasteHtmlAtPosWithParagraphs(frag, pos, { top : top });
+		resultRange.endPosition = ir.textarea.paste.pasteHtmlAtPosWithParagraphs(frag, pos, { top : top });;
+		resultRange.startPosition = utils.coordinatesPosToPos(startPath);		
+		
+		return resultRange;
 	}
 	
 	//var criteria = function(n) { return !(n.nodeType == 3 && (utils.isLayoutElement(n) || utils.isTransitionalElement(utils.parentNode(n)))) }
 	
 	wrap.wrapRange = function(range, wrapper, top) {
 		//wrap.getRangeContour();
-		var result, criteria, operation;
+		var result, criteria, operation, resultRange, sp, se;
+		
+		sp = utils.posToCoordinatesPos(range.startPosition, top);
+		ep = utils.posToCoordinatesPos(range.endPosition, top);
 		
 		result = [];
 		criteria = function(n) { return !(n.nodeType == 3 && (utils.isLayoutElement(n) || utils.isTransitionalElement(utils.parentNode(n)))) }
@@ -234,23 +241,27 @@ window.ir.textarea.wrap = (function() {
 			result.push(n);
 		}
 
-		wrap.getRangeContour(range, wrapper, top, criteria, operation);
+		wrap._wrapRange(range, wrapper, top, criteria, operation);
 	
 		result.forEach(function(t) { wrap.wrapContents(t, wrapper) });
 		
+		return {
+			startPosition : utils.coordinatesPosToPos(sp, top, true),
+			endPosition : utils.coordinatesPosToPos(ep, top, true)
+		}
 	}
 	
-	wrap.getRangeContour = function(range, wrapper, top, criteria, operation) {
+	wrap._wrapRange = function(range, wrapper, top, criteria, operation) {
 		var first, last, main, 
 			sHanging, eHanging, 
 			sContainer, eContainer,
 			sMainPos, eMainPos, 
 			sMainPath, eMainPath,
 			sSub, eSub, includeLast, 
-			sPath, ePath, index, max, EOD, t;
+			sPath, ePath, index, max, EOD, t,
+			resultRange = {};
 			//criteria, operation;
 			
-		
 		EOD = Polymer.dom(top).nextSibling;
 
 		// move start and end into the prev/next container if the containers they're in are to be excluded
@@ -280,13 +291,14 @@ window.ir.textarea.wrap = (function() {
 			else
 				sMainPos = utils.maybeSlidePosDown(range.startPosition); // utils.nextNodeNonDescendant(sContainer, top, true)
 			
-			sMainPath = utils.posToCoorinatesPos(sMainPos);
+			sMainPath = utils.posToCoordinatesPos(sMainPos);
 			
-			sMainPos = wrap.wrapRangeSegment({ 
+			t = wrap.wrapRangeSegment({ 
 												startPosition : sMainPos, 
 												endPosition : sContainer == eContainer ? range.endPosition : utils.getLastCaretPosition(sContainer)
 											}, wrapper, top, true)
-											
+			sMainPos = t.endPosition;
+			resultRange.startPosition = t.startPosition;					
 		}
 		
 		if(sContainer == eContainer && !sHanging && !eHanging)
@@ -298,14 +310,16 @@ window.ir.textarea.wrap = (function() {
 		if(eHanging && range.endPosition && (sContainer != eContainer || !sHanging))
 		{
 			eMainPos = utils.maybeSlidePosDown({ container : eContainer, offset : 0 });
-			eMainPath = utils.posToCoorinatesPos(eMainPos);
+			eMainPath = utils.posToCoordinatesPos(eMainPos);
 			
-			wrap.wrapRangeSegment({ startPosition : eMainPos, endPosition : range.endPosition }, wrapper, top, true)
+			t = wrap.wrapRangeSegment({ startPosition : eMainPos, endPosition : range.endPosition }, wrapper, top, true)
 			
 			if(!utils.isNonCustomContainer(eContainer))
 				eContainer = utils.getNonCustomContainer(eMainPos.container, top, true);
 
 			eMainPos = utils.coordinatesPosToPos(eMainPath);
+			
+			resultRange.endPosition = t.endPosition;
 		}
 
 		
@@ -404,6 +418,8 @@ window.ir.textarea.wrap = (function() {
 		
 		utils.unmarkBranch(range.startPosition, top, "__startBranch");		
 		utils.unmarkBranch(range.endPosition, top, "__endBranch");		
+		
+		return resultRange;
 	}
 
 	wrap.wrapWithAttributes = function(posr, tag, attributes){
@@ -417,7 +433,7 @@ window.ir.textarea.wrap = (function() {
 				if(attributes && attributes['style']) astring = ' style=' + attributes['style'];
 				if(attributes && attributes['class']) astring = astring + ' class=' + attributes['class'];
 				
-				wrap.wrapRange(posr, "<" + tag + aString +	"><span id='insertionPoint'></span></" + cltag + ">", editor);
+				return wrap.wrapRange(posr, "<" + tag + aString +	"><span id='insertionPoint'></span></" + cltag + ">", editor);
 			}
 	}
     wrap.isOverlap = function(node,t,attributes){
@@ -477,18 +493,27 @@ window.ir.textarea.wrap = (function() {
 	}	 
 
 	// internal method, will replace/wrap the node and/or return the node from which wrapRangeBlockLevel will look for nextSibling
-	wrap.wrapOrReplaceNode = function(node, wrapper) { 
-		var newNode, orig, subtrans, t;
+	wrap.wrapOrReplaceNode = function(node, wrapper, top) { 
+		var newNode, orig, subtrans, cea, t,
+			condition = function(m) { 
+				return 	utils.isNonCustomContainer(m) && 
+							!utils.isTransitionalElement(m) &&
+								!utils.isSubTransitionalElement(m) &&
+									!(utils.getTopCustomElementAncestor(m, top, true) && m.getAttribute('contenteditable')) 
+			};
 		
-		if(utils.isNonCustomContainer(node) && !(subtrans = utils.isSubTransitionalElement(node)))
+		if(condition(node))
 			return utils.replaceTag(node, wrapper);
 		
 		newNode = utils.createTag(wrapper);
 		
-		if(subtrans)
+		subtrans = utils.isSubTransitionalElement(node);
+		cea = utils.getTopCustomElementAncestor(node, top, true) && node.getAttribute('contenteditable');
+		
+		if(subtrans || cea)
 		{
 			node = Polymer.dom(node).firstChild;
-			// empty subtrans simply - create the wrapper element`
+			// empty subtrans - simply create the wrapper element
 			if(!node)
 			{
 				Polymer.dom(node).appendChild(newNode);
@@ -498,15 +523,15 @@ window.ir.textarea.wrap = (function() {
 		else
 		{
 			t = node;
-			while(t && !utils.isNonCustomContainer(t))
+			while(t && !condition(t))
 			{
 				t = Polymer.dom(t).previousSibling;
-				node = !utils.isNonCustomContainer(t) && t || node;
+				node = !condition(t) && t || node;
 			}
 		}
 
 		Polymer.dom(utils.parentNode(node)).insertBefore(newNode, node);
-		while(node && !node.is && !utils.isTransitionalElement(node) && !utils.isNonCustomContainer(node))
+		while(node && !condition(node))
 		{
 			Polymer.dom(newNode).appendChild(node);
 			node = Polymer.dom(newNode).nextSibling;
@@ -525,17 +550,17 @@ window.ir.textarea.wrap = (function() {
 		utils.markBranch(range.endPosition.container, top, "__endBranch", true);
 
 		if(sContainer == eContainer)
-			return wrap.wrapOrReplaceNode(sContainer, wrapper);
+			return wrap.wrapOrReplaceNode(sContainer, wrapper, top);
 		
 		n = sContainer;
 		while(n && !n.__endBranch)
 		{
-			n = wrap.wrapOrReplaceNode(n, wrapper);
+			n = wrap.wrapOrReplaceNode(n, wrapper, top);
 			n = Polymer.dom(n).nextSibling;
 		}
 
 		if(n)
-			n = wrap.wrapOrReplaceNode(n, wrapper);
+			n = wrap.wrapOrReplaceNode(n, wrapper, top);
 
 		utils.unmarkBranch(range.endPosition.container, top, "__endBranch", true);
 

@@ -113,25 +113,25 @@ This code may only be used under the MIT license found at http://opensource.org/
 
 			if(curr.nodeType == 1)
 			{
-				pos = utils.posToCoorinatesPos({ container : curr, offset : 0}, editor);
+				pos = utils.posToCoordinatesPos({ container : curr, offset : 0}, editor);
 				pos.originalContainer = curr;
 				prev.push(pos);
 			}
 			else
 			{
-				pos = utils.posToCoorinatesPos({ container : curr, offset : 0}, editor);
-				pos = utils.posToCoorinatesPos({ container : curr, offset : curr.textContent.length}, editor);
+				pos = utils.posToCoordinatesPos({ container : curr, offset : 0}, editor);
+				pos = utils.posToCoordinatesPos({ container : curr, offset : curr.textContent.length}, editor);
 				if(curr.textContent.length > 1)
-					pos = utils.posToCoorinatesPos({ container : curr, offset : 1}, editor);
+					pos = utils.posToCoordinatesPos({ container : curr, offset : 1}, editor);
 				if(curr.textContent.length > 2)
-					pos = utils.posToCoorinatesPos({ container : curr, offset : curr.textContent.length - 1}, editor);
+					pos = utils.posToCoordinatesPos({ container : curr, offset : curr.textContent.length - 1}, editor);
 				//pos.originalContainer = curr;
 				prev.push(pos);
 				
 			}
 			/*for(i = 0; i < curr.textContent.length; i++)
 			{
-				pos = utils.posToCoorinatesPos({ container : curr, offset : i}, editor);
+				pos = utils.posToCoordinatesPos({ container : curr, offset : i}, editor);
 				pos.originalContainer = curr;
 				prev.push(pos);
 			}*/				

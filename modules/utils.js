@@ -198,7 +198,7 @@ window.ir.textarea.utils = (function() {
 	}
 
 	// returns topmost custom element or null below or equal to `top`
-	utils.getTopCustomElementAncestor = function(node, top) {
+	utils.getTopCustomElementAncestor = function(node, top, excludeSelf) {
 		var res, n = node;
 		
 		if(!top) top = document.body;
@@ -207,10 +207,13 @@ window.ir.textarea.utils = (function() {
 		{
 			if(n.is && n != node)
 				res = n;
-
+			
 			n = utils.parentNode(n, top);
 		}
 
+		if(excludeSelf && res && res == node)
+			return null;
+	
 		return (n == top) ? res : null;
 	}
 
@@ -317,7 +320,7 @@ window.ir.textarea.utils = (function() {
 		return;
 	}
 	
-	utils.posToCoorinatesPos = function(pos, top, skipCaret) {
+	utils.posToCoordinatesPos = function(pos, top, skipCaret) {
 		if(!pos)
 			return null;
 
