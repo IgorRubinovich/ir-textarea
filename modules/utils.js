@@ -478,7 +478,6 @@ window.ir.textarea.utils = (function() {
 
 		return range;
 	};
-
 	
 	utils.prevPos = function(pos, top) {
 		var n, p, ncc;
@@ -967,8 +966,6 @@ window.ir.textarea.utils = (function() {
 		return utils.rangeHasContent(otherpos, pos); 
 	}
 	
-		
-	
 	utils.commonContainer = function(sc, ec, top)
 	{
 		var p, res;
@@ -992,6 +989,16 @@ window.ir.textarea.utils = (function() {
 	
 		return res;
 	}
+    utils.firstCommonListItem = function(sAnc,eAnc)
+    {
+        for (posE in eAnc)
+        {
+            if(sAnc.indexOf(eAnc[posE]) > -1)
+                return eAnc[posE]
+        }
+        console.log('Could not find a common container')
+        return null;
+    }
 	
 	utils.getElementPosition = function(element, fromElement) {
 		var top = 0, left = 0, width = 0, height = 0, cs, i;
@@ -1296,7 +1303,6 @@ window.ir.textarea.utils = (function() {
 		p.appendChild(el)
 		return p;
 	},
-
 	
 	utils.mergeNodes = function (left, right, setCaretAtMergePoint) {
 		var caretPos, ret, t, p, l, r, offset, atText;
@@ -1474,9 +1480,14 @@ window.ir.textarea.utils = (function() {
 		
 		frag = utils.childrenToFragment(el);
 		first = frag.firstChild;
-		
-		p.insertBefore(frag, el);
-		
+		try
+        {
+		  p.insertBefore(frag, el);
+        }
+        catch(err)
+        {
+                console.log('Failed to insert node after fragment ' +  el + ' ' + frag);
+        }
 		utils.removeFromParent(el);
 	
 		return first;
@@ -1556,6 +1567,18 @@ window.ir.textarea.utils = (function() {
 		else 
 			return p.childNodes;
 	}
+    utils.ancestors = function(p){
+        var a = [];
+        if(Polymer.dom(p))
+        {
+            while(p != document.body && p != null)
+            {
+                p = Polymer.dom(p).parentNode;
+                a.push(p);
+            }
+        }
+        return a;                
+    }
 	
 	var debounceCache = {};
 	utils.debounce = function(f, ms, prevTimeout) {
@@ -1629,6 +1652,15 @@ window.ir.textarea.utils = (function() {
 			return el.firstChild
 			
 	}
+    utils.cloneNodeWithProperties = function(el)
+    {
+        newElement = el.cloneNode(true);
+        for(var i in el.properties) 
+        {
+            newElement[i] = el[i]
+        }
+        return newElement;
+    }
 
 	return utils;
 })();
