@@ -102,7 +102,7 @@ This code may only be used under the MIT license found at http://opensource.org/
 		
 		function runTests() {
 			var testsData = JSON.parse(testsLog.value),
-				results = [];
+				results = [], i = 0, total = testsData.length;
 			
 			runTestsButton.disabled = true;
 			
@@ -115,7 +115,7 @@ This code may only be used under the MIT license found at http://opensource.org/
 				}
 				
 				var td = testsData.shift();
-				console.log('running', td.name)
+				console.log("Test", ++i, '/', total, ': ', td.name)
 				
 				editor.innerHTML = td.originalHTML;
 				this[td.command].apply(this, td.arguments);
@@ -237,6 +237,8 @@ This code may only be used under the MIT license found at http://opensource.org/
 
 			var res = w.wrapWithAttributes({ startPosition : s, endPosition : e}, tag);
 			console.log(res);
+			utils.setCaretAt(res.startPosition.container, res.startPosition.offset, res.endPosition.container, res.endPosition.offset);
+			
 			last.resultHTML = Polymer.dom(editor).innerHTML;
         }	
 		

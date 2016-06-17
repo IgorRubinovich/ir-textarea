@@ -328,10 +328,18 @@ window.ir.textarea.utils = (function() {
 	}
 
 	utils.coordinatesPosToPos = function(coordinatePos, top, skipCaret, approximate) {
+		var node, approx, h;
+		
 		if(!coordinatePos)
 			return null;
 		
-		return { container : utils.getChildFromPath(coordinatePos.container, top, skipCaret, approximate), offset : coordinatePos.offset };
+		h = coordinatePos.container.length;
+		
+		node = utils.getChildFromPath(coordinatePos.container, top, skipCaret, approximate)
+		
+		approx = approximate && utils.getChildPathFromTop(node).length < h;
+		
+		return { container : node, offset : approx ? 0 : coordinatePos.offset };
 	}
 
 	// return an array of elements from child to top, includes top by default

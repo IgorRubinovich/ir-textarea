@@ -220,8 +220,8 @@ window.ir.textarea.wrap = (function() {
 			utils.replaceWithOwnChildren(frag.firstChild);
 		
 		// and paste at startPosition
+		resultRange.startPosition = range.startPosition; //{ container : frag.firstChild, offset : 0 };		
 		resultRange.endPosition = ir.textarea.paste.pasteHtmlAtPosWithParagraphs(frag, pos, { top : top });;
-		resultRange.startPosition = utils.coordinatesPosToPos(startPath);		
 		
 		return resultRange;
 	}
@@ -241,13 +241,13 @@ window.ir.textarea.wrap = (function() {
 			result.push(n);
 		}
 
-		wrap._wrapRange(range, wrapper, top, criteria, operation);
+		resultRange = wrap._wrapRange(range, wrapper, top, criteria, operation) || {};
 	
 		result.forEach(function(t) { wrap.wrapContents(t, wrapper) });
 		
 		return {
-			startPosition : utils.coordinatesPosToPos(sp, top, true),
-			endPosition : utils.coordinatesPosToPos(ep, top, true)
+			startPosition : resultRange.startPosition || utils.coordinatesPosToPos(sp, top, true),  // resultRange properties will be null 
+			endPosition : resultRange.endPosition || utils.coordinatesPosToPos(ep, top, true)		// if range had hanging parts 
 		}
 	}
 	
@@ -259,7 +259,7 @@ window.ir.textarea.wrap = (function() {
 			sMainPath, eMainPath,
 			sSub, eSub, includeLast, 
 			sPath, ePath, index, max, EOD, t,
-			resultRange = {};
+			resultRange = range;
 			//criteria, operation;
 			
 		EOD = Polymer.dom(top).nextSibling;
@@ -294,11 +294,12 @@ window.ir.textarea.wrap = (function() {
 			sMainPath = utils.posToCoordinatesPos(sMainPos);
 			
 			t = wrap.wrapRangeSegment({ 
-												startPosition : sMainPos, 
-												endPosition : sContainer == eContainer ? range.endPosition : utils.getLastCaretPosition(sContainer)
-											}, wrapper, top, true)
+											startPosition : sMainPos, 
+											endPosition : sContainer == eContainer ? range.endPosition : utils.getLastCaretPosition(sContainer)
+										}, 	wrapper, top, true);
+
 			sMainPos = t.endPosition;
-			resultRange.startPosition = t.startPosition;					
+			resultRange = t;
 		}
 		
 		if(sContainer == eContainer && !sHanging && !eHanging)
@@ -324,7 +325,7 @@ window.ir.textarea.wrap = (function() {
 
 		
 		if(sContainer == eContainer)
-			return;
+			return resultRange;
 		
 		// check whether there's main part
 		n = sMainPos.container;
@@ -338,7 +339,7 @@ window.ir.textarea.wrap = (function() {
 		}
 
 		if(sContainer == eContainer && !utils.rangeHasContent(sMainPos, eMainPos))
-			return // console.log('no main part');
+			return resultRange; // console.log('no main part');
 		
 		// there's sure a main part and we are wrapping it		
 		
