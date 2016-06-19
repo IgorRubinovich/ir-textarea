@@ -5,6 +5,9 @@ window.ir.textarea.extract =
 	var utils = window.ir.textarea.utils;
 	var extract = {};
 
+	// For details about extract see https://github.com/IgorRubinovich/ir-textarea/wiki/extractContents
+	
+	
 	/*
 		splits a node at offset
 
@@ -14,7 +17,6 @@ window.ir.textarea.extract =
 		offset - in the splitted node,
 		limit - the root of the split.
 		
-		For details see https://github.com/IgorRubinovich/ir-textarea/wiki/extractContents
 	*/
 	extract.splitNode = function(node, offset, limit, top) {
 		var parent = Polymer.dom(limit).parentNode,
@@ -27,7 +29,7 @@ window.ir.textarea.extract =
 		left = extract.extractContents(
 			{ container : parent, offset : parentOffset }, 
 			{ container : node, offset : offset}, 
-			{ delete : true, splitRoot : limit, top : top }
+			{ delete : true, splitRoot : limit, top : top, keepContainer : true }
 		);
 		
 		if(!left)
@@ -82,9 +84,9 @@ window.ir.textarea.extract =
 			t, b, n, p, deletes = [], hasContent;
 	
 		//if(startPos.container == opts.top)
-			startPos = utils.maybeSlidePosDown(startPos);
+			startPos = utils.maybeSlidePosDown(startPos, opts.top);
 		//if(endPos.container == opts.top)
-			endPos = utils.maybeSlidePosDown(endPos);
+			endPos = utils.maybeSlidePosDown(endPos, opts.top);
 			
 		if(utils.samePos(startPos, endPos))
 			return '';
@@ -100,7 +102,7 @@ window.ir.textarea.extract =
 
 		takeFirst = utils.posToContainerEdgeHasContent(startPos, "forward", opts.top);
 		takeLast = utils.posToContainerEdgeHasContent(endPos, "backward", opts.top);
-		hangingFirst = takeFirst && utils.posToContainerEdgeHasContent(startPos, "backward", opts.top);
+		hangingFirst = startPos.container != opts.top && takeFirst && utils.posToContainerEdgeHasContent(startPos, "backward", opts.top);
 		hangingLast = takeLast && utils.posToContainerEdgeHasContent(endPos, "forward", opts.top);
 		
 		// 1. both positions are in commonAncestor that is a text node
@@ -127,16 +129,22 @@ window.ir.textarea.extract =
 		}
 		
 		extractRes = document.createDocumentFragment();
-		
+
 		sSource = eSource = Polymer.dom(b.commonAncestor);
-		sTarget = eTarget = extractRes = sSource.cloneNode(false);
+		sTarget = eTarget = extractRes = sSource == opts.top ? document.createElement('div') : sSource.cloneNode(false);
 
 		// cursor between b.starts and b.ends path arrays
 		while(b.starts.length || b.ends.length)
 		{
 			sFrom = b.starts.shift();
-			sTo = sSource == eSource ?  b.ends[0] : sSource.lastChild;
-
+			sTo = sSource.lastChild;
+			if(sSource == eSource)
+			{
+				sTo = b.ends[0];
+				if(!sFrom && sTo)
+					sFrom = utils.parentNode(sTo).firstChild;
+			}
+			
 			eFrom = sSource == eSource ? sTo : eSource.firstChild;
 			eTo = b.ends.shift();
 			
@@ -194,17 +202,18 @@ window.ir.textarea.extract =
 		sCont = utils.getNonCustomContainer(startPos.container, opts.top);
 		eCont = utils.getNonCustomContainer(endPos.container, opts.top);
 		
-		if(b.commonAncestor != b.last.original && b.commonAncestor != b.first.original &&
-			(!extractRes || 
-			b.commonAncestor == opts.top || 
-			sCont == eCont || 
-			utils.isTransitionalElement(b.commonAncestor)))
-			
+		if(	b.commonAncestor == opts.top ||
+			(b.commonAncestor != b.last.original && b.commonAncestor != b.first.original &&
+				(!extractRes || 
+				b.commonAncestor == opts.top || 
+				sCont == eCont || 
+				utils.isTransitionalElement(b.commonAncestor))))
+				
 			extractRes = utils.moveChildrenToFragment(extractRes, true);
 		
-		if(hangingFirst && utils.isNonCustomContainer(Polymer.dom(extractRes).firstChild))
+		if(!opts.keepContainer && (hangingFirst && utils.isNonCustomContainer(Polymer.dom(extractRes).firstChild)))
 			utils.replaceWithOwnChildren(extractRes.firstChild)
-		if(hangingLast)
+		if(!opts.keepContainer && hangingLast)
 		{
 			if(extractRes instanceof DocumentFragment && utils.isNonCustomContainer(Polymer.dom(extractRes).lastChild))
 				utils.replaceWithOwnChildren(extractRes.lastChild)
@@ -237,7 +246,8 @@ window.ir.textarea.extract =
 				deletes.push(sCont);
 			
 			deletes.reverse();
-			deletes.forEach(utils.removeFromParent);
+			
+			deletes.filter(function(n) { return n != opts.top }).forEach(utils.removeFromParent);
 
 			//
 			// merge if start and end are in neighbouring containers and none of the containers was deleted

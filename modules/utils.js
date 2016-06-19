@@ -851,9 +851,11 @@ window.ir.textarea.utils = (function() {
 		return { container : pos.container, offset : pos.offset };
 	}
 	
-	utils.maybeSlidePosDown = function(pos) {
-		if(utils.isNonCustomContainer(pos.container) && Polymer.dom(pos.container).childNodes[pos.offset])
-			return { container : Polymer.dom(pos.container).childNodes[pos.offset], offset : 0 }
+	utils.maybeSlidePosDown = function(pos, top) {
+		if(	((top && pos.container == top) ||
+			(utils.isNonCustomContainer(pos.container))) && 
+			Polymer.dom(pos.container).childNodes[pos.offset])
+				return { container : Polymer.dom(pos.container).childNodes[pos.offset], offset : 0 }
 	
 		else 
 			return pos;
@@ -866,8 +868,8 @@ window.ir.textarea.utils = (function() {
 		});
 	}
 	
-	utils.rangeHasContent = function(startPos, endPos, top) { 
-		var n, m;
+	utils.rangeHasContent = function(startPos, endPos, top, ignoreLastBr) { 
+		var n, m, brs = 0;
 		
 		startPos = utils.maybeSlidePosDown(startPos);
 		endPos = utils.maybeSlidePosDown(endPos);
@@ -899,15 +901,23 @@ window.ir.textarea.utils = (function() {
 			return false;
 		
 		while(n && n != m)
+		{
 			if(!utils.isTransitionalElement(n) &&
 				(!utils.getTopCustomElementAncestor(n, top) || utils.parentNode(n).hasAttribute("contenteditable"))
 				&& (n.nodeType == 3 || !utils.canHaveChildren(n) || n.is))
-				return true;
-			else
+				{
+					if(brs == 0 && ignoreLastBr && utils.isTag(n, 'BR'))
+						 brs++;
+					 else
+						 return true;
+				}
+
 			if(utils.isNonCustomContainer(n) && n.childNodes.length == startPos.offset)
 				n = utils.nextNodeNonDescendant(n, top);
 			else
 				n = utils.nextNode(n, top);
+		
+		}
 		
 		if(n == m && n.nodeType == 3 && endPos.offset > 0 && startPos.container != endPos.container)
 			return true;
@@ -1485,10 +1495,11 @@ window.ir.textarea.utils = (function() {
 	utils.moveChildrenToFragment = function(el)
 	{
 		var f = document.createDocumentFragment();
-		while(Polymer.dom(el).firstChild)
-			f.appendChild(Polymer.dom(el).removeChild(Polymer.dom(el).firstChild));
-		
-		Polymer.dom.flush();
+		while(Polymer.dom(el).childNodes.length)
+		{
+			Polymer.dom(f).appendChild(Polymer.dom(el).firstChild);
+			Polymer.dom.flush();
+		}
 		return f;
 	}
 

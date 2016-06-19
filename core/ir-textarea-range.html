@@ -148,8 +148,6 @@
 				Polymer.dom(this.editor.$.editor).observeNodes(function(info) {
 					//this.processNewNodes(info.addedNodes);
 					//this.processRemovedNodes(info.removedNodes);
-					console.log(info.addedNodes);
-					console.log(info.removedNodes);
 				});	
 				
 				
@@ -523,6 +521,51 @@
 			},
 
 			enterKeyHandler : function(e) {
+				var cont, hasContentBefore, hasContentAfter, right, ped;
+				
+				if(e.keyCode != 13 || e.shiftKey)
+					return;
+
+				cont = utils.getNonCustomContainer(this.startPosition.container);
+				
+				ped = Polymer.dom(this.editor);
+				
+				hasContentBefore = utils.posToContainerEdgeHasContent(this.startPosition, "backward", this.editor);
+				hasContentAfter = utils.posToContainerEdgeHasContent(this.startPosition, "forward", this.editor);
+
+				if(utils.parentNode(this.startContainer) == this.editor)
+				{
+					ir.textarea.wrap.wrapRangeBlockLevel(this, "span class='paragraph'", null, this.editor)
+					this.setAt({ container : this.startContainer, offset : this.startOffset });
+				}
+				else
+				if(hasContentBefore && hasContentAfter)
+				{
+					right = ir.textarea.extract.splitNode(this.startContainer, this.startOffset, cont, this.editor);
+				}
+				else
+				if(!hasContentBefore)
+				{
+					ped.insertBefore(right = Polymer.dom(cont).cloneNode(), cont);
+					Polymer.dom(right).appendChild(utils.createTag('br'));
+					right = null;
+				}
+				else
+				{
+					ped[ped.lastChild == cont ? "appendChild" : "insertBefore"](right = Polymer.dom(cont).cloneNode(), Polymer.dom(cont).nextSibling);
+					Polymer.dom(right).appendChild(utils.createTag('br'));
+					Polymer.dom.flush();
+				}
+				
+				if(right)
+					this.setAt(this.caretNavigator.forward(right, 0 ))
+				
+				e.preventDefault();
+				this.preventNextDefault = true;
+				this.justUpdated = true;
+ 			},
+			
+			_enterKeyHandler : function(e) {
 				var splitTop, cont, offset, nextPos, nextSplitTop, prevPos, prevSplitTop, state = {}, newp, t;
 				
 				if(e.keyCode != 13 || e.shiftKey)
