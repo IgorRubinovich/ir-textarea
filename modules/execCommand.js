@@ -58,13 +58,46 @@
 		// "desc": "Adds an HTML block-style tag around the line containing the current selection, replacing the block element containing the line if one exists (in Firefox, BLOCKQUOTE is the exception - it will wrap any containing block element). Requires a tag-name string to be passed in as a value argument. Virtually all block style tags can be used (eg. \"H1\", \"P\", \"DL\", \"BLOCKQUOTE\"). (Internet Explorer supports only heading tags H1 - H6, ADDRESS, and PRE, which must also include the tag delimiters < >, such as \"<H1>\".)"
 		//},
 		
-		// aliast for 
+		// alias for backColor
 		"hiliteColor" :function(range, cssColor, top) {
 			return commandMap.backColor.call(cssColor, arguments);
 		},
 		
-		// missing: indents and more, see commands.html
+		"increaseFontSize" : function(range, top)
+		{
+			return wrap.wrapWithAttributes(range, 'big', null, top);
+		},
+		"indent" : {
+			return w.wrapIndent({ startPosition : s, endPosition : e }, false, editor)
+		}
+		"outdent" : {
+			return w.wrapIndent({ startPosition : s, endPosition : e }, true, editor)
+		}
 		
+		// skipped :
+		// paste, redo, removeFormat, selectAll,
+		"strikeThrough" : function(range, top) {
+			return wrap.wrapWithAttributes(range, 's', null, top);
+		},
+		"subscript" : function(range, top) {
+			return wrap.wrapWithAttributes(range, 'sub', null, top);
+		},
+		"subscript" : function(range, top) {
+			return wrap.wrapWithAttributes(range, 'sub', null, top);
+		},
+		"supercript" : function(range, top) {
+			return wrap.wrapWithAttributes(range, 'sup', null, top);
+		},
+		// skipped:
+		// tableCreate
+		"underline" : function(range, top) {
+			return wrap.wrapWithAttributes(range, 'u', null, top);
+		},
+		// skipped: undo
+		"unlink" : function() {
+			return wrap.wrapWithAttributes(range, 'a', null, top);
+		}
+		// skipped: useCSS, styleWithCSS
 		
 	}
 
