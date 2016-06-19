@@ -1,7 +1,16 @@
+// execCommand polyfill
+// 
+// for details see https://developer.mozilla.org/en/docs/Web/API/Document/execCommand
+//
+
+if(!window.ir) window.ir = {};
+if(!window.ir.textarea) window.ir.textarea = {};
+
+window.ir.textarea = execCommand = 
 (function() {
 	var 
 	
-	exetract = ir.textarea.extract,
+	extract = ir.textarea.extract,
 	wrap = ir.textarea.wrap,
 	commandMap, execCommand,
 	fontSizeMap;
@@ -17,7 +26,7 @@
 			return wrap.wrapWithAttributes(range, 'b', null, top);
 		},
 		"copy" : function(range, top) {
-			return extractContents(range.startPos, range.endPos, { top : top });
+			return extract.extractContents(range.startPos, range.endPos, { top : top });
 		},
 		"createLink" : function(range, href, top) {
 			return wrap.wrapWithAttributes(range, 'a', { href : href }, top);
@@ -50,7 +59,7 @@
 			return wrap.wrapWithAttributes(range, 'span', { style : { fontSize : fontSizeMap[fontSize] } }, top);
 		},
 		"foreColor" : function(range, color, top) {
-			return wrap.wrapWithAttributes(range, 'span', { style : { color : color }, top);
+			return wrap.wrapWithAttributes(range, 'span', { style : { color : color } }, top);
 		},
 		// skipped :
 		// {
@@ -101,5 +110,7 @@
 		
 	}
 
-	return commandMap;
+	return function(range, aCommandName, aShowDefaultUI, aValueArgument) {
+		commandMap[aCommandName](aValueArgument);
+	};
 })();
