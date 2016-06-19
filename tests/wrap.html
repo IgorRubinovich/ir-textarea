@@ -60,8 +60,8 @@ This code may only be used under the MIT license found at http://opensource.org/
 		<button onclick="testWrapBlockLevel('h2')">H2</button>		
 		<button onclick="testWrapBlockLevel('h3')">H3</button>		
 		<button onclick="testWrapBlockLevel('span class=paragraph')">P</button>		
-		<button onclick="testWrapList('ul')">ul</button>		
-		<button onclick="testWrapList('ol')">ol</button>		
+		<button onclick="testWrapList(event, 'ul')">ul</button>&lt; hold shift to force wrap &gt;	
+		<button onclick="testWrapList(event, 'ol')">ol</button>		
 		<hr>
 		Save a successful test
 		<input type=text id="testName" rows=1 placeholder="test name here">
@@ -193,7 +193,7 @@ This code may only be used under the MIT license found at http://opensource.org/
 			})
 		}
 
-		function testWrapList(tag, startPosCoords, endPosCoords) {
+		function testWrapList(ev, tag, startPosCoords, endPosCoords) {
 			var r = utils.getSelectionRange(), s, e, r;
 
 			s = {
@@ -205,7 +205,7 @@ This code may only be used under the MIT license found at http://opensource.org/
 					offset : r.endOffset
 				}
 
-			r = w.wrapRangeList({ startPosition : s, endPosition : e }, tag, editor)
+			r = w.wrapRangeList({ startPosition : s, endPosition : e }, tag, editor, ev && ev.shiftKey)
 			utils.setCaretAt(r.startPosition.container, r.startPosition.offset, r.endPosition.container, r.endPosition.offset);
 		}
 

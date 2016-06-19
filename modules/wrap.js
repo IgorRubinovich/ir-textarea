@@ -735,7 +735,7 @@ window.ir.textarea.wrap = (function() {
 			while(t && bottomBoundaryCondition(t))
 			{
 				t = Polymer.dom(t).previousSibling;
-				node = bottomBoundaryCondition(t) && t || node;
+				node = !bottomBoundaryCondition(t) && t || node;
 			}
 		}
 
@@ -746,7 +746,7 @@ window.ir.textarea.wrap = (function() {
 			node = Polymer.dom(newNode).nextSibling;
 		}
 		
-		return node;
+		return newNode;
 		alert('uh - not implemented!')
 	}
 	
@@ -755,7 +755,8 @@ window.ir.textarea.wrap = (function() {
 		var t = item, nt, 
 			action = "insertBefore",
 			//refNode = list, par,
-			lp = Polymer.dom(utils.parentNode(list));
+			lp = Polymer.dom(utils.parentNode(list)),
+			par;
 
 		if(after && !Polymer.dom(refNode).nextSibling)
 			action = "appendChild";
@@ -775,13 +776,13 @@ window.ir.textarea.wrap = (function() {
 				nt = Polymer.dom(t).nextSibling;
 				par.appendChild(t);
 				t = nt;
-			} while(t && !(utils.isNonCustomContainer(t) || t.is || utils.isTransitionalElement(t)))
+			} while(t); // && !(utils.isNonCustomContainer(t) || t.is || utils.isTransitionalElement(t)))
 		}
 	
 		return par || t;
 	}
 	
-	wrap.wrapRangeList = function(range, listTag, top) {
+	wrap.wrapRangeList = function(range, listTag, top, forceWrap) {
 		var r, sc, ec, listCont, last, pl, stripArr, t, done, lis, noParagraph, after, where, newList, refNode,
 			isWantedTag = function(n) { return utils.isTag(n, listTag); }, 
 			isListItem = function(n) { return utils.isTag(n, 'LI') };
@@ -790,20 +791,25 @@ window.ir.textarea.wrap = (function() {
 		
 		refNode = list = utils.queryAncestor(range.startPosition.container, isWantedTag, top, true);
 		
-		if(list) // unwrap
+		if(list && !forceWrap) // unwrap
 		{
-			// three ways: 
-			// list start	- insert before list, delete list if empty
-			// list middle	- insert after list, move the rest to new list
-			// list end		- insert after list
+			// 		start\end		before			start			middle			end/after
+			//		before			-				-				-				-			-
+			//		start			-				before			before			before,del
+			//		middle			-				-				before,split	after
+			//		end				-				-				-				after
+			//		after			-				-				-				-
 
 			// set up stuff
 			listCont = Polymer.dom(utils.parentNode(list));
+			
+			isListItem = function(n) { return utils.isTag(n, 'LI') && utils.parentNode(n) == list };
+			
 			sc = utils.queryAncestor(range.startPosition.container, isListItem, top, true);
 			ec = utils.queryAncestor(range.endPosition.container, isListItem, top, true);
 			
 			lis = Polymer.dom(list).childNodes;
-			while(lis.length > 0 && lis[0] != sc) 
+			while(lis.length > 0 && lis[0] != sc && list[0] != ec) 
 				after = lis.shift(); // skip until sc
 
 			lis = lis.filter(function(n) { var t; if(!(t = utils.isTag(sc, 'LI'))) utils.removeFromParent(n); return t} );
@@ -811,20 +817,19 @@ window.ir.textarea.wrap = (function() {
 
 			if(after)
 			{
-				if(lis[lis.length-1] == ec || !utils.isDescendantOf(ec, list))
-				{
-					refNode = newList = Polymer.dom(list).cloneNode();
-					listCont[list == listCont.lastChild == list  ? 'appendChild' : 'insertBefore'](newList, Polymer.dom(list).nextSibling);
-				}
+				refNode = newList = Polymer.dom(list).cloneNode();
+				listCont[list == listCont.lastChild == list  ? 'appendChild' : 'insertBefore'](newList, Polymer.dom(list).nextSibling);
 			}
 
-			do {
+			while(lis.length && !done) {
 				sc = lis.shift();
 				while(t = Polymer.dom(sc).firstChild)
 					last = wrap.unwrapListItem(t, refNode, after, noParagraph);
 				
 				utils.removeFromParent(sc);
-			} while(lis.length && sc != ec);
+				
+				done = sc == ec;
+			} 
 			
 			if(!utils.nodeHasContent(list))
 				utils.removeFromParent(list);
@@ -874,7 +879,7 @@ window.ir.textarea.wrap = (function() {
 		while(n && !n.__endBranch)
 		{
 			n = wrap.wrapOrReplaceNode(n, wrapper, top);
-			//n = Polymer.dom(n).nextSibling;
+			n = Polymer.dom(n).nextSibling;
 		}
 
 		if(n)
