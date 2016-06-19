@@ -62,6 +62,8 @@ This code may only be used under the MIT license found at http://opensource.org/
 		<button onclick="testWrapBlockLevel('span class=paragraph')">P</button>		
 		<button onclick="testWrapList(event, 'ul')">ul</button>&lt; hold shift to force wrap &gt;	
 		<button onclick="testWrapList(event, 'ol')">ol</button>		
+		<button onclick="testIndent(event, 0)">indent</button>		
+		<button onclick="testIndent(event, 1)">unindent</button>		
 		<hr>
 		Save a successful test
 		<input type=text id="testName" rows=1 placeholder="test name here">
@@ -193,6 +195,23 @@ This code may only be used under the MIT license found at http://opensource.org/
 			})
 		}
 
+		function testIndent(ev, unwrap, startPosCoords, endPosCoords) {
+			var r = utils
+			.getSelectionRange(), s, e, r, currentIndent;
+			
+			s = {
+					container : r.startContainer,
+					offset : r.startOffset
+				}
+			e = {
+					container : r.endContainer,
+					offset : r.endOffset
+				}
+				
+			r = w.wrapIndent({ startPosition : s, endPosition : e }, unwrap, editor)
+			utils.setCaretAt(r.startPosition.container, r.startPosition.offset, r.endPosition.container, r.endPosition.offset);
+		}
+		
 		function testWrapList(ev, tag, startPosCoords, endPosCoords) {
 			var r = utils.getSelectionRange(), s, e, r;
 
@@ -220,7 +239,7 @@ This code may only be used under the MIT license found at http://opensource.org/
 					container : r.endContainer,
 					offset : r.endOffset
 				}
-			r = w.wrapRangeBlockLevel({ startPosition : s, endPosition : e }, tag, editor)
+			r = w.wrapRangeBlockLevel({ startPosition : s, endPosition : e }, tag, null, editor)
 			utils.setCaretAt(r.startPosition.container, r.startPosition.offset, r.endPosition.container, r.endPosition.offset);
 		}
 		

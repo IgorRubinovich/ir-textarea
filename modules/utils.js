@@ -264,6 +264,29 @@ window.ir.textarea.utils = (function() {
 		
 		return child;
 	}
+
+	// apply attributes to node n1
+	// attributes - an object with fields representing attributes and values representing attribute values
+	// 				if attributes contains an object field called 'style', it is applied to n.style. 
+	//				Use standard css-JS camelCase names for style properties
+	utils.setAttributes = function(n, attributes)
+	{
+		var i, keys;
+
+		// do all except style
+		keys = Object.keys(attributes).filter(function(a) { return a != 'style' });
+		for(i = 0; i < keys.length; i++)
+			n.setAttribute(keys[i], attributes(keys[i]));
+		if(!attributes.style)
+			return n;
+		
+		// if there's style do it also
+		keys = Object.keys(attributes.style).filter(function(a) { return a != 'style' });
+		for(i = 0; i < keys.length; i++)
+			n.style[keys[i]] = attributes.style[keys[i]];
+		
+		return n;
+	}
 	
 	utils.getNonCustomContainer = function(child, top, excludeTop) {
 		var c = child, ncc;

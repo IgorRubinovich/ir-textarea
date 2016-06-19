@@ -447,15 +447,15 @@ window.ir.textarea.wrap = (function() {
     
 	wrap.detectOverlap = function(range,tag,attributes){
 		// detects overlapping wrapping elements to the range specified  based on the tag and the style/class attributes
-			var startOverlap = wrap.isOverlap(range.startPosition.container ,tag,attributes);
-			var endOverlap = wrap.isOverlap(range.endPosition.container,tag, attributes);
-			/* Overlap None == 0
-			   Overlap Start == 1
-			   Overlap End == 2
-				Overlap Both == 3 */
-			return startOverlap + 2 * endOverlap;
-		}
-	
+		var startOverlap = wrap.isOverlap(range.startPosition.container ,tag,attributes);
+		var endOverlap = wrap.isOverlap(range.endPosition.container,tag, attributes);
+		/* Overlap None == 0
+		   Overlap Start == 1
+		   Overlap End == 2
+			Overlap Both == 3 */
+		return startOverlap + 2 * endOverlap;
+	}
+
 	wrap.buildAttribute = function(className,style){
 		var a = {};
 		if(style) a['style'] = style;
@@ -697,6 +697,7 @@ window.ir.textarea.wrap = (function() {
     }
 
 	// internal method, will replace/wrap the node and return the node from which wrapRangeBlockLevel will look for nextSibling
+	// if wrapper is null, will create a paragraph to wrap bare nodes but make no change to others
 	wrap.wrapOrReplaceNode = function(node, wrapper, top) { 
 		var newNode, orig, subtrans, cea, t,
 			topBoundaryCondition = function(m) { 
@@ -710,9 +711,13 @@ window.ir.textarea.wrap = (function() {
 			}
 		
 		if(topBoundaryCondition(node))
-			return utils.replaceTag(node, wrapper);
-		
-		newNode = utils.createTag(wrapper);
+		{
+			if(wrapper)
+				return utils.replaceTag(node, wrapper);
+			
+			return node;
+		}
+		newNode = wrapper ? utils.createTag(wrapper) : utils.newEmptyParagraph(true);
 		
 		subtrans = utils.isSubTransitionalElement(node);
 		cea = utils.getTopCustomElementAncestor(node, top, true) && node.getAttribute('contenteditable');
@@ -787,7 +792,7 @@ window.ir.textarea.wrap = (function() {
 			isWantedTag = function(n) { return utils.isTag(n, listTag); }, 
 			isListItem = function(n) { return utils.isTag(n, 'LI') };
 
-		listTag = listTag.toUpperCase();
+		listTag = listTag && listTag.toUpperCase();
 		
 		refNode = list = utils.queryAncestor(range.startPosition.container, isWantedTag, top, true);
 		
@@ -844,7 +849,7 @@ window.ir.textarea.wrap = (function() {
 
 		// wrap
 		
-		r = wrap.wrapRangeBlockLevel(range, 'li', top);
+		r = wrap.wrapRangeBlockLevel(range, 'li', null, top);
 		
 		sc = utils.queryAncestor(range.startPosition.container, isListItem, top, true);
 		ec = utils.queryAncestor(range.endPosition.container, isListItem, top, true);
@@ -861,35 +866,60 @@ window.ir.textarea.wrap = (function() {
 		return r;
 	}
 	
-	wrap.wrapRangeBlockLevel = function(range, wrapper, top) {
-		var sContainer, eContainer, tag;
+	// default indent step = arbitrary 20px
+	// also is not strictly correct if text is rtl
+	var wrapStep = 20;
+	wrap.wrapIndent = function(range, decrease, top) {
+		return w.wrapRangeBlockLevel(range, null, null, editor, function(n) {
+			var padding = Number(n.style.paddingLeft.replace(/px/,'') || 0);
+			n.style.paddingLeft = !decrease ? 
+									(padding + wrapStep) + "px" : 
+									(padding <= wrapStep ? 
+										0 : 
+										(padding - wrapStep) + "px");
+		})
+	}
+		
+	wrap.wrapRangeBlockLevel = function(range, wrapper, attributes, top, processWrappedNode) {
+		var sContainer, eContainer, tag,
+			process = function(n) {
+				n = wrap.wrapOrReplaceNode(n, wrapper, top);
+				if(processWrappedNode)
+					processWrappedNode(n);
+				if(attributes)
+					utils.setAttributes(sContainer, attributes)
+				return n;
+			};
 
 		sContainer = utils.getNonCustomContainer(range.startPosition.container, top, true);
 		eContainer = utils.getNonCustomContainer(range.endPosition.container, top, true);
 		
 		utils.markBranch(range.endPosition.container, top, "__endBranch", true);
 
+		// first and only
 		if(sContainer == eContainer)
 		{
-			wrap.wrapOrReplaceNode(sContainer, wrapper, top);
+			process(sContainer);
 			return range;
 		}
 		
+		// or first to end excluding last
 		n = sContainer;
 		while(n && !n.__endBranch)
 		{
-			n = wrap.wrapOrReplaceNode(n, wrapper, top);
+			n = process(n);
 			n = Polymer.dom(n).nextSibling;
 		}
-
+		
+		// and last if in same container
 		if(n)
-			n = wrap.wrapOrReplaceNode(n, wrapper, top);
-
+			process(n);
+		
 		utils.unmarkBranch(range.endPosition.container, top, "__endBranch", true);
 
 		return range;
 	}
-	
+
 	return wrap;
 
 	//wrap.wrapRange()
