@@ -526,6 +526,8 @@
 				if(e.keyCode != 13 || e.shiftKey)
 					return;
 
+				this.hide();
+					
 				cont = utils.getNonCustomContainer(this.startPosition.container);
 				
 				ped = Polymer.dom(this.editor);
@@ -564,112 +566,6 @@
 				this.preventNextDefault = true;
 				this.justUpdated = true;
  			},
-			
-			_enterKeyHandler : function(e) {
-				var splitTop, cont, offset, nextPos, nextSplitTop, prevPos, prevSplitTop, state = {}, newp, t;
-				
-				if(e.keyCode != 13 || e.shiftKey)
-					return;
-				
-				this.hide();
-				
-				pos = this.startPosition;
-				cont = pos.container;
-				offset = pos.offset;
-				
-				if(utils.getTopCustomElementAncestor(cont, this.editor))
-					return this.lineBreakHandler(e);;
-
-				// determine where we are in container
-				splitTop = utils.getNonCustomContainer(cont, this.editor);
-
-				nextPos = this.caretNavigator.forward(pos.container, pos.offset);
-				nextSplitTop = utils.getNonCustomContainer(nextPos.container, this.editor)
-				prevPos = this.caretNavigator.backward(pos.container, pos.offset);
-				prevSplitTop = utils.getNonCustomContainer(prevPos.container, this.editor)
-			
-				if(splitTop == this.editor)
-					state.atEditor = true;
-				else
-				if(nextSplitTop != splitTop)
-					state.atEnd = true;
-				else
-				if(prevSplitTop != splitTop || prevPos.container == splitTop)
-					state.atStart = true;
-				else
-					state.atMiddle = true;
-				
-					
-				// execute
-				if(state.atEditor)
-				{
-					paste.pasteHtmlAtPos(newp = utils.newEmptyParagraph(), pos);
-					if(pos.container.tagName == 'BR')
-						Polymer.dom(Polymer.dom(pos.container).parentNode).removeChild(pos.container);
-					//paste.pasteHtmlAtPos(pos.container, { container : newp.firstChild, offset : 0 })
-				}
-				else
-				if(state.atMiddle)
-				{
-					this.hide();
-					utils.setCaretAt(this.startContainer, this.startOffset);
-					splitTop = ir.textarea.extract.splitNode(this.startContainer, this.startOffset, splitTop);
-				}
-				else
-				if(state.atStart)
-				{
-					paste.pasteHtmlAtPos(newp = utils.newEmptyParagraph(), { container : splitTop, offset : 0 }, this.editor);
-				}
-				else
-				{
-					if(!SYMBOLS.EMPTYCONT(splitTop))
-					{
-						//Polymer.dom(Polymer.dom(splitTop).parentNode).insertBefore(utils.newEmptyClone(splitTop), splitTop)						
-
-						paste.pasteHtmlAtPos(newp = utils.newEmptyClone(splitTop), 
-												Polymer.dom(splitTop).nextSibling ? 
-													{ container : Polymer.dom(splitTop).nextSibling, offset : 0 } : 
-													{ container : Polymer.dom(splitTop).parentNode, offset : utils.getChildPositionInParent(splitTop) + 1 },
-											this.editor);
-
-						t = Polymer.dom(pos.container).previousSibling;
-					
-						// pull non-containers into the new paragraph
-						while(Polymer.dom(newp).previousSibling && newp.previousSibling != t && !SYMBOLS.CONT(newp))
-							Polymer.dom(newp).insertBefore(Polymer.dom(newp).previousSibling, newp.firstChild);
-
-						this.go('forward');
-
-					}
-					else
-						Polymer.dom(Polymer.dom(splitTop).parentNode).insertBefore(utils.newEmptyClone(splitTop), splitTop)						
-				}
-				
-				// update carets
-				if(!newp)
-				{
-					this.setAt({ container : splitTop, offset : splitTop.nodeTyoe == 3 ? splitTop.textContent.length : 0 });
-					//this.go('forward');
-					//if(!SYMBOLS.CONT(splitTop))
-					if(splitTop.nodeTyoe != 3)
-						this.go('forward');
-				}
-				else
-				{
-					t = newp.nextSibling;
-					if(SYMBOLS.TEXT(t) || SYMBOLS.IS(t))
-					{
-						Polymer.dom(Polymer.dom(t).parentNode).removeChild(t);
-						Polymer.dom(newp).insertBefore(t, newp.firstChild);
-					}
-					this.setAt({ container : newp.firstChild, offset : 0});
-				}
-				e.preventDefault();
-				this.preventNextDefault = true;
-				this.justUpdated = true;
-
-				return true;
-			},
 			
 			lineBreakHandler : function(e) {
 				this.hide();

@@ -73,14 +73,18 @@ window.ir.textarea.extract =
 	// 
 	
 	extract.extractContents = function(startPos, endPos, opts) {
-		var startPos, endPos, 
+		var hangingFirst, hangingLast,
+			takeFirst, takeLast, 
+			startPos, endPos,
+			sSource, eSource,
+			sTarget, eTarget,
 			starts, ends, 
 			first, last, 
 			sFrag, eFrag,
-			sCont, eCont, takeFirst, takeLast, hangingFirst, hangingLast,
-			sTarget, eTarget,
-			commonAncestor, 
+			sCont, eCont, 
+			sFrom, sTo,
 			extractRes, 
+			commonAncestor, 
 			t, b, n, p, deletes = [], hasContent;
 	
 		//if(startPos.container == opts.top)
@@ -102,7 +106,7 @@ window.ir.textarea.extract =
 
 		takeFirst = utils.posToContainerEdgeHasContent(startPos, "forward", opts.top);
 		takeLast = utils.posToContainerEdgeHasContent(endPos, "backward", opts.top);
-		hangingFirst = startPos.container != opts.top && takeFirst && utils.posToContainerEdgeHasContent(startPos, "backward", opts.top);
+		hangingFirst = startPos.container !== opts.top && takeFirst && utils.posToContainerEdgeHasContent(startPos, "backward", opts.top);
 		hangingLast = takeLast && utils.posToContainerEdgeHasContent(endPos, "forward", opts.top);
 		
 		// 1. both positions are in commonAncestor that is a text node
@@ -131,7 +135,7 @@ window.ir.textarea.extract =
 		extractRes = document.createDocumentFragment();
 
 		sSource = eSource = Polymer.dom(b.commonAncestor);
-		sTarget = eTarget = extractRes = sSource == opts.top ? document.createElement('div') : sSource.cloneNode(false);
+		sTarget = eTarget = extractRes = sSource === opts.top ? document.createElement('div') : sSource.cloneNode(false);
 
 		// cursor between b.starts and b.ends path arrays
 		while(b.starts.length || b.ends.length)

@@ -745,14 +745,13 @@ window.ir.textarea.wrap = (function() {
 		}
 
 		Polymer.dom(utils.parentNode(node)).insertBefore(newNode, node);
-		while(node && bottomBoundaryCondition(node))
-		{
+
+		do {
 			Polymer.dom(newNode).appendChild(node);
 			node = Polymer.dom(newNode).nextSibling;
-		}
+		} while(node && bottomBoundaryCondition(node))		
 		
 		return newNode;
-		alert('uh - not implemented!')
 	}
 	
 	// where can take two values: "before" or "after"
@@ -896,6 +895,13 @@ window.ir.textarea.wrap = (function() {
 		
 		utils.markBranch(range.endPosition.container, top, "__endBranch", true);
 
+		/*if(sContainer == eContainer && !utils.isNonCustomContainer(sContainer))
+		{
+			do {
+				eContainer = Polymer.dom(eContainer).nextSibling;
+			} while(eContainer && !utils.isNonCustomContainer(eContainer));
+		}*/
+		
 		// first and only
 		if(sContainer == eContainer)
 		{
