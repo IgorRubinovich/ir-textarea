@@ -6,7 +6,7 @@
 if(!window.ir) window.ir = {};
 if(!window.ir.textarea) window.ir.textarea = {};
 
-window.ir.textarea = execCommand = 
+window.ir.textarea.execCommand = 
 (function() {
 	var 
 	
@@ -76,12 +76,12 @@ window.ir.textarea = execCommand =
 		{
 			return wrap.wrapWithAttributes(range, 'big', null, top);
 		},
-		"indent" : {
-			return w.wrapIndent({ startPosition : s, endPosition : e }, false, editor)
-		}
-		"outdent" : {
+		"indent" : function(range, top){
+				return w.wrapIndent({ startPosition : s, endPosition : e }, false, editor)
+		},
+		"outdent" : function(range, top){
 			return w.wrapIndent({ startPosition : s, endPosition : e }, true, editor)
-		}
+		},
 		
 		// skipped :
 		// paste, redo, removeFormat, selectAll,
