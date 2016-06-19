@@ -788,7 +788,7 @@ window.ir.textarea.wrap = (function() {
 	}
 	
 	wrap.wrapRangeList = function(range, listTag, top, forceWrap) {
-		var r, sc, ec, listCont, last, pl, stripArr, t, done, lis, noParagraph, after, where, newList, refNode,
+		var r, sc, ec, listCont, list, last, pl, stripArr, t, done, lis, noParagraph, after, where, newList, refNode,
 			isWantedTag = function(n) { return utils.isTag(n, listTag); }, 
 			isListItem = function(n) { return utils.isTag(n, 'LI') };
 
