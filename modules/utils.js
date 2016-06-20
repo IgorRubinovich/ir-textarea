@@ -1295,9 +1295,10 @@ window.ir.textarea.utils = (function() {
 	utils.isLayoutElement = function(el) {
 		var p;
 
-		return 	el && 
-				(el.tagName && LAYOUT_ELEMENTS.indexOf(el.tagName) > -1) || 
-				(el.nodeType == 3 && (p = utils.parentNode(el)) && LAYOUT_ELEMENTS.indexOf(p.tagName) > -1)
+		return 	el && (
+					(el.tagName && LAYOUT_ELEMENTS.indexOf(el.tagName) > -1) || 
+					(el.nodeType == 3 && (p = utils.parentNode(el)) && LAYOUT_ELEMENTS.indexOf(p.tagName) > -1)
+				)
 	}
 
 	utils.isSpecialElement = function(el) {

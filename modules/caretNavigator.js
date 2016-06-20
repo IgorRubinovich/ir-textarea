@@ -36,11 +36,12 @@
 
 		// a bunch of rules that define where the caret should stop - see caretRules.js for details
 		rulesetsDef = {
-			stopPoints : 	"PEMPTY>*,EDITOR>IS,*>EMPTYTEXT,NCCONT>NULL,IS||!TEXT," + 
+			stopPoints : 	"EMPTYCONT>*,NCCONT>NCBLOCK,EDITOR>IS,*>EMPTYTEXT,NCCONT>NULL,IS||!TEXT," + 
 							"EMPTYTEXT||NCBLOCK,P>IS,CONTED>TEXT,NCBLOCK||NCBLOCK," +
 							"NCBLOCK||NULL,CONT|NCBLOCK,CONTED>NCBLOCK",
 
-			skipPoints : "*+CARET,*+SHADOW,TEXT|TRANS,IS>>!CONTED,*>>EDITOR,*||SHADOW,P||TEXT,IS||INLINECONT,INLINECONT||TEXT,INLINECONT||INLINECONT,INLINECONT>INLINECONT,TRANS>|*",
+			skipPoints : 	"*+CARET,*+SHADOW,TEXT|TRANS,IS>>!CONTED,*>>EDITOR,*||SHADOW,P||TEXT,SUBTRANS||*," + 
+							"IS||INLINECONT,INLINECONT||TEXT,INLINECONT||INLINECONT,INLINECONT>INLINECONT,LAYOUTELEMENT>|*,LAYOUTELEMENT||*",
 			
 			inlineTextNeighbours : "INLINECONT||TEXT,INLINECONT>TEXT",
 			
@@ -66,6 +67,11 @@
 
 	CaretNavigator.prototype.Symbols = Symbols;
 	CaretNavigator.prototype.rulesetsDef = rulesetsDef;
+	
+	CaretNavigator.prototype.shouldStopBetween = function(m, n)
+	{
+		return this.rulesets.stopPoints(m, n) && this.rulesets.skipPoints(m, n);
+	}
 	
 	// given a container and and offset returns the next legit caret position
 	CaretNavigator.prototype.forward = function(container, offset)
@@ -110,12 +116,20 @@
 			
 			if(!n)
 				return { container : this.editor, offset : Polymer.dom(this.editor).childNodes.length };;
-				
+
+			// a non-orthodox solution for empty blocks
+			if(!this.rulesets.skipPoints(n, null) && Symbols.NCCONT(n) && !Polymer.dom(n).childNodes.length)
+			{
+				Polymer.dom(n).appendChild(n = utils.createTag('br'));
+				Polymer.dom.flush();
+				return { container : n, offset : 0 }
+			}
+
 			m = Polymer.dom(n).previousSibling || utils.parentNode(n, this.editor);
 
 			if(m == editor || (n == e && o == Polymer.dom(e).childNodes.length))
 				return { container : c, offset : o };
-
+			
 			// non-end of textNode
 			
 			if(n.nodeType == 3 && !this.rulesets.skipPoints(null, n))
@@ -194,7 +208,15 @@
 			n = utils.prevNode(n, this.editor);
 			if(n == this.editor)
 				res = { container : m, offset : 0 }
-			
+
+			// a non-orthodox solution for empty blocks
+			if(!this.rulesets.skipPoints(n, null) && Symbols.NCCONT(n) && !Polymer.dom(n).childNodes.length)
+			{
+				Polymer.dom(n).appendChild(n = utils.createTag('br'));
+				Polymer.dom.flush();
+				return { container : n, offset : 0 }
+			}
+
 			if(!res)
 				m = Polymer.dom(n).previousSibling || utils.parentNode(n, this.editor);
 			
@@ -416,6 +438,8 @@
 	// setAt(pos, rangeSide) where pos.container and pos.offset are same as in the first signature
  	CaretNavigator.prototype.setAt = function(container, offset, rangeSide) {
 		var r = utils.getSelectionRange(), c, o, pos;
+		
+		console.log("setAt", container, offset)
 		
 		if(!container)
 			return;

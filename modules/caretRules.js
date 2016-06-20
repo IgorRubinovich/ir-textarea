@@ -225,7 +225,7 @@
 		},
 		IS : 		function(el) { return el && el.is && el != this.editor },
 		NULL : 		function(el) { return !el },
-		CONT : 		function(el) { return utils.canHaveChildren(el) },
+		CONT : 		function(el) { return utils.canHaveChildren(el) && !Symbols.LAYOUTELEMENT(this, el) },
 		
 		// non-custom container
 		NCCONT :	function(el) { return el && !el.is && utils.canHaveChildren(el) },
@@ -254,7 +254,11 @@
 		TEXT : 		function(el) { return el && el.nodeType == 3 },
 		NBTEXT : 	function(el) { return el && el.nodeType == 3 && /\S/.test(el.textContent) },
 		EMPTYTEXT : function(el) { return Symbols.TEXT.call(this, el) && /^\s*$/.test(el.textContent) },
-		EMPTYCONT : function(el) { return Symbols.CONT.call(this, el) && (!el.childNodes.length || (utils.singleChildNode(el) && el.firstChild.tagName == "BR") )},
+		EMPTYCONT : function(el) { return 
+										Symbols.CONT.call(this, el) && 
+										(!el.childNodes.length || (utils.singleChildNode(el) && el.firstChild.tagName == "BR") )
+										
+								},
 		P : 		function(el) { return utils.isParagraph(el) },
 		PEMPTY : 	function(el) { return utils.isEmptyParagraph(el) },
 		CARET : 	function(el) { return el && el.isCaret },

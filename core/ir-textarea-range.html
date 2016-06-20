@@ -371,51 +371,47 @@
 				
 				Polymer.dom.flush();
 				
-				setTimeout(function() {
-					if(!this.justUpdated)
+				if(!this.justUpdated)
+				{
+					this.hide();
+					this.update();
+				}
+				if(this.preventNextDefault)
+					e.preventDefault();
+				
+				if(this.lastActive)
+				{
+					ars = this.$[this.lastActive];
+					prs = this.$[this.lastActive == "start" ? "end" : "start"];
+					
+					ap = ars.posPop();
+					pp = prs.posPop();
+					
+					if(ap && e.shiftKey && (keyCode == 38 || keyCode == 40))
 					{
-						this.hide();
-						this.update();
-					}
-					if(this.preventNextDefault)
-						e.preventDefault();
-					
-					if(this.lastActive)
-					{
-						ars = this.$[this.lastActive];
-						prs = this.$[this.lastActive == "start" ? "end" : "start"];
-						
-						ap = ars.posPop();
-						pp = prs.posPop();
-						
-						if(ap && e.shiftKey && (keyCode == 38 || keyCode == 40))
-						{
-							atmidtext = utils.atText(ars.realPosition, 'middle')
-							if(keyCode == 38 && !atmidtext)
-								ars.go('backward');
-							else
-							if(keyCode == 40 && !atmidtext)
-								ars.go('forward');
+						atmidtext = utils.atText(ars.realPosition, 'middle')
+						if(keyCode == 38 && !atmidtext)
+							ars.go('backward');
+						else
+						if(keyCode == 40 && !atmidtext)
+							ars.go('forward');
 
-							prs.goAt(pp);
-						
-							noupdate = true;
-						}
+						prs.goAt(pp);
+					
+						noupdate = true;
 					}
+				}
 
-					if(this.collapsed)
-						this.lastActive = null;
-					
-					//if(!noupdate)
-					this.updateFromCurrentRange();				
-					
-					this.preventNextDefault = this.justUpdated = false;
-				}.bind(this))
+				if(this.collapsed)
+					this.lastActive = null;
+				
+				this.updateFromCurrentRange();				
+				
+				this.preventNextDefault = this.justUpdated = false;
 			},
 			
 			keyDownHandler : function (e) {
 				var keyCode = e.keyCode, handled;
-					this._hold = true;
 				
 				if([16,17].indexOf(keyCode) > -1) // shift, ctrl, (alt)
 				{	
@@ -425,6 +421,8 @@
 					
 				if(this._hold)
 					this.keyUpHandler(e);
+	
+				this._hold = true;
 				
 				"selectAll,copy,cut,direction,enter,shiftEnter,delete".split(',').forEach(function(handler) {
 					if(!handled)
@@ -1160,6 +1158,7 @@
 					this.updateNativeRange();
 					
 					this.justUpdated = true;
+					this.preventNextDefault = true;
 				
 					e.preventDefault();
 				}

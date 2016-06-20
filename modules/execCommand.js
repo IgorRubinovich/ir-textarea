@@ -31,9 +31,6 @@ window.ir.textarea.execCommand =
 		"createLink" : function(range, href, top) {
 			return wrap.wrapWithAttributes(range, 'a', { href : href }, top);
 		},
-		"createLink" : function(range, href, top) {
-			return wrap.wrapWithAttributes(range, 'a', { href : href }, top);
-		},
 		"cut" : function(range, par, top) {
 			return extractContents(range.startPos, range.endPos, { top : top, delete : true });
 		},
@@ -42,7 +39,7 @@ window.ir.textarea.execCommand =
 			return wrap.wrapWithAttributes(range, 'small', null, top);
 		},
 		"delete" : function(range, par, top) {
-			return extractContents(range.startPos, range.endPos, { top : top, delete : true });
+			return extract.extractContents(range.startPos, range.endPos, { top : top, delete : true });
 		},
 		// skipped: 
 		// {
