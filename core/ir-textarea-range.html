@@ -424,7 +424,7 @@
 	
 				this._hold = true;
 				
-				"selectAll,copy,cut,direction,enter,shiftEnter,delete".split(',').forEach(function(handler) {
+				"expandedRangeValue,selectAll,copy,cut,direction,enter,shiftEnter,delete".split(',').forEach(function(handler) {
 					if(!handled)
 						handled = this[handler + "KeyHandler"].call(this, e);
 				}.bind(this));
@@ -440,6 +440,24 @@
 				this.$.end.goAt(this.$.end.posPop());
 			},
 
+			// removes range contents when range is not collapsed and no control key is pressed
+			// stores the last extracted value in this.lastExtracted
+			expandedRangeValueKeyHandler : function(e) {
+				var key = e.keyCode, parking;
+
+				if(this.collapsed ||
+						[36,37,33,38,35,39,34,40 /* direction keys */].indexOf(key) > -1 ||
+						e.shiftKey || e.ctrlKey || e.altKey
+					)
+					return false;
+
+				parking = this.caretNavigator.backward(this.startContainer, this.startOffset);
+				//this.posPush();
+				this.hide();
+				this.lastExtracted = ir.textarea.extract.extractContents(this.$.start, this.$.end, { top : this.editor, delete : true });
+				this.setAt(this.caretNavigator.forward(parking.container, parking.offset));
+			},
+			
 			copy : function() {
 				var s, e;
 				
@@ -465,7 +483,7 @@
 				console.log('cut')
 
 				this.hide();
-				
+
 				s = utils.clonePos(this.$.start);
 				e = utils.clonePos(this.$.end);
 
@@ -531,14 +549,14 @@
 
 			enterKeyHandler : function(e) {
 				var cont, hasContentBefore, hasContentAfter, right, ped;
-				
+
 				if(e.keyCode != 13 || e.shiftKey)
 					return;
 
 				this.hide();
-					
+
 				cont = utils.getNonCustomContainer(this.startPosition.container);
-				
+
 				ped = Polymer.dom(this.editor);
 				
 				hasContentBefore = utils.posToContainerEdgeHasContent(this.startPosition, "backward", this.editor);
@@ -578,7 +596,7 @@
 			
 			lineBreakHandler : function(e) {
 				this.hide();
-					
+
 				cont = this.startPosition.container;
 				offset = this.startPosition.offset;
 				
