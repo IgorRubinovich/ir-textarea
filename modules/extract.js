@@ -32,6 +32,9 @@ window.ir.textarea.extract =
 			{ delete : true, splitRoot : limit, top : top, keepContainer : true }
 		);
 		
+		if(utils.isTransitionalElement(left))
+			left = utils.moveChildrenToFragment(left);
+		
 		if(!left)
 			return node;
 		
@@ -233,7 +236,12 @@ window.ir.textarea.extract =
 			{				
 				if(b.first.original.nodeType == 3)
 					b.first.original.textContent = b.first.remainder;		
-				if(takeFirst && !b.first.remainder && (!b.last.original || (utils.getNonCustomContainer(b.first.original) != utils.getNonCustomContainer(b.last.original))))
+				
+				if(takeFirst && b.first.original != b.commonAncestor &&
+					!b.first.remainder && 
+						(!b.last.original || 
+							(utils.getNonCustomContainer(b.first.original) != utils.getNonCustomContainer(b.last.original))))
+					
 					deletes.push(b.first.original);
 			}
 			if(b.last.original)

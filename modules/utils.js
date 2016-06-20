@@ -309,10 +309,12 @@ window.ir.textarea.utils = (function() {
 	}
 	
 	utils.replaceNodeWith = function(node, newnode) {
-		var pn = utils.parentNode(node);
+		var pn = Polymer.dom(utils.parentNode(node));
 		
 		pn.insertBefore(newnode, node);
 		pn.removeChild(node);
+		
+		Polymer.dom.flush();
 	
 		return newnode;
 	}
@@ -1012,7 +1014,7 @@ window.ir.textarea.utils = (function() {
 			otherpos = pos;
 			pos = { container : utils.nextNodeNonDescendant(cont, top), position : 0 };
 		}
-		return utils.rangeHasContent(otherpos, pos); 
+		return utils.rangeHasContent(otherpos, pos, top); 
 	}
 	
 	utils.commonContainer = function(sc, ec, top)

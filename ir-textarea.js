@@ -25,6 +25,7 @@
 			this.changed = true;
 
 			this.$.range.editor = this; //.$.editor;
+			this.range = this.$.range; //.$.editor;
 			
 			this.__actionData = {};
 			
@@ -760,7 +761,7 @@
 
 		clickedPresetCommand : function(ev) {
 		  this.selectionRestore();
-		  this.execCommand(ev.target.getAttribute("cmd-name"), ev.target.selected);
+		  this.range.setAt(this.range.execCommand(ev.target.getAttribute("cmd-name"), ev.target.selected));
 		},
 
 		clickedCommand : function(e, presetval) {
@@ -944,14 +945,16 @@
 				}, 300);
 			}
 			else {
-				if(this.isCommandPossible(cmd, sdu, val)) {
-					document.execCommand(cmd, sdu, val);
+				//if(this.isCommandPossible(cmd, sdu, val)) {
+					//document.execCommand(cmd, sdu, val);
+					var q = this.range.execCommand(cmd, sdu, val);
 					Polymer.dom.flush();
-					this.selectionSave();
+					this.range.setAt(q);
+					/*this.selectionSave();
 					setTimeout(function(){
 						that.selectionRestore();
-					}, 200);
-				}
+					}, 200);*/
+				//}
 			}
 		},
 

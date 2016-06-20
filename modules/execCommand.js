@@ -22,10 +22,10 @@ window.ir.textarea.execCommand =
 		"backColor" : function(range, cssColor, top) {
 			return wrap.wrapWithAttributes(range, 'span', { style : { color : cssColor } }, top);
 		},
-		"bold" : function(range, top) {
+		"bold" : function(range, par, top) {
 			return wrap.wrapWithAttributes(range, 'b', null, top);
 		},
-		"copy" : function(range, top) {
+		"copy" : function(range, par, top) {
 			return extract.extractContents(range.startPos, range.endPos, { top : top });
 		},
 		"createLink" : function(range, href, top) {
@@ -34,14 +34,14 @@ window.ir.textarea.execCommand =
 		"createLink" : function(range, href, top) {
 			return wrap.wrapWithAttributes(range, 'a', { href : href }, top);
 		},
-		"cut" : function(range, top) {
+		"cut" : function(range, par, top) {
 			return extractContents(range.startPos, range.endPos, { top : top, delete : true });
 		},
-		"decreaseFontSize" : function(range, top)
+		"decreaseFontSize" : function(range, par, top)
 		{
 			return wrap.wrapWithAttributes(range, 'small', null, top);
 		},
-		"delete" : function(range, top) {
+		"delete" : function(range, par, top) {
 			return extractContents(range.startPos, range.endPos, { top : top, delete : true });
 		},
 		// skipped: 
@@ -72,45 +72,69 @@ window.ir.textarea.execCommand =
 			return commandMap.backColor.call(cssColor, arguments);
 		},
 		
-		"increaseFontSize" : function(range, top)
+		"increaseFontSize" : function(range, par, top)
 		{
 			return wrap.wrapWithAttributes(range, 'big', null, top);
 		},
-		"indent" : function(range, top){
-				return w.wrapIndent({ startPosition : s, endPosition : e }, false, editor)
+		"indent" : function(range, par, top){
+				return wrap.wrapIndent(range, false, top)
 		},
-		"outdent" : function(range, top){
-			return w.wrapIndent({ startPosition : s, endPosition : e }, true, editor)
+
+		// skipped:
+		// insertBrOnReturn, insertHorizontalRule, insertHTML, insertImage, insertOrderedList, insertUnorderedList, insertText
+		
+
+		// additional option: if forceNested is true, will not toggle even if in list, but create a new nested instead
+		"insertOrderedList" : function(range, forceNested, top) {
+			return wrap.wrapRangeList(range, "ol", top, forceNested)
+		},
+		
+		// additional option: if forceNested is true, will not toggle even if in list, but create a new nested instead
+		"insertUnorderedList" : function(range, forceNested, top) {
+			return wrap.wrapRangeList(range, "ul", top, forceNested)
+		},
+		
+		"insertText" : function() {
+			
+		},
+		
+		"italic" : function(range, par, top){
+			return wrap.wrapWithAttributes(range, 'i', null, top);
+		},
+		"outdent" : function(range, par, top){
+			return wrap.wrapIndent(range, true, top)
 		},
 		
 		// skipped :
 		// paste, redo, removeFormat, selectAll,
-		"strikeThrough" : function(range, top) {
+		"strikeThrough" : function(range, par, top) {
 			return wrap.wrapWithAttributes(range, 's', null, top);
 		},
-		"subscript" : function(range, top) {
+		"subscript" : function(range, par, top) {
 			return wrap.wrapWithAttributes(range, 'sub', null, top);
 		},
-		"subscript" : function(range, top) {
+		"subscript" : function(range, par, top) {
 			return wrap.wrapWithAttributes(range, 'sub', null, top);
 		},
-		"supercript" : function(range, top) {
+		"supercript" : function(range, par, top) {
 			return wrap.wrapWithAttributes(range, 'sup', null, top);
 		},
 		// skipped:
 		// tableCreate
-		"underline" : function(range, top) {
+		"underline" : function(range, par, top) {
 			return wrap.wrapWithAttributes(range, 'u', null, top);
 		},
 		// skipped: undo
-		"unlink" : function() {
+		"unlink" : function(range, par, top) {
 			return wrap.wrapWithAttributes(range, 'a', null, top);
 		}
 		// skipped: useCSS, styleWithCSS
 		
 	}
 
-	return function(range, aCommandName, aShowDefaultUI, aValueArgument) {
-		commandMap[aCommandName](aValueArgument);
+	return function(range, aCommandName, aShowDefaultUI, aValueArgument, top) {
+		if(!commandMap[aCommandName])
+			throw new Error("ir.textarea.execCommand polyfill: '" + aCommandName + "' not implemented")
+		return commandMap[aCommandName](range, aValueArgument, top);
 	};
 })();

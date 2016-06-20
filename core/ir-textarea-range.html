@@ -239,9 +239,20 @@
 					this.setAt(cp);
 			},
 			
+			
+			// can be called as:
+			// 			setAt({ startPosition : pos, endPosition : pos})
+			//		or 	setAt(startPos, endPos)
+			//		or	setAt(startContainer, startOffset, endContainer, endOffset)
 			setAt : function(startContainer, startOffset, endContainer, endOffset) {
 				//if(startContaienr == endContainer && startOffset == endOffset)
 				var startPos, endPos, t, reverseFlow;
+				
+				if(startContainer.startPosition)
+				{
+					startOffset = startContainer.endPosition
+					startContainer = startContainer.startPosition
+				}
 				
 				if(startContainer.container)
 				{
@@ -640,6 +651,65 @@
 					this.go('forward');
 			},
 
+
+			deleteKeyHandler : function(e) {
+				var cont, hasContentBefore, hasContentAfter, right, ped, dir, atText;
+				
+				dir = keyCode == 8 && "backward"; // backspace
+				dir = dir || (keyCode == 46) && "forward"; // del
+				if(!dir)
+					return false;
+
+				this.hide();
+					
+				cont = utils.getNonCustomContainer(this.startPosition.container);
+				
+				ped = Polymer.dom(this.editor);
+				
+				hasContentBefore = utils.posToContainerEdgeHasContent(this.startPosition, "backward", this.editor);
+				hasContentAfter = utils.posToContainerEdgeHasContent(this.startPosition, "forward", this.editor);
+				
+				this.posPush();
+				this.hide();
+				
+				if(!hasContentBefore && !hasContentAfter)
+				{
+					if(cont)
+						utils.removeFromParent(cont);
+						
+					this.posPop();
+				}
+				
+				atText = utils.atText(pos);
+				
+				// default action
+				if(
+					atText == "middle" ||
+					(dir == 'forward' && atText == 'start' && pos.container.length > 1) ||
+					(dir == 'backward' && atText == 'end' && pos.container.length > 1)
+				)
+					return true;
+
+				var nextInDir = function(n) { return Polymer.dom(n)[dir == "forward" ? "nextSibling" : "previousSibling"] };
+				var nextInDirOrParent = function(n) { return nextInDir(n) || Polymer.dom(n).parentNode; };
+				var prevInDir = function(n) { return Polymer.dom(n)[dir == "forward" ? "previousSibling" : "nextSibling"] };
+				var prevInDirOrParent = function(n) { return prevInDir(n) || Polymer.dom(n).parentNode };
+				var mergeInDir = function(n1, n2) { return dir == "forward" ? utils.mergeNodes(bccont, accont) : utils.mergeNodes(accont, bccont); };
+				var next;
+				
+				next = nextInDir(pos.container);
+				
+				if(next && (!utils.canHaveChildren(next) || next.is || !utils.nodeHasContent(next)))
+				{
+					utils.removeFromParent(next);
+					this.posPop();
+				}
+				else
+				{
+					
+				}
+			},
+			
 			deleteKeyHandler : function(e)
 			{
 				var pn, dir, otherdir,
@@ -1108,6 +1178,10 @@
 				this.$.start.go(dir);
 				this.$.end.goAt(this.$.start);
 				this.updateNativeRange();
+			},
+			
+			execCommand : function(aCommandName, aShowDefaultUI, aValueArgument) {
+				return ir.textarea.execCommand(this, aCommandName, aShowDefaultUI, aValueArgument, this.editor);
 			}
 			
 		});

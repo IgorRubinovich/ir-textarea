@@ -413,19 +413,19 @@ window.ir.textarea.wrap = (function() {
 		return resultRange;
 	}
 
-	wrap.wrapWithAttributes = function(posr, tag, attributes){
+	wrap.wrapWithAttributes = function(posr, tag, attributes, top){
 		var cltag, posr;
 		
 		cltag = tag.replace(/^\W+\w/, '')
            
-			wrap.normalizeWraps(posr,tag,attributes);
+			//wrap.normalizeWraps(posr,tag,attributes);
 			if(! wrap.detectOverlap(posr,tag))
 			{
 				var aString =  '';
 				if(attributes && attributes['style']) astring = ' style=' + attributes['style'];
 				if(attributes && attributes['class']) astring = astring + ' class=' + attributes['class'];
 				
-				return wrap.wrapRange(posr, "<" + tag + aString +	"><span id='insertionPoint'></span></" + cltag + ">", editor);
+				return wrap.wrapRange(posr, "<" + tag + aString +	"><span id='insertionPoint'></span></" + cltag + ">", top);
 			}
 	}
     
@@ -759,7 +759,7 @@ window.ir.textarea.wrap = (function() {
 		var t = item, nt, 
 			action = "insertBefore",
 			//refNode = list, par,
-			lp = Polymer.dom(utils.parentNode(list)),
+			lp = Polymer.dom(utils.parentNode(refNode)),
 			par;
 
 		if(after && !Polymer.dom(refNode).nextSibling)
@@ -869,7 +869,7 @@ window.ir.textarea.wrap = (function() {
 	// also is not strictly correct if text is rtl
 	var wrapStep = 20;
 	wrap.wrapIndent = function(range, decrease, top) {
-		return w.wrapRangeBlockLevel(range, null, null, editor, function(n) {
+		return wrap.wrapRangeBlockLevel(range, null, null, top, function(n) {
 			var padding = Number(n.style.paddingLeft.replace(/px/,'') || 0);
 			n.style.paddingLeft = !decrease ? 
 									(padding + wrapStep) + "px" : 
