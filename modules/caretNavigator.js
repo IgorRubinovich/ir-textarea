@@ -439,8 +439,6 @@
  	CaretNavigator.prototype.setAt = function(container, offset, rangeSide) {
 		var r = utils.getSelectionRange(), c, o, pos;
 		
-		console.log("setAt", container, offset)
-		
 		if(!container)
 			return;
 		

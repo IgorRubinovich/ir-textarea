@@ -456,6 +456,13 @@
 				this.hide();
 				this.lastExtracted = ir.textarea.extract.extractContents(this.$.start, this.$.end, { top : this.editor, delete : true });
 				this.setAt(this.caretNavigator.forward(parking.container, parking.offset));
+			
+				if(ev.keyCode == 8 || ev.keyCode == 46)
+				{
+					this.preventDefault();
+					this.preventNextDefault = this.justUpdated = true;
+					return true;
+				}
 			},
 			
 			copy : function() {
@@ -632,7 +639,7 @@
 			},
 			
 			shiftEnterKeyHandler : function(e) {
-				var dir, keyCode = e.keyCode || e.which, br;
+				var dir, keyCode = e.keyCode || e.which, br, pos;
 				
 				if(keyCode != 13 || !e.shiftKey)
 					return false;
@@ -640,15 +647,14 @@
 				this.hide();
 					
 				if(utils.atText(this.startPosition, 'end') && !this.startContainer.nextSibling)
-					paste.pasteHtmlAtPos(document.createElement('br'), this.startPosition);
-					
-				paste.pasteHtmlAtPos(br = document.createElement('br'), this.startPosition);
-				this.setAfter(br);
+					paste.pasteHtmlAtPos(utils.createTag('br'), this.startPosition);
+				
+				pos = paste.pasteHtmlAtPos(br = utils.createTag('br'), this.startPosition);
+				this.setAt(pos);
 			
 				e.preventDefault();
-				this.preventNextDefault = this.justUpdated = true;
-			
-				return true;
+				
+				return this.preventNextDefault = this.justUpdated = true;
 			},
 			
 			setAfter : function(el, dir) {
@@ -721,11 +727,16 @@
 				
 				if(next && (!utils.canHaveChildren(next) || next.is || !utils.nodeHasContent(next)))
 				{
+					//if(dir == "forward")
+					//	this.go("foward");
+					//else
+					//	this.setAt(this.startPosition);
+					if(dir == "backward")
+						this.go("backward");
+					this.posPush();
 					utils.removeFromParent(next);
-					if(dir == "forward")
-						this.go("foward");
-					else
-						this.setAt(this.startPosition);
+					//this.setAt(this.startPosition);
+					this.posPop();
 				}
 				else
 				{	

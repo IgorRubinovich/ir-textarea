@@ -1460,7 +1460,7 @@ window.ir.textarea.utils = (function() {
 		if(setCaretAtMergePoint)
 			utils.setCaretAt(ret.container, ret.offset);
 		
-		utils.parentNode(ret.container).normalize();
+		//utils.parentNode(ret.container).normalize();
 		
 		Polymer.dom.flush();
 		
