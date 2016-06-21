@@ -18,7 +18,7 @@ window.ir.textarea.wrap = (function() {
 	wrap.parseWrapper = function(str, selector) {
 		var d = document.createElement('div'),
 			f = document.createDocumentFragment(),
-			replaceTarget, appendTarget;
+			replaceTarget, appendTarget, lastInserted;
 		d.innerHTML = str;
 		
 		selector = selector || "span#insertionPoint";
@@ -148,7 +148,7 @@ window.ir.textarea.wrap = (function() {
 		var frag, startPath, endPath, splitRoot, 
 			dummyparagraph, src, extractRes, pos, n, done,
 			sAtInlineEdge, eAtInlineEdge,
-			resultRange = {};
+			resultRange = {}, p;
 			
 		sAtInlineEdge = utils.atText(range.startPosition, 'start') &&
 							utils.isInlineElement(utils.parentNode(range.startPosition.container));
@@ -414,14 +414,14 @@ window.ir.textarea.wrap = (function() {
 	}
 
 	wrap.wrapWithAttributes = function(posr, tag, attributes, top){
-		var cltag, posr;
+		var cltag, posr, aString;
 		
 		cltag = tag.replace(/^\W+\w/, '')
            
 			//wrap.normalizeWraps(posr,tag,attributes);
 			if(! wrap.detectOverlap(posr,tag))
 			{
-				var aString =  '';
+				aString =  '';
 				if(attributes && attributes['style']) astring = ' style=' + attributes['style'];
 				if(attributes && attributes['class']) astring = astring + ' class=' + attributes['class'];
 				

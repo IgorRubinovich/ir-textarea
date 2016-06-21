@@ -88,7 +88,7 @@ window.ir.textarea.extract =
 			sFrom, sTo,
 			extractRes, 
 			commonAncestor, 
-			t, b, n, p, deletes = [], hasContent;
+			t, b, n, p, deletes = [], hasContent, top;
 	
 		//if(startPos.container == opts.top)
 			startPos = utils.maybeSlidePosDown(startPos, opts.top);

@@ -711,7 +711,7 @@
 				var prevInDir = function(n) { return Polymer.dom(n)[dir == "forward" ? "previousSibling" : "nextSibling"] };
 				var prevInDirOrParent = function(n) { return prevInDir(n) || Polymer.dom(n).parentNode };
 				var mergeInDir = function(n1, n2) { return dir == "forward" ? utils.mergeNodes(bccont, accont) : utils.mergeNodes(accont, bccont); };
-				var next;
+				var next, thisCont, nextCont;
 				
 				next = nextInDir(pos.container);
 				

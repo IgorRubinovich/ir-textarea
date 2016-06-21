@@ -115,7 +115,7 @@
 			n = utils.nextNode(n, this.editor);
 			
 			if(!n)
-				return { container : this.editor, offset : Polymer.dom(this.editor).childNodes.length };;
+				return { container : this.editor, offset : Polymer.dom(this.editor).childNodes.length };
 
 			// a non-orthodox solution for empty blocks
 			if(!this.rulesets.skipPoints(n, null) && Symbols.NCCONT(n) && !Polymer.dom(n).childNodes.length)
@@ -312,7 +312,7 @@
 	
 	CaretNavigator.prototype.defaultCaretHide = function()
 	{
-		var caretSpan = this.caretSpan, index, pn;
+		var caretSpan = this.caretSpan, index, pn, i;
 		
 		if(!Polymer.dom(caretSpan).parentNode)
 			return;

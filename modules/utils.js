@@ -68,7 +68,7 @@ window.ir.textarea.utils = (function() {
 	
 	utils.reattachCustomElements = function(root) {
 		utils.visitNodes(root, function(el) {  // hard-reattach custom elements lest they lose their powers
-			var h;
+			var h, clone;
 			if(el.is)
 			{
 				clone = Polymer.dom(el).cloneNode(false);
@@ -1149,7 +1149,7 @@ window.ir.textarea.utils = (function() {
 		{
 			win = win || window;
 			var doc = win.document, offsetParent, oldVal;
-			var sel = doc.selection, range, rects, rect;
+			var sel = doc.selection, range, rects, rect, span;
 			var x = 0, y = 0, spanParent, sid, eid;
 			if (sel) {
 				if (sel.type != "Control") {
@@ -1235,7 +1235,8 @@ window.ir.textarea.utils = (function() {
 
 	utils.getDomPath = function(child, parent, top, criteria)
 	{
-		var path = getDomPath
+		var path = getDomPath, p;
+		
 		while(p = utils.parentNode(c))
 			if(criteria(p))
 				path.push(p)
@@ -1707,7 +1708,7 @@ window.ir.textarea.utils = (function() {
 	}
     utils.cloneNodeWithProperties = function(el)
     {
-        newElement = el.cloneNode(true);
+        var newElement = el.cloneNode(true);
         for(var i in el.properties) 
         {
             newElement[i] = el[i]

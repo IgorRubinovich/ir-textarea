@@ -14,7 +14,7 @@ window.ir.textarea.inputHandlers = (function() {
 				this.customUndo.pushUndo();
 		},
 		previewHotKey : function(ev) {
-			var keyCode = ev.which || ev.keyCode;
+			var keyCode = ev.which || ev.keyCode, previewShortcutListener;
 			if(keyCode == 192 && ev.type == 'keydown' && ev.altKey && this.viewMode != 1)
 			{
 				document.addEventListener('keyup', previewShortcutListener = function() {
@@ -29,7 +29,7 @@ window.ir.textarea.inputHandlers = (function() {
 
 				this._prevViewMode = this.viewMode;
 				this.set('viewMode', 1);
-			};
+			}
 		},
 		
 		clearActionData : function(ev) {
@@ -91,7 +91,7 @@ window.ir.textarea.inputHandlers = (function() {
 		},
 		
 		navigationKeys : function(ev) {
-			var r, sc, se, so, eo;
+			var r, sc, se, ec, eo;
 
 			r = utils.getSelectionRange();
 			

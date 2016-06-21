@@ -865,7 +865,7 @@
 			  removeTags = opts.removeTags.toLowerCase().split(","),
 			  mapTags = {},
 			  attrNamesArray = opts.attributeNames.toLowerCase().split(","),
-			  root, movedChildren, node, mt;
+			  root, movedChildren, node, mt, nlc;
 
 			Object.keys(opts.mapTags).forEach(function(src) {
 			  src.split(',').forEach(function(t) {
@@ -1020,7 +1020,7 @@
 			if(typeof cmdDef == 'string')
 				cmdDef = (window.ir.textarea.commands.filter(function(c) { return c.cmd == cmdDef }))[0] || { fakeCmd : cmdDef };
 
-			var actualCmd = cmdDef.fakeCmd || cmdDef.cmd;
+			actualCmd = cmdDef.fakeCmd || cmdDef.cmd;
 
 			promptProcessor = promptProcessor || (this.promptProcessors[actualCmd] && document.getElementById(this.promptProcessors[actualCmd]));
 

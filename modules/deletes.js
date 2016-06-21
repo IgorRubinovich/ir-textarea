@@ -1,5 +1,9 @@
+// THIS CODE IS OBSOLETE AS OF 21.6.16
+
+
 // delete keys handler and non-collapsed range deleter
 
+/*
 if(!window.ir) window.ir = {};
 if(!window.ir.textarea) window.ir.textarea = {};
 
@@ -45,7 +49,7 @@ window.ir.textarea.deletes = (function() {
 				
 				this.preventNextDefault = false;
 			}*/
-
+/*
 			if(this.__actionData.target) // selected item is a priority
 			{
 				toDelete = this.__actionData.deleteTarget;
@@ -135,7 +139,7 @@ window.ir.textarea.deletes = (function() {
 						ev.preventDefault();
 					}
 					else*/
-					
+/*					
 					if((sc.isDelimiter || (sc.nodeType == 3 && so == 0)) && sc.previousSibling && sc.previousSibling.is)
 					{
 						forcedelete = toDelete = sc.previousSibling;
@@ -201,7 +205,7 @@ window.ir.textarea.deletes = (function() {
 				this.preventNextDefault = true; // prevent next non-keydown (mostly FF)
 			else
 				this.preventNextDefault = false;*/
-		}
+	/*	}
 
 		deletes.deleteOnNonCollapsedRange = function(ev) {
 			var i, s, r, r1, sc, ec, so, eo, nso, neo, sild, eild, stpce, etpce, scp, origsc, origec;
@@ -282,3 +286,4 @@ window.ir.textarea.deletes = (function() {
 		return deletes;
 	})();
 
+*/
