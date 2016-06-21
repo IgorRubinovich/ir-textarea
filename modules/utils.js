@@ -1400,8 +1400,11 @@ window.ir.textarea.utils = (function() {
 				utils.removeFromParent(right);
 			}
 			else					// element - text
+			{
+				ret = utils.getLastCaretPosition(left);
 				Polymer.dom(left).appendChild(Polymer.dom(Polymer.dom(right).parentNode).removeChild(right));
-
+			}
+			
 			Polymer.dom.flush();
 			if(setCaretAtMergePoint)
 				utils.setCaretAt(ret.container, ret.offset);
