@@ -455,9 +455,10 @@
 				//this.posPush();
 				this.hide();
 				this.lastExtracted = ir.textarea.extract.extractContents(this.$.start, this.$.end, { top : this.editor, delete : true });
+				
 				this.setAt(this.caretNavigator.forward(parking.container, parking.offset));
 			
-				if(ev.keyCode == 8 || ev.keyCode == 46)
+				if(e.keyCode == 8 || e.keyCode == 46)
 				{
 					this.preventDefault();
 					this.preventNextDefault = this.justUpdated = true;
@@ -562,19 +563,24 @@
 
 				this.hide();
 
-				cont = utils.getNonCustomContainer(this.startPosition.container, this.editor, true);
 
 				ped = Polymer.dom(this.editor);
 				
+				cont = utils.getNonCustomContainer(this.startPosition.container, this.editor, true);
 				hasContentBefore = utils.posToContainerEdgeHasContent(this.startPosition, "backward", this.editor);
 				hasContentAfter = utils.posToContainerEdgeHasContent(this.startPosition, "forward", this.editor);
 
 				if(utils.parentNode(this.startContainer) == this.editor)
 				{
+					// if it's a bare node it feels more consistent to wrap and then split
 					ir.textarea.wrap.wrapRangeBlockLevel(this, "span class='paragraph'", null, this.editor)
 					this.setAt({ container : this.startContainer, offset : this.startOffset });
+					
+					cont = utils.getNonCustomContainer(this.startPosition.container, this.editor, true);
+					hasContentBefore = utils.posToContainerEdgeHasContent(this.startPosition, "backward", this.editor);
+					hasContentAfter = utils.posToContainerEdgeHasContent(this.startPosition, "forward", this.editor);
 				}
-				else
+
 				if(hasContentBefore && hasContentAfter)
 				{
 					right = ir.textarea.extract.splitNode(this.startContainer, this.startOffset, cont, this.editor);
@@ -602,41 +608,6 @@
 				this.preventNextDefault = true;
 				this.justUpdated = true;
  			},
-			
-			lineBreakHandler : function(e) {
-				this.hide();
-
-				cont = this.startPosition.container;
-				offset = this.startPosition.offset;
-				
-				// double the br 
-				twice = 
-				forward =
-					// when at end of textnode and there's no following br
-					(utils.atText(this.startPosition, 'end') && !this.startContainer.nextSibling) ||
-					// or when 
-					(SYMBOLS.NCCONT(this.startContainer))
-					
-				forward = forward || this.$.start.visible || utils.atText(this.startPosition, 'end');
-
-				lastPos = paste.pasteHtmlAtPos("<br>", this.startPosition);
-				lastCont = lastPos.container;
-				
-				this.setAt(lastPos);
-
-				if(twice)
-				{
-					this.hide();
-					paste.pasteHtmlAtPos("<br>", lastPos);
-					this.setAt(lastPos);
-				}
-				
-				e.preventDefault();
-				this.preventNextDefault = true;
-				this.justUpdated = true;
-								
-				return true;
-			},
 			
 			shiftEnterKeyHandler : function(e) {
 				var dir, keyCode = e.keyCode || e.which, br, pos;
@@ -678,7 +649,15 @@
 
 			deleteKeyHandler : function(e) {
 				var cont, hasContentBefore, hasContentAfter, right, ped, dir, atText,
-					keyCode = e.keyCode || e.which;
+					keyCode = e.keyCode || e.which,
+					next, thisCont, nextCont,
+
+					nextInDir = function(n) { return Polymer.dom(n)[dir == "forward" ? "nextSibling" : "previousSibling"] },
+					nextInDirOrParent = function(n) { return nextInDir(n) || Polymer.dom(n).parentNode; },
+					prevInDir = function(n) { return Polymer.dom(n)[dir == "forward" ? "previousSibling" : "nextSibling"] },
+					prevInDirOrParent = function(n) { return prevInDir(n) || Polymer.dom(n).parentNode },
+					nextNodeInDir = function(n) { return dir == "forward" ? utils.nextNode(n, top, true) : utils.prevNode(n, top) },
+					mergeInDir = function(n1, n2) { return dir == "forward" ? utils.mergeNodes(n1, n2) : utils.mergeNodes(n2, n1); };
 				
 				dir = keyCode == 8 && "backward"; // backspace
 				dir = dir || (keyCode == 46) && "forward"; // del
@@ -715,437 +694,36 @@
 				)
 					return true;
 
-				var nextInDir = function(n) { return Polymer.dom(n)[dir == "forward" ? "nextSibling" : "previousSibling"] };
-				var nextInDirOrParent = function(n) { return nextInDir(n) || Polymer.dom(n).parentNode; };
-				var prevInDir = function(n) { return Polymer.dom(n)[dir == "forward" ? "previousSibling" : "nextSibling"] };
-				var prevInDirOrParent = function(n) { return prevInDir(n) || Polymer.dom(n).parentNode };
-				var nextNodeInDir = function(n) { return dir == "forward" ? utils.nextNode(n, top, true) : utils.prevNode(n, top) };
-				var mergeInDir = function(n1, n2) { return dir == "forward" ? utils.mergeNodes(n1, n2) : utils.mergeNodes(n2, n1); };
-				var next, thisCont, nextCont;
+				// if deleting backward, always look at previous element
+				if(dir == 'backward' || atText)
+					next = nextInDir(this.startPosition.container);
+				// if deleting forwrad, we need to step forward only when at end of a text node otherwise we already are at the container we want to delete
+				else
+					next = this.startPosition.container;
 				
-				next = nextInDir(this.startPosition.container);
-				
+				// remove atomic block / custom element in direction
 				if(next && (!utils.canHaveChildren(next) || next.is || !utils.nodeHasContent(next)))
 				{
-					//if(dir == "forward")
-					//	this.go("foward");
-					//else
-					//	this.setAt(this.startPosition);
-					if(dir == "backward")
-						this.go("backward");
-					this.posPush();
 					utils.removeFromParent(next);
-					//this.setAt(this.startPosition);
-					this.posPop();
-				}
-				else
-				{	
-					/*do {
-						next = nextNodeInDir(this.startPosition.container);
-					} while(utils.isDescendantOf(next, this.startPosition.container));*/
-					next = nextInDir(cont);
-					this.setAt(mergeInDir(cont, next));
-				}
-				
-				e.preventDefault();
-				this.preventNextDefault = true;
-				this.justUpdated = true;
-			},
-			
-			_deleteKeyHandler : function(e)
-			{
-				var pn, dir, otherdir,
-					keyCode = e.keyCode || e.which,
-					pos = this.startPosition, initialpos = pos, otherpos,
-					bccont, accont, acfar, acfarcont, i, p, bc, ac, t, s, atText, done, acpos, bcpos;
-				
-				dir = keyCode == 8 && "backward"; // backspace
-				dir = dir || (keyCode == 46) && "forward"; // del
-				if(!dir)
-					return false;
 
-
-				var nextInDir = function(n) { return Polymer.dom(n)[dir == "forward" ? "nextSibling" : "previousSibling"] };
-				var nextInDirOrParent = function(n) { return nextInDir(n) || Polymer.dom(n).parentNode; };
-				var prevInDir = function(n) { return Polymer.dom(n)[dir == "forward" ? "previousSibling" : "nextSibling"] };
-				var prevInDirOrParent = function(n) { return prevInDir(n) || Polymer.dom(n).parentNode };
-				var mergeInDir = function(n1, n2) { return dir == "forward" ? utils.mergeNodes(bccont, accont) : utils.mergeNodes(accont, bccont); };
-				
-				pos = this.startPosition;
-				
-				this.hide();
-				
-				// 1. default action - midtext or (end + backspace / start + delete)
-				atText = utils.atText(pos);
-				
-				if(
-					atText == "middle" ||
-					(dir == 'forward' && atText == 'start' && pos.container.length > 1) ||
-					(dir == 'backward' && atText == 'end' && pos.container.length > 1)
-				)
-					return true;
-
-				// 2a if deleting in an empty container simply replace it with br
-				t = Polymer.dom(pos.container).parentNode;
-				if(SYMBOLS.EMPTYCONT(t))
-				{
-					ac = Polymer.dom(Polymer.dom(t).parentNode).insertBefore(document.createElement('br'), t);
-					Polymer.dom(Polymer.dom(t).parentNode).removeChild(t);
-					Polymer.dom.flush();
-					this.setBefore(ac, dir);
-					this.hide();
-					pos = this.startPosition;
-					//done = true;
-				}
-				
-				// 2b. even if it's text we now consider pos.container a non-container block
-				if(SYMBOLS.TEXT(pos.container))
-				{
-					// note! bc and ac are relative to dir
-					if(pos.container.length == 1)
-					{
-						bc = prevInDirOrParent(pos.container);
-						utils.removeFromParent(pos.container);
-						done = true;
-					}
+					if(dir == "backward")
+						this.setAt(this.startPosition);
 					else
-					{
-						bc = pos.container;
-						ac = nextInDirOrParent(bc);
-					}
-				}
-				else
-				{
-					if(dir == 'forward')
-					{
-						ac = pos.container;
-						bc = Polymer.dom(ac).previousSibling;
-						if(!bc)
-							bc = prevInDirOrParent(ac);
-					}
-					else
-					{
-						bc = pos.container;
-						ac = Polymer.dom(bc).previousSibling;
-					}
-					
-				}
-
-				
-				// 2a - remove br if it's on the way ('cause BR is the queen of all things special) .. (SYMBOLS.TEXT(t) || SYMBOLS.NCCONTBLOCK(t)
-				if(utils.isTag(ac, 'BR') && SYMBOLS.TEXT(bc))
-				{
-					t = nextInDir(ac);
-
-					if(SYMBOLS.TEXT(bc) && SYMBOLS.TEXT(t))
-						p = utils.posToCoordinatesPos({ 
-							container : Polymer.dom(ac).previousSibling, 
-							offset : Polymer.dom(ac).previousSibling.textContent.length }, this.editor); // correct for both directions!
-				
-					if(p) {
-						utils.removeFromParent(ac);
-						
-						if(p)
-						{
-							dir == "forward" ? utils.mergeNodes(bc, t) : utils.mergeNodes(t, bc);
-							this.setAt(utils.coordinatesPosToPos(p, this.editor));
-						}
-						else
-							this.setAfter(bc, dir);					
-
-						this.hide();
-						pos = this.startPosition;
-						if(utils.atText(pos, "middle"))
-							done = true;
-						else
-						if(pos.container.nodeType == 3)
-						{
-							bc = pos.container;
-							ac = nextInDirOrParent(bc);
-						}
-						else
-						if(dir == 'forward')
-						{
-							ac = pos.container;
-							bc = Polymer.dom(ac).previousSibling;
-						}
-						else
-						{
-							bc = pos.container;
-							ac = Polymer.dom(bc).nextSibling;
-						}
-					}
-				}
-				
-				// 3. all simple delete cases - NCBLOCK,EMPTYCONT,IS
-				if((!done && ac != this.editor) && (SYMBOLS.NCBLOCK(ac) || SYMBOLS.EMPTYCONT(ac) || SYMBOLS.IS(ac) || SYMBOLS.TEXT(ac)))
-				{
-					t = Polymer.dom(pos.container).parentNode;
-					Polymer.dom(t).removeChild(ac);
-					Polymer.dom.flush();					
-					
-					if(bc) //Polymer.dom(t).childNodes.length)
-					{
-						this.setAfter(bc, dir);
-						done = true;
-						this.posPush();
-						t.normalize();
 						this.posPop();
-						done = true;
-					}
-					else
-					{
-						this.setAt(t, i);
-						pos = this.startContainer;
-						if(dir == 'forward')
-						{
-							ac = pos.container;
-							bc = Polymer.dom(ac).previousSibling;
-						}
-						else
-						{
-							bc = pos.container;
-							ac = Polymer.dom(bc).nextSibling;
-						}
-					}
-					
+						
+					this.setAt(utils.maybeMergeTextNeighbours(this.startPosition));
 				}
-
-				// 4. ac is non-empty inlie container - go there and default action
-				if(!done && SYMBOLS.INLINECONT(ac))
-					return true;
-
-				// 5. ac is non-empty, non-inline, non custom container
-				//    so it should be a block
-				//    5a. get container blocks
-				if(!done)
+				// two containers - merge
+				else
 				{
-					bccont = utils.getNonCustomContainer(bc, this.editor, true);
-					accont = utils.getNonCustomContainer(ac, this.editor, true);
-					if(!accont || accont == bccont) {
-						acpos  = this.caretNavigator[dir](bc, this.editor);
-						ac = acpos.container;
-						accont = accont = utils.getNonCustomContainer(ac, this.editor, true);
-						//accont = Polymer.dom(acpos.container)[dir == 'forward' ? 'nextSibling' : 'previousSibling']
-					}
-					
-					//    5b merge
-					if(this.caretNavigator.rulesets.delMergeConditions(bccont, accont))
-					{
-						t = mergeInDir(bccont, accont);
-						this.setAt(t);
-					}
-					else
-					//	  5c pull
-					if(this.caretNavigator.rulesets.delPullConditions(bc, accont))
-					{
-						Polymer.dom(accont).insertBefore(bc, Polymer.dom(accont).firstChild)
-						Polymer.dom.flush();
-						this.setBefore(bc, dir);
-					}
+					next = nextInDir(cont);
+					if(next)
+						this.setAt(mergeInDir(cont, next));
 				}
-				
 				
 				e.preventDefault();
-				this.preventNextDefault = this.justUpdated = true;
-				
-				return true;
-				/*if(pos.container.nodeType == 3)
-					ac = (dir == 'forward' ? )
-				
-				// 2. neighbours - regard the textnode 
-				bc = this.caretNavigator.backward(pos);
-				ac = this.caretNavigator.forward(pos);
-
-				
-				// bc and ac are in same container
-				if(utils.posInSameContainer(bc, ac))
-				{
-					
-				}
-				*/
-				/*if(this.caretNavigator.rulesets.delMergeConditions(bc, ac))
-					pos = utils.mergeNodes(bc, ac);
-
-				if(this.caretNavigator.rulesets.delPullConditions(bc, ac))
-				*/				
-			},
-			
-			_deleteKeyHandler : function(e)
-			{
-				var pn, dir, otherdir,
-					keyCode = e.keyCode || e.which, isTn, deleteCandidate, mergeCandidate,
-					pos = this.startPosition, initialpos = pos, otherpos,
-					poscont, otherposcont, targetPos, i, l, bc, ac, t, s;
-				
-				dir = keyCode == 8 && "backward"; // backspace
-				dir = dir || (keyCode == 46) && "forward"; // del
-				if(!dir)
-					return false;
-
-				otherdir = dir == "forward" ? "backward" : "forward";
-					
-				// 1a. default action - non-end of text in direction dir
-				if(!this.$.start.visible && !utils.atText(pos, dir == "forward" ? "end" : "start"))
-					return true;
-				
-				this.hide();
-
-				if(dir == "forward")
-				{
-					pn = pos.container;
-					if(pn.nodeType == 3)
-						pn = Polymer.dom(pn).nextSibling;
-				}
-				else
-					pn = Polymer.dom(pos.container).previousSibling || Polymer.dom(pos.container).parentNode;
-				
-				// 1b. default action - we are before an inline container
-				//if(SYMBOLS.INLINECONT(pn))
-				//	return true;
-
-				// remove trailing BR. will work for both directions
-				if(pn && pn.tagName == 'BR' && !Polymer.dom(pn).nextSibling)
-				{
-					//pos = { container : Polymer.dom(pn).parentNode, offset : utils.getChildPositionInParent(pn) }
-					t = Polymer.dom(pn).parentNode;
-					s = Polymer.dom(pn).nextSibling
-					
-					t = pn;
-					
-					pn = nextInDirOrParent(pos.container);
-
-					Polymer.dom(Polymer.dom(t).parentNode).removeChild(t);
-				}
-
-				// 2. caret before non-container block // or custom element				
-				if(SYMBOLS.NCBLOCK(pn) || SYMBOLS.IS(pn) || SYMBOLS.EMPTYCONT(pn)) // || SYMBOLS.INLINECONT(pn)))
-				{
-					if(dir == "forward")
-					{
-						poscont = pos.container;
-						otherposcont = Polymer.dom(pn).nextSibling;
-					}
-					else
-					{
-						otherposcont = pos.container;
-						poscont = pn.previousSibling;
-					}
-						
-					Polymer.dom(utils.parentNode(pn, this.editor)).removeChild(pn);
-					Polymer.dom.flush();
-					
-					// both remaining ends are text (think ---text---<br>---text---)
-					if(SYMBOLS.TEXT(poscont) && SYMBOLS.TEXT(otherposcont) && poscont.nextSibling == otherposcont)
-					{
-						l = poscont.textContent.length;
-						Polymer.dom(poscont).parentNode.normalize();
-						Polymer.dom.flush();
-						pos = { container : poscont, offset : l };
-					}
-					else
-						pos = { container : otherposcont.firstChild || otherposcont, offset : 0 };
-				}
-				else
-				{
-					// 3. check for pull conditions (NCCONT < backspace < pullable or pullable > del > backspace)
-					ac = pn; // pos.container;
-					if(utils.atText(pos, "end"))
-						ac = Polymer.dom(pos.container).nextSibling;
-					
-					bc = Polymer.dom(ac).previousSibling;
-					
-					if(this.caretNavigator.rulesets.delPullConditions(bc, ac))
-					{
-						if((dir == "forward" && !SYMBOLS.NCCONTBLOCK(ac)) || (dir == "backward" && !SYMBOLS.NCCONTBLOCK(bc))) // del after pullable
-						{
-							t = Polymer.dom(ac).firstChild
-							Polymer.dom(ac)[t ? "insertBefore" : "appendChild"](bc, t);
-						}
-						else
-						if((dir == "backward" && !SYMBOLS.NCCONTBLOCK(bc)) || (dir == "backward" && !SYMBOLS.NCCONTBLOCK(ac))) // del after pullable
-						{
-							t = Polymer.dom(ac).firstChild
-							Polymer.dom(bc).appendChild(ac);
-							this.setAt({ container : ac, offset : 0});
-						}
-					}
-					else
-					{
-				
-						// 4. jump in dir and check against the other position
-						this.go(dir);
-						this.hide();
-						
-						// reminder:
-						// pos is the original position
-						// otherpos is the next position in dir direction
-						
-						otherpos = this.startPosition;
-						
-						// get closest non-custom container blocks for both positions
-						poscont = utils.getNonCustomContainer(pos.container, this.editor, true);
-						otherposcont = utils.getNonCustomContainer(otherpos.container, this.editor, true);
-
-						if(otherposcont == pos.container)
-						{
-							this.go(dir);
-							this.hide();
-							otherpos = this.startPosition;
-						}
-						
-						// 4a. we are in the same container block - but actually this shouldn't be happening
-						if(poscont != pos.container && poscont == otherposcont)
-						{
-							// landed in an inline container - default action
-							if(SYMBOLS.INLINECONT(otherposcont))
-								return true;
-								
-							pos = otherpos;
-						}
-						else
-						// 4b we are in different neighbouring container blocks
-						if(this.caretNavigator.rulesets.delMergeConditions(poscont, otherposcont))
-						{
-							// swap if needed
-							if(dir == 'backward')
-							{
-								t = poscont;
-								poscont = otherposcont;
-								otherposcont = t;
-							}
-							
-							// and merge
-							pos = utils.mergeNodes(poscont, otherposcont, true);
-							//this.setAt();
-						}
-						// else pull the sibling element unless it's a container or pos and otherpos are in different custom elements
-						else
-						{
-							//otherposcont = poscont.previousSibling;
-							//pos = this.startPosition; 							// pos is where we pull
-							//poscont = pos.container;
-							if(Polymer.dom(pos.container)[dir == "forward" ? "nextSibling" : "previousSibling"] == otherposcont && 
-								!SYMBOLS.NCCONT(otherposcont) && 
-									utils.getTopCustomElementAncestor(pos.container, this.editor) == utils.getTopCustomElementAncestor(otherposcont, this.editor))
-							{
-								Polymer.dom(Polymer.dom(otherpos.container).parentNode).insertBefore(pos.container, otherpos.container);
-								if(otherpos.container.nodeType == 3 && pos.container.nodeType == 3)
-								{
-									Polymer.dom(otherposcont).parentNode.normalize();
-									pos = { container : otherpos.container, offset : otherpos.container.textContent.length };
-								}
-							}
-							else
-								pos = this.startPosition;
-						}
-					}
-				}
-				
-				this.setAt(pos);
-				this.justUpdated = true;
 				this.preventNextDefault = true;
-				e.preventDefault();
+				this.justUpdated = true;
 			},
 			
 			directionKeyHandler : function(e) {
@@ -1159,8 +737,6 @@
 				if(!dir)
 					return false;
 				
-				//if(this.collapsed && !e.shiftKey)
-				//	this.lastActive = null;
 				if(!e.shiftKey)
 					activeRangeSide = 'start';
 				else

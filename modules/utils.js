@@ -1357,6 +1357,37 @@ window.ir.textarea.utils = (function() {
 		return p;
 	},
 	
+	// checks text node neighbours, merges if text and returns an updated position
+	utils.maybeMergeTextNeighbours = function(pos) {
+		var n1, n2;
+		pos = utils.clonePos(pos);
+		n1 = pos.container;
+		
+		if(n1.nodeType != 3)
+			return pos;
+		
+		// merge with previous + new position
+		n2 = Polymer.dom(n1).previousSibling;
+		if(n2 && n2.nodeType == 3)
+		{
+			pos = { container : n2, offset : n2.textContent.length }
+			n2.textContent += n1.textContent;
+			utils.removeFromParent(n1);
+			n1 = n2;
+			Polymer.dom.flush();
+		}
+		
+		// merge with next + new position
+		n2 = Polymer.dom(n1).nextSibling;
+		if(n2 && n2.nodeType == 3)
+		{
+			n1.textContent += n2.textContent;
+			utils.removeFromParent(n2);
+		}
+		
+		return pos;
+	}
+
 	utils.mergeNodes = function (left, right, setCaretAtMergePoint) {
 		var caretPos, ret, t, p, l, r, offset, atText;
 
