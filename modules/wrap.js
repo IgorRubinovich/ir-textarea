@@ -737,10 +737,10 @@ window.ir.textarea.wrap = (function() {
 		else
 		{
 			t = node;
-			while(t && bottomBoundaryCondition(t))
+			while(t && !topBoundaryCondition(t))
 			{
 				t = Polymer.dom(t).previousSibling;
-				node = !bottomBoundaryCondition(t) && t || node;
+				node = !topBoundaryCondition(t) && t || node;
 			}
 		}
 
@@ -751,6 +751,8 @@ window.ir.textarea.wrap = (function() {
 			node = Polymer.dom(newNode).nextSibling;
 		} while(node && bottomBoundaryCondition(node))		
 		
+		Polymer.dom.flush();
+	
 		return newNode;
 	}
 	

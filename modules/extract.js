@@ -149,7 +149,7 @@ window.ir.textarea.extract =
 			{
 				sTo = b.ends[0];
 				if(!sFrom && sTo)
-					sFrom = utils.parentNode(sTo).firstChild;
+					sFrom = Polymer.dom(utils.parentNode(sTo)).firstChild;
 			}
 			
 			eFrom = sSource == eSource ? sTo : eSource.firstChild;
@@ -162,8 +162,6 @@ window.ir.textarea.extract =
 			if(sFrom && b.first.copy)
 			{
 				n = sFrom;
-				//if(!b.first.copy || n == b.first.original)  	// if first node is not included (as at end of text), skip first's ancestor containers
-				//	n = Polymer.dom(sFrom).nextSibling;			// also skip if we're copying the first element itself - it's done below
 				
 				if(!takeFirst || n == b.first.original)
 					n = Polymer.dom(sFrom).nextSibling;
@@ -219,11 +217,11 @@ window.ir.textarea.extract =
 			extractRes = utils.moveChildrenToFragment(extractRes, true);
 		
 		if(!opts.keepContainer && (hangingFirst && utils.isNonCustomContainer(Polymer.dom(extractRes).firstChild)))
-			utils.replaceWithOwnChildren(extractRes.firstChild)
+			utils.replaceWithOwnChildren(Polymer.dom(extractRes).firstChild)
 		if(!opts.keepContainer && hangingLast)
 		{
 			if(extractRes instanceof DocumentFragment && utils.isNonCustomContainer(Polymer.dom(extractRes).lastChild))
-				utils.replaceWithOwnChildren(extractRes.lastChild)
+				utils.replaceWithOwnChildren(Polymer.dom(extractRes).lastChild)
 			else
 			if(utils.isNonCustomContainer(extractRes))
 				extractRes = utils.childrenToFragment(extractRes);

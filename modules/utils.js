@@ -1375,7 +1375,7 @@ window.ir.textarea.utils = (function() {
 		{
 
 			if(!utils.canHaveChildren(left))
-				left = left.parentNode
+				left = utils.parentNode(left)
 
 			if(right.nodeType == 1) // element - element
 			{
@@ -1397,7 +1397,7 @@ window.ir.textarea.utils = (function() {
 					Polymer.dom.flush();
 				}
 
-				Polymer.dom(Polymer.dom(right).parentNode).removeChild(right);
+				utils.removeFromParent(right);
 			}
 			else					// element - text
 				Polymer.dom(left).appendChild(Polymer.dom(Polymer.dom(right).parentNode).removeChild(right));
@@ -1416,7 +1416,7 @@ window.ir.textarea.utils = (function() {
 				r = Polymer.dom(right);
 				l = Polymer.dom(left);
 
-				Polymer.dom(l.parentNode).removeChild(left);
+				utils.removeFromParent(left);
 
 				if(r.firstChild)
 				{
@@ -1425,7 +1425,7 @@ window.ir.textarea.utils = (function() {
 				}
 				else
 				{
-					Polymer.dom(l.parentNode).removeChild(left)
+					removeFromParent(left);
 					r.appendChild(l.node);
 				}
 				
@@ -1457,7 +1457,8 @@ window.ir.textarea.utils = (function() {
 		if(setCaretAtMergePoint)
 			utils.setCaretAt(ret.container, ret.offset);
 		
-		//ret.container.normalize();
+		utils.parentNode(ret.container).normalize();
+		
 		Polymer.dom.flush();
 		
 		return ret;

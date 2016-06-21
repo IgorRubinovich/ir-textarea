@@ -548,14 +548,14 @@
 			},
 
 			enterKeyHandler : function(e) {
-				var cont, hasContentBefore, hasContentAfter, right, ped;
+				var cont, hasContentBefore, hasContentAfter, right, ped, pos;
 
 				if(e.keyCode != 13 || e.shiftKey)
 					return;
 
 				this.hide();
 
-				cont = utils.getNonCustomContainer(this.startPosition.container);
+				cont = utils.getNonCustomContainer(this.startPosition.container, this.editor, true);
 
 				ped = Polymer.dom(this.editor);
 				
@@ -588,6 +588,8 @@
 				
 				if(right)
 					this.setAt(this.caretNavigator.forward(right, 0 ))
+				else
+					this.setAt(this.startPosition);
 				
 				e.preventDefault();
 				this.preventNextDefault = true;
@@ -669,7 +671,8 @@
 
 
 			deleteKeyHandler : function(e) {
-				var cont, hasContentBefore, hasContentAfter, right, ped, dir, atText;
+				var cont, hasContentBefore, hasContentAfter, right, ped, dir, atText,
+					keyCode = e.keyCode || e.which;
 				
 				dir = keyCode == 8 && "backward"; // backspace
 				dir = dir || (keyCode == 46) && "forward"; // del
@@ -678,7 +681,7 @@
 
 				this.hide();
 					
-				cont = utils.getNonCustomContainer(this.startPosition.container);
+				cont = utils.getNonCustomContainer(this.startPosition.container, this.editor, true);
 				
 				ped = Polymer.dom(this.editor);
 				
@@ -696,7 +699,7 @@
 					this.posPop();
 				}
 				
-				atText = utils.atText(pos);
+				atText = utils.atText(this.startPosition);
 				
 				// default action
 				if(
@@ -710,23 +713,35 @@
 				var nextInDirOrParent = function(n) { return nextInDir(n) || Polymer.dom(n).parentNode; };
 				var prevInDir = function(n) { return Polymer.dom(n)[dir == "forward" ? "previousSibling" : "nextSibling"] };
 				var prevInDirOrParent = function(n) { return prevInDir(n) || Polymer.dom(n).parentNode };
-				var mergeInDir = function(n1, n2) { return dir == "forward" ? utils.mergeNodes(bccont, accont) : utils.mergeNodes(accont, bccont); };
+				var nextNodeInDir = function(n) { return dir == "forward" ? utils.nextNode(n, top, true) : utils.prevNode(n, top) };
+				var mergeInDir = function(n1, n2) { return dir == "forward" ? utils.mergeNodes(n1, n2) : utils.mergeNodes(n2, n1); };
 				var next, thisCont, nextCont;
 				
-				next = nextInDir(pos.container);
+				next = nextInDir(this.startPosition.container);
 				
 				if(next && (!utils.canHaveChildren(next) || next.is || !utils.nodeHasContent(next)))
 				{
 					utils.removeFromParent(next);
-					this.posPop();
+					if(dir == "forward")
+						this.go("foward");
+					else
+						this.setAt(this.startPosition);
 				}
 				else
-				{
-					
+				{	
+					/*do {
+						next = nextNodeInDir(this.startPosition.container);
+					} while(utils.isDescendantOf(next, this.startPosition.container));*/
+					next = nextInDir(cont);
+					this.setAt(mergeInDir(cont, next));
 				}
+				
+				e.preventDefault();
+				this.preventNextDefault = true;
+				this.justUpdated = true;
 			},
 			
-			deleteKeyHandler : function(e)
+			_deleteKeyHandler : function(e)
 			{
 				var pn, dir, otherdir,
 					keyCode = e.keyCode || e.which,
@@ -1127,6 +1142,8 @@
 				
 				dir = [36,37,33,38].indexOf(keyCode) > -1 && "backward"; 		 // home, left, pgUp, up
 				dir = dir || [35,39,34,40].indexOf(keyCode) > -1 && "forward";  // end, right, pgDn, down
+				
+				this.hide();
 				
 				if(!dir)
 					return false;
