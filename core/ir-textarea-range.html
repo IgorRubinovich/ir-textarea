@@ -460,7 +460,7 @@
 			
 				if(e.keyCode == 8 || e.keyCode == 46)
 				{
-					this.preventDefault();
+					e.preventDefault();
 					this.preventNextDefault = this.justUpdated = true;
 					return true;
 				}
@@ -564,9 +564,12 @@
 				this.hide();
 
 
-				ped = Polymer.dom(this.editor);
+				ped = Polymer.dom(this.startContainer).parentNode;  //Polymer.dom(this.editor);
 				
 				cont = utils.getNonCustomContainer(this.startPosition.container, this.editor, true);
+				pcont = Polymer.dom(utils.parentNode(cont));
+				
+				
 				hasContentBefore = utils.posToContainerEdgeHasContent(this.startPosition, "backward", this.editor);
 				hasContentAfter = utils.posToContainerEdgeHasContent(this.startPosition, "forward", this.editor);
 
@@ -588,13 +591,13 @@
 				else
 				if(!hasContentBefore)
 				{
-					ped.insertBefore(right = Polymer.dom(cont).cloneNode(), cont);
+					pcont.insertBefore(right = Polymer.dom(cont).cloneNode(), cont);
 					Polymer.dom(right).appendChild(utils.createTag('br'));
 					right = null;
 				}
 				else
 				{
-					ped[ped.lastChild == cont ? "appendChild" : "insertBefore"](right = Polymer.dom(cont).cloneNode(), Polymer.dom(cont).nextSibling);
+					pcont[pcont.lastChild == cont ? "appendChild" : "insertBefore"](right = Polymer.dom(cont).cloneNode(), Polymer.dom(cont).nextSibling);
 					Polymer.dom(right).appendChild(utils.createTag('br'));
 					Polymer.dom.flush();
 				}
@@ -648,9 +651,9 @@
 
 
 			deleteKeyHandler : function(e) {
-				var cont, hasContentBefore, hasContentAfter, right, ped, dir, atText,
-					keyCode = e.keyCode || e.which,
-					next, thisCont, nextCont,
+				var cont, hasContentBefore, hasContentAfter, right, ped, dir, otherdir, atText,
+					keyCode = e.keyCode || e.which, tcea,
+					next, thisCont, nextCont, p, n, pos, hc,
 
 					nextInDir = function(n) { return Polymer.dom(n)[dir == "forward" ? "nextSibling" : "previousSibling"] },
 					nextInDirOrParent = function(n) { return nextInDir(n) || Polymer.dom(n).parentNode; },
@@ -664,34 +667,86 @@
 				if(!dir)
 					return false;
 
-				this.hide();
+				otherdir = dir == "forward" ? "backward" : "forward";
 					
+				this.hide();
+
 				cont = utils.getNonCustomContainer(this.startPosition.container, this.editor, true);
-				
+				tcea = utils.getTopCustomElementAncestor(this.startContainer, this.editor, true)
 				ped = Polymer.dom(this.editor);
-				
+
 				hasContentBefore = utils.posToContainerEdgeHasContent(this.startPosition, "backward", this.editor, true);
 				hasContentAfter = utils.posToContainerEdgeHasContent(this.startPosition, "forward", this.editor, true);
 				
 				this.posPush();
 				this.hide();
 				
-				if(!hasContentBefore && !hasContentAfter)
+				if(!hasContentBefore && !hasContentAfter && !tcea)
 				{
+					pos = this.caretNavigator[dir](this.startPosition);
+					
 					if(cont)
 						utils.removeFromParent(cont);
-						
-					this.posPop();
+					
+					this.setAt(pos);
+					
+					e.preventDefault();
+					return this.preventNextDefault = this.justChanged = true;
 				}
 				
-				atText = utils.atText(this.startPosition);
-				
-				// default action
-				if(atText == "middle" || 
-					(this.startPosition.container.length > 1 && 
-						((dir == 'forward' && atText == 'start') || (dir == 'backward' && atText == 'end'))))
-					return true;
 
+				atText = utils.atText(this.startPosition);
+
+				// default action
+				if(atText == "middle" || ((dir == 'forward' && atText == 'start') || (dir == 'backward' && atText == 'end')))
+				{
+					if(this.startPosition.container.textContent.length > 1)
+						return true;
+					else
+					// one big case when deleting the last character
+					// since the text container is deleted
+					{
+						n = this.startPosition.container;
+						pos = this.caretNavigator[otherdir](this.startPosition);
+
+						p = utils.parentNode(n);
+						utils.removeFromParent(n);
+
+						while(p != cont && p != top && !(hc = utils.nodeHasContent(p)) && !utils.isNonCustomContainer(p))
+						{
+							n = p;
+							p = utils.parentNode(n);
+							while(utils.isLayoutElement(p))
+							{
+								p = utils.parentNode(p);
+								hc = utils.nodeHasContent(p)
+							}
+							if(!hc)
+								utils.removeFromParent(n);
+						}
+						
+						if(cont && utils.isNonCustomContainer(cont) && !Polymer.dom(cont).childNodes.length)
+						{
+							Polymer.dom(cont).appendChild(n = utils.createTag('br'))
+							pos = { container : n, offset : 0 }
+						}
+						else
+							pos = this.caretNavigator[dir](pos);
+						
+						this.setAt(pos);
+
+						e.preventDefault();
+						return this.preventNextDefault = this.justChanged = true;
+					}
+				}
+				
+				// elements that dont get deleted: caption, table cell
+				if((tcea || utils.isTag(cont, 'TD') && ((dir == 'backward' && !hasContentBefore) || (dir == 'forward' && !hasContentAfter))))
+				{
+					e.preventDefault();
+					return this.preventNextDefault = this.justChanged = true;
+				}
+			
 				// if deleting backward, always look at previous element
 				if(dir == 'backward' || atText)
 					next = nextInDir(this.startPosition.container);
@@ -712,12 +767,13 @@
 				{
 					utils.removeFromParent(next);
 
+					this.setAt(utils.maybeMergeTextNeighbours(this.startPosition));
+
 					if(dir == "backward")
 						this.setAt(this.startPosition);
 					else
 						this.posPop();
 						
-					this.setAt(utils.maybeMergeTextNeighbours(this.startPosition));
 				}
 				// two containers - merge
 				else

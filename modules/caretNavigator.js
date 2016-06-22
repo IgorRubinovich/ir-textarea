@@ -76,6 +76,12 @@
 	// given a container and and offset returns the next legit caret position
 	CaretNavigator.prototype.forward = function(container, offset)
 	{
+		if(container.container)
+		{
+			offset = container.offset;
+			container = container.container;
+		}
+		
 		var c = container, o = offset, m, n, match, skipMatch, prev = [],
 			e = this.editor, cn;
 
@@ -167,7 +173,13 @@
 
 	// given a container and and offset returns the previous legit caret position
 	CaretNavigator.prototype.backward = function(container, offset)
-	{
+	{		
+		if(container.container)
+		{
+			offset = container.offset;
+			container = container.container;
+		}
+
 		var c = container, o = offset, m, n, match,
 			e = this.editor, cn, temp, res, k, prev = [];
 

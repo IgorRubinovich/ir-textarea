@@ -1515,7 +1515,12 @@ window.ir.textarea.utils = (function() {
 		}
 		else
 		if(!ret)
-			ret = { container : right, offset : 0 }
+		{
+			if(Polymer.dom(right).parentNode)
+				ret = { container : right, offset : 0 }
+			else
+				ret = utils.getLastCaretPosition(left);
+		}
 
 		if(setCaretAtMergePoint)
 			utils.setCaretAt(ret.container, ret.offset);
