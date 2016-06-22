@@ -969,7 +969,7 @@
 				nn = sc;
 				while(nn && nn != this.$.editor && nn != ec) {
 					if(!utils.isInLightDom(nn, this.$.editor)) {
-						alert('Creation of bulleted list on ranges containing custom elements is not supported due to a but in Chrome (see Chromium bug 571420). As a workaround, create the bulleted list and drag the element there instead.');
+						alert('Creation of bulleted list on ranges containing custom elements is not supported due to a bug in Chrome (see Chromium bug 571420). As a workaround, create the bulleted list and drag the element there instead.');
 						return false;
 					}
 					nn = utils.nextNode(nn);

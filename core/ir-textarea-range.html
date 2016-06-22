@@ -670,8 +670,8 @@
 				
 				ped = Polymer.dom(this.editor);
 				
-				hasContentBefore = utils.posToContainerEdgeHasContent(this.startPosition, "backward", this.editor);
-				hasContentAfter = utils.posToContainerEdgeHasContent(this.startPosition, "forward", this.editor);
+				hasContentBefore = utils.posToContainerEdgeHasContent(this.startPosition, "backward", this.editor, true);
+				hasContentAfter = utils.posToContainerEdgeHasContent(this.startPosition, "forward", this.editor, true);
 				
 				this.posPush();
 				this.hide();
@@ -687,21 +687,27 @@
 				atText = utils.atText(this.startPosition);
 				
 				// default action
-				if(
-					atText == "middle" ||
-					(dir == 'forward' && atText == 'start' && pos.container.length > 1) ||
-					(dir == 'backward' && atText == 'end' && pos.container.length > 1)
-				)
+				if(atText == "middle" || 
+					(this.startPosition.container.length > 1 && 
+						((dir == 'forward' && atText == 'start') || (dir == 'backward' && atText == 'end'))))
 					return true;
 
 				// if deleting backward, always look at previous element
 				if(dir == 'backward' || atText)
 					next = nextInDir(this.startPosition.container);
-				// if deleting forwrad, we need to step forward only when at end of a text node otherwise we already are at the container we want to delete
+				// if deleting forwrad, we need to step forward only when at end of a text node,
+				// otherwise we already are at the container we want to delete
 				else
 					next = this.startPosition.container;
 				
-				// remove atomic block / custom element in direction
+				// if it's last br deleting forward, remove the br. experimental
+				if(dir == "forward" && utils.isTag(next, 'BR') && next == Polymer.dom(utils.parentNode(next)).lastChild)
+				{
+					utils.removeFromParent(next);
+					next = Polymer.dom(utils.parentNode(next)).lastChild;
+				}
+								
+				// remove atomic block / custom element in direction, except <br> when it's the last/first position
 				if(next && (!utils.canHaveChildren(next) || next.is || !utils.nodeHasContent(next)))
 				{
 					utils.removeFromParent(next);
@@ -802,7 +808,10 @@
 			},
 			
 			execCommand : function(aCommandName, aShowDefaultUI, aValueArgument) {
-				return ir.textarea.execCommand(this, aCommandName, aShowDefaultUI, aValueArgument, this.editor);
+				this.hide();
+				var p = ir.textarea.execCommand(this, aCommandName, aShowDefaultUI, aValueArgument, this.editor);
+				this.setAt(p);
+				return p;
 			}
 			
 		});

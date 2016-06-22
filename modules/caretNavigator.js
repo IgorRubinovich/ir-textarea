@@ -55,7 +55,7 @@
 		this.log = opts.log || function() {};
 		if(this.log === true)
 			this.log = function() { 
-				this.log(Array.prototype.slice.call(arguments).join(' ')); 
+				console.log(Array.prototype.slice.call(arguments).join(' ')); 
 			};
 		
 		this.caretSpan = opts.caretSpan;

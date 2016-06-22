@@ -980,7 +980,7 @@ window.ir.textarea.utils = (function() {
 	
 	}
 	
-	utils.posToContainerEdgeHasContent = function(pos, dir, top) {
+	utils.posToContainerEdgeHasContent = function(pos, dir, top, ignoreLastBr) {
 		var atText, cont = utils.getNonCustomContainer(pos.container, top), n, pos, otherpos, t;
 		
 		atText = utils.atText(pos);
@@ -1014,7 +1014,7 @@ window.ir.textarea.utils = (function() {
 			otherpos = pos;
 			pos = { container : utils.nextNodeNonDescendant(cont, top), position : 0 };
 		}
-		return utils.rangeHasContent(otherpos, pos, top); 
+		return utils.rangeHasContent(otherpos, pos, top, ignoreLastBr); 
 	}
 	
 	utils.commonContainer = function(sc, ec, top)
@@ -1080,38 +1080,55 @@ window.ir.textarea.utils = (function() {
 		};
 	};
 
-	utils.markBranch = function(n, top, attribute, value)
+	// stores all marked nodes in attribute so any node may be used to unmark all previously marked with unmarkBranch
+	// provided markBranch is called only once with the same attribute
+	utils.markBranch = function(n, top, attribute)
 	{
-		var pos;
+		var pos, nodes = [n];
 
 		// if n is a position and its offset is points to an element, mark the element
 		if(n.container && Polymer.dom(n.container).childNodes && Polymer.dom(n.container).childNodes[n.offset])
-			Polymer.dom(n.container).childNodes[n.offset][attribute] = value;
+			Polymer.dom(n.container).childNodes[n.offset][attribute] = nodes;
 
 		if(n.container)
 			n = n.container;
 
-		n[attribute] = value;
+		n[attribute] = nodes;
 		while(n && n != top)
 		{
 			n = utils.parentNode(n);
-			n[attribute] = value;
+			n[attribute] = nodes;
+			nodes.push(n);
 		}
 	}
-	utils.unmarkBranch = function(n, top, attribute, value)
+	// to use after n was moved so to clear all previously marked nodes and re-mark from n
+	utils.remarkBranch = function(n, top, attribute)
 	{
+		utils.unmarkBranch(n, top, attribute)
+		utils.markBranch(n, top, attribute)
+	}
+	utils.unmarkBranch = function(n, top, attribute)
+	{
+		var nodes = n[attribute];
 		// if n is a position and its offset is points to an element, unmark the element
 		if(n.container && Polymer.dom(n.container).childNodes && Polymer.dom(n.container).childNodes[n.offset])
 			delete Polymer.dom(n.container).childNodes[n.offset][attribute];
-
+		
 		if(n.container)
 			n = n.container;
 		
-		n[attribute] = value;
-		while(n && n != top)
-		{
+		do {
+			if(n[attribute])
+				delete n[attribute];
 			n = utils.parentNode(n);
-			delete n[attribute];
+		} while(n && n != top);
+		
+		while(nodes.length)
+		{
+			if(nodes[0][attribute])
+				delete nodes[0][attribute];
+			nodes.shift();
+			
 		}
 	}
 
@@ -1410,25 +1427,37 @@ window.ir.textarea.utils = (function() {
 
 			if(right.nodeType == 1) // element - element
 			{
+				// when merging the last br in left and first br in right are redundant
 				t = Polymer.dom(left).lastChild; 
+				if(utils.isTag(t, 'BR'))
+					utils.removeFromParent(t)
+				t = Polymer.dom(right).firstChild; 
+				if(utils.isTag(t, 'BR'))
+					utils.removeFromParent(t)
 				
-				if(t && t.tagName == 'BR')
-					Polymer.dom(left).removeChild(t)
-				
-				
+				// left ends with text node -> caret at end of text
 				if(Polymer.dom(left).lastChild && Polymer.dom(left).lastChild.nodeType == 3)
 					ret = { container : Polymer.dom(left).lastChild, offset : Polymer.dom(left).lastChild.textContent.length };
 				else
+				// else -> caret at first right element
 				if(Polymer.dom(right).firstChild)
 					ret = { container : Polymer.dom(right).firstChild, offset : 0 };
+				else
+					ret = { container : right, offset : 1 }
 
-				while(Polymer.dom(right).firstChild)
-				{					
-					Polymer.dom(left).appendChild(Polymer.dom(right).removeChild(Polymer.dom(right).firstChild));
-					Polymer.dom.flush();
+				// right is block or custom element -> pull into left
+				if(!utils.canHaveChildren(right) || right.is)
+					Polymer.dom(left).appendChild(right);
+				// else -> pull all right's children into left
+				else
+				{
+					while(Polymer.dom(right).firstChild)
+					{
+						Polymer.dom(left).appendChild(Polymer.dom(right).firstChild);
+						Polymer.dom.flush();
+					}
+					utils.removeFromParent(right);
 				}
-
-				utils.removeFromParent(right);
 			}
 			else					// element - text
 			{
