@@ -873,6 +873,8 @@ window.ir.textarea.wrap = (function() {
 		while(last != ec)
 			pl.appendChild(last = pl.nextSibling);
 		
+		Polymer.dom.flush();
+
 		return r;
 	}
 	
