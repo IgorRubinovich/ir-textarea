@@ -703,7 +703,7 @@ window.ir.textarea.wrap = (function() {
 		
 		topBoundaryCondition = function(m, noTrans) { 
 			return 	m && (
-					utils.isNonCustomContainer(m) && !m.is &&
+					utils.isNonCustomContainer(m) &&
 						(noTrans || (!utils.isTransitionalElement(m) &&
 							!utils.isSubTransitionalElement(m))) &&
 								!(utils.getTopCustomElementAncestor(m, top, false) && m.getAttribute('contenteditable')))
@@ -745,7 +745,7 @@ window.ir.textarea.wrap = (function() {
 		else
 		{
 			t = node;
-			while(t && !topBoundaryCondition(t, true))
+			while(t && !topBoundaryCondition(t, true) && !t.is)
 			{
 				t = Polymer.dom(t).previousSibling;
 				node = !topBoundaryCondition(t, true) && t || node;
@@ -868,11 +868,13 @@ window.ir.textarea.wrap = (function() {
 		
 		pl = Polymer.dom(list)
 		
-		pl.appendChild(last = sc);
-	
-		while(last != ec)
-			pl.appendChild(last = pl.nextSibling);
 		
+		last = sc
+		while(utils.isTag(last, 'li'))//last != ec)
+		{
+			pl.appendChild(last);
+			last = pl.nextSibling
+		}
 		Polymer.dom.flush();
 
 		return r;
@@ -932,9 +934,10 @@ window.ir.textarea.wrap = (function() {
 			n = Polymer.dom(n).nextSibling;
 		}
 		
-		// and last if in same container
+		// and last if:
+		//	- t is eContainer and n's container but n is strictly inside it OR n is a bare node
 		t = utils.getNonCustomContainer(n, top, true);
-		if(n && t && (t == eContainer || utils.parentNode(n) != top))
+		if(n && t && (t == eContainer && (n != eContainer || utils.parentNode(n) != top)))
 			process(t);
 
 		utils.unmarkBranch(range.endPosition.container, top, "__endBranch");

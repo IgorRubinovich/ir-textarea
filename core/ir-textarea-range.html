@@ -446,7 +446,11 @@
 				var key = e.keyCode, parking;
 
 				if(this.collapsed ||
-						[36,37,33,38,35,39,34,40 /* direction keys */].indexOf(key) > -1 ||
+						[36,37,33,34,38,35,39,34,40 /* direction keys */].indexOf(key) > -1 ||
+						[18,20,27,93,96,144  /* tab,capslock,esc,contextmenu(windows?),ins,numlock */].indexOf(key) > -1 ||
+						
+						(key >= 112 && key <= 123) || // F1-F12
+						
 						e.shiftKey || e.ctrlKey || e.altKey
 					)
 					return false;

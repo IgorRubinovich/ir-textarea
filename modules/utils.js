@@ -1550,7 +1550,7 @@ window.ir.textarea.utils = (function() {
 	}
 
 	utils.isTag = function(el, tag) {
-		return el && el.tagName == tag;
+		return el && el.tagName == tag.toUpperCase();
 	}
 	
 	utils.removeFromParent = function(c) 
