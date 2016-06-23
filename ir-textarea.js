@@ -146,7 +146,7 @@
 			this.connectEditorObserver();
 			
 			//this.$.editor.innerHTML = this.getCleanValue().replace(/\t+/g, '');
-			utils.prepareWhitespace(this.$.editor);
+			utils.prepareWhitespace(this);
 			this._initialValue = this.getCleanValue();
 			
 			this.set('value', this._initialValue); // tab custom element anyone?

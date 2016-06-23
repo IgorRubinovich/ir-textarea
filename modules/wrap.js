@@ -703,10 +703,10 @@ window.ir.textarea.wrap = (function() {
 		
 		topBoundaryCondition = function(m, noTrans) { 
 			return 	m && (
-					utils.isNonCustomContainer(m) && 
+					utils.isNonCustomContainer(m) && !m.is &&
 						(noTrans || (!utils.isTransitionalElement(m) &&
 							!utils.isSubTransitionalElement(m))) &&
-								!(utils.getTopCustomElementAncestor(m, top, true) && m.getAttribute('contenteditable')))
+								!(utils.getTopCustomElementAncestor(m, top, false) && m.getAttribute('contenteditable')))
 		},
 		bottomBoundaryCondition = function(n) {
 			if(n.__endBranch && n.nodeType == 3 && !nextStop)
