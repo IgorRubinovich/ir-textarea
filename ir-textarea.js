@@ -77,6 +77,9 @@
 																		getValue : this.getCleanValue.bind(this),
 																		//contentFrame : '[content]', // '[content]<span class="paragraph"><br></span>',
 																		timeout : false,
+																		getRange : function() {
+																			return this.range;
+																		}.bind(this),
 																		isDisabled : function() {
 																			return true;
 																			return this.disabled;
@@ -949,7 +952,8 @@
 					//document.execCommand(cmd, sdu, val);
 					var q = this.range.execCommand(cmd, sdu, val);
 					Polymer.dom.flush();
-					this.range.setAt(q);
+					//this.range.setAt(q);
+					//this.selectionSave();
 					/*this.selectionSave();
 					setTimeout(function(){
 						that.selectionRestore();
@@ -1091,8 +1095,11 @@
 		},
 
 		selectionSave : function () {
-			var range = utils.getSelectionRange();
+ 			return;
+			var range = this.range; //utils.getSelectionRange();
 
+			this.range.posPush();
+			
 			if(range && !range.startContainer.is && this.isOrIsAncestorOf(this.$.editor, range.startContainer))
 			{
 				this._selectionRange = range;
@@ -1100,54 +1107,11 @@
 				
 				this.scrollIntoView();
 			}
+
 		},
 
 		selectionRestore : function (noForceSelection) {
-			var range, sel, sc, ec;
-
-			range = utils.getSelectionRange();
-
-			if(range && this.isOrIsAncestorOf(this.$.editor, range.startContainer))
-			{
-				if(!this.isOrIsAncestorOf(this.$.editor, document.activeElement))
-					this.$.editor.focus();
-
-				return range;
-			}
-
-			range = this._selectionRange
-
-			if(range) {
-				sc = range.startContainer;
-				ec = range.endContainer;
-			}
-
-			if (range && sc && ec && this.isOrIsAncestorOf(this.$.editor, sc) && this.isOrIsAncestorOf(this.$.editor, ec)) {
-				if (window.getSelection) {
-					sel = window.getSelection();
-					sel.removeAllRanges();
-					sel.addRange(range);
-				} else if (document.selection && range.select) {
-					range.select();
-				}
-
-				this.$.editor.focus();
-			}
-			else
-			if(!noForceSelection)
-			{
-				// if no selection, go to offset 0 of first child, creating one if needed
-				if(!this.$.editor.childNodes.length)
-					utils.setCaretAt(this.$.editor.appendChild(utils.newEmptyParagraph()), 0);
-				else
-					utils.setCaretAt(this.$.editor.childNodes[0], 0);
-			}
-
-			this._selectionRange = range;
-
-			this.undoStarted = true;
-			
-			return range;
+			//return this.range.posPop();
 		},
 		
 		scrollIntoView : function() {

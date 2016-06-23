@@ -898,7 +898,7 @@ window.ir.textarea.wrap = (function() {
 	}
 		
 	wrap.wrapRangeBlockLevel = function(range, wrapper, attributes, top, opts) {
-		var sContainer, eContainer, t, tag,
+		var sContainer, eContainer, t, tag, contentBeforeEnd, at,
 			process = function(n) {
 				var m, p = utils.parentNode(n);
 				
@@ -934,10 +934,12 @@ window.ir.textarea.wrap = (function() {
 			n = Polymer.dom(n).nextSibling;
 		}
 		
+		contentBeforeEnd = utils.posToContainerEdgeHasContent(range.endPosition, "backward", top);
+		
 		// and last if:
 		//	- t is eContainer and n's container but n is strictly inside it OR n is a bare node
 		t = utils.getNonCustomContainer(n, top, true);
-		if(n && t && (t == eContainer && (n != eContainer || utils.parentNode(n) != top)))
+		if(n && t && (t == eContainer && contentBeforeEnd))
 			process(t);
 
 		utils.unmarkBranch(range.endPosition.container, top, "__endBranch");

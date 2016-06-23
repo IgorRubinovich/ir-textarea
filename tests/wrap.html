@@ -69,6 +69,7 @@ This code may only be used under the MIT license found at http://opensource.org/
 		<input type=text id="testName" rows=1 placeholder="test name here">
 		<button onclick="saveTest()">save</button>
 		<button id="runTests" onclick="runTests()">run</button>
+		specific test id: <input id="specificTestId">
 		<textarea type=text id="testsLog" rows=1 placeholder="test name here"></textarea>
 	</div>
 	<script>
@@ -106,8 +107,11 @@ This code may only be used under the MIT license found at http://opensource.org/
 		
 		function runTests() {
 			var testsData = JSON.parse(testsLog.value),
-				results = [], i = 0, total = testsData.length;
+				results = [], i = 0, total = testsData.length, specific;
 			
+			if(specific = document.querySelector('#specificTestId'))
+				specific = specific.value;
+				
 			runTestsButton.disabled = true;
 			
 			var runTest = function(td)
@@ -118,7 +122,16 @@ This code may only be used under the MIT license found at http://opensource.org/
 					return console[navigator.userAgent.match("Edge|MSIE") ? "log" : "table"](results); //.map(function(n) { return n.name + " " + (n.passed ? "PASS" : "FAIL") }).join("\n"));
 				}
 				
-				var td = testsData.shift();
+				var td;
+
+				if(specific && testData[specific])
+				{
+					td = testData[specific];
+					testData = [];
+				}
+				else
+					td = testsData.shift();
+				
 				console.log("Test", ++i, '/', total, ': ', td.name)
 				
 				editor.innerHTML = td.originalHTML;
@@ -223,7 +236,7 @@ This code may only be used under the MIT license found at http://opensource.org/
 					container : r.endContainer,
 					offset : r.endOffset
 				}
-
+				
 			r = w.wrapRangeList({ startPosition : s, endPosition : e }, tag, editor, ev && ev.shiftKey)
 			utils.setCaretAt(r.startPosition.container, r.startPosition.offset, r.endPosition.container, r.endPosition.offset);
 		}
@@ -271,7 +284,7 @@ This code may only be used under the MIT license found at http://opensource.org/
 				originalHTML : Polymer.dom(editor).innerHTML,
 			}
 
-			var res = w.wrapWithAttributes({ startPosition : s, endPosition : e}, tag);
+			var res = w.wrapWithAttributes({ startPosition : s, endPosition : e}, tag, null, editor);
 			// console.log(res);
 			utils.setCaretAt(res.startPosition.container, res.startPosition.offset, res.endPosition.container, res.endPosition.offset);
 			
